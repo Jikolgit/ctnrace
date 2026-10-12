@@ -96,7 +96,7 @@ Les cases de couleur sont échantillonnées en leur centre : le filtrage lissé 
 
 - Vitesse : `SPEED` = 12 (main.js). Changement de couloir : `LANE_CHANGE_DURATION` = 1 s, avec pivot de l'avant (`MAX_STEER` 20°, pendant les 60 % premiers) puis inclinaison (`MAX_LEAN` 25°, à partir de 15 %), pivot au sol.
 - Collision moto : `PLAYER_HALF_WIDTH` 0,3, `PLAYER_FRONT` -0,85, `PLAYER_BACK` 1,0 (boîte de l'ancienne moto, à ajuster pour la MotoCub si besoin).
-- Voitures (obstacles.js) : `CAR_SPEED` 4 (même sens que le joueur), rangées tous les `GAP_MIN`–`GAP_MAX` (24–36), 30 % de rangées à 2 voitures, jamais 3 couloirs bloqués. **Elles ne prennent jamais les virages** : elles ralentissent (sur `SLOW_DISTANCE` 12 m) et s’arrêtent 3 m avant le carrefour, en file si besoin ; au plus 2 couloirs occupés par des voitures arrêtées au même carrefour ; une rangée qui apparaîtrait dans un carrefour est placée au début de la rue suivante.
+- Voitures (obstacles.js) : `CAR_SPEED` 4 (même sens que le joueur), **une seule voiture à la fois** (jamais deux côte à côte), couloir au hasard. **Aucune voiture dans les `CAR_FREE_ZONE` (30) derniers mètres avant un carrefour**, ni dans les virages, ni dans les `AFTER_CORNER` (25) premiers mètres d'une rue : on choisit d'abord l'endroit où le joueur croisera la voiture (`nextEncounter`, tous les 36–54 m parcourus), puis on la fait apparaître (≤ 90 m devant) à la position d'où elle sera rejointe à cet endroit.
 - Route : tronçons de 20 m × 6, pavés répétés 1 fois par couloir en largeur et 14 fois par tronçon. Trottoirs 1,5 m, bâtiments à partir de ±4,5 m.
 
 ## Ce qui n'est PAS possible depuis Claude Code mobile / web
@@ -111,7 +111,7 @@ Une session Claude Code sur mobile tourne dans un environnement cloud, pas sur l
 
 - `MotoCub_Direction` ne pivote pas seule : toute la moto tourne lors des changements de couloir.
 - La boîte de collision de la moto est celle de l'ancienne moto.
-- Le premier obstacle arrive au bout d'environ 11 s.
+- La première voiture est croisée vers 135 m (plus loin si la première rue est courte).
 - `public/motolowpoly.glb` n'est pas utilisé (l'utilisateur a choisi la MotoCub de models.glb).
 - Un modèle « tête de moto » lissé (`moto_2_head`) et une moto `moto_2` existent seulement dans la scène Blender, pas dans le jeu.
 - OrbitControls est encore actif (caméra déplaçable à la souris), utile en développement, à retirer pour le jeu final.
