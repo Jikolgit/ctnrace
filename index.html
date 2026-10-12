@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ctnRacer</title>
+  </head>
+  <body>
+    <canvas id="game"></canvas>
+    <div id="hud"><span id="distance">0 m</span></div>
+    <button id="pause" type="button">Pause</button>
+    <div id="gameover" hidden>
+      <div class="panel">
+        <h1>Game Over</h1>
+        <p>Distance : <span id="final-distance">0 m</span></p>
+        <button id="restart" type="button">Rejouer</button>
+        <p class="hint">ou appuie sur Entrée</p>
+      </div>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

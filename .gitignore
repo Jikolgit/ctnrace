@@ -1,0 +1,4 @@
+node_modules/
+dist/
+# sauvegardes automatiques de Blender
+*.blend1
