@@ -48,7 +48,8 @@ camera.position.set(0, 3, 6);
 const CAMERA_HEIGHT = 3;
 const CAMERA_PIVOT_Z = -12; // milieu de la route, 12 m devant la moto
 const CAMERA_RADIUS = 6 - CAMERA_PIVOT_Z; // la caméra reste à z = 6 quand la moto est au centre
-const CAMERA_FOLLOW = 1; // 1 = la caméra arrive derrière la moto, < 1 = elle la suit moins
+const CAMERA_FOLLOW = 0.6; // 1 = la caméra arrive derrière la moto ; 0,6 = elle reste un peu décalée vers le
+// centre de la route (côté opposé) quand la moto est sur un couloir latéral : on voit le flanc de la moto
 const CAMERA_LOOK_Y = CAMERA_HEIGHT - (CAMERA_HEIGHT - 1) * CAMERA_RADIUS / 6; // garde l'inclinaison vers le bas d'origine
 const cameraLookAt = new THREE.Vector3();
 let cameraAngle = 0;
