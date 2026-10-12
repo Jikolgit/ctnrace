@@ -6,6 +6,7 @@ import { applyWorldBend, bendUniforms } from './worldBend.js';
 import { LANE_COUNT, LANE_WIDTH, laneX, createRoad } from './road.js';
 import { createSmoke } from './smoke.js';
 import { createCity } from './city.js';
+import { createTrack } from './track.js';
 import { createObstacles } from './obstacles.js';
 import { atlas } from './atlas.js';
 
@@ -49,6 +50,9 @@ const CAMERA_FOLLOW = 1; // 1 = la caméra arrive derrière la moto, < 1 = elle 
 const CAMERA_LOOK_Y = CAMERA_HEIGHT - (CAMERA_HEIGHT - 1) * CAMERA_RADIUS / 6; // garde l'inclinaison vers le bas d'origine
 const cameraLookAt = new THREE.Vector3();
 let cameraAngle = 0;
+// Dans les virages, la caméra tourne avec un léger retard sur la moto (plus doux, on voit la moto pivoter)
+let cameraHeading = 0;
+const CAMERA_TURN_DAMPING = 5;
 
 function updateCamera(delta) {
   // Angle sur l'arc qui amène la caméra au-dessus du couloir de la moto
@@ -61,6 +65,12 @@ function updateCamera(delta) {
     CAMERA_PIVOT_Z + CAMERA_RADIUS * Math.cos(cameraAngle)
   );
   cameraLookAt.set(0, CAMERA_LOOK_Y, CAMERA_PIVOT_Z);
+
+  // Retard dans les virages : tout le placement de la caméra pivote autour du joueur
+  cameraHeading = THREE.MathUtils.damp(cameraHeading, playerHeading, CAMERA_TURN_DAMPING, delta);
+  const lag = cameraHeading - playerHeading;
+  camera.position.applyAxisAngle(Y_AXIS, lag);
+  cameraLookAt.applyAxisAngle(Y_AXIS, lag);
   camera.lookAt(cameraLookAt);
 }
 
@@ -80,9 +90,51 @@ const sun = new THREE.DirectionalLight(0xffffff, 2);
 sun.position.set(5, 10, 5);
 scene.add(sun);
 
-// Route infinie (tronçons recyclés)
-const road = createRoad(scene);
-const city = createCity(scene);
+// Monde : la route, les bâtiments et les voitures sont posés le long du parcours (track.js), dans ce
+// groupe. À chaque image, le groupe est déplacé et tourné pour amener le joueur en (0, 0, 0), face à -Z :
+// le joueur et la caméra ne bougent pas, c'est la ville qui défile et pivote dans les virages.
+const world = new THREE.Group();
+scene.add(world);
+
+const road = createRoad(world);
+const city = createCity(scene, world);
+const track = createTrack({
+  add(leg) {
+    road.addLeg(leg);
+    city.addLeg(leg);
+  },
+  remove(leg) {
+    road.removeLeg(leg);
+    city.removeLeg(leg);
+  },
+});
+
+const START_S = 20; // position de départ sur le parcours (laisse un peu de route derrière)
+let playerS = START_S;
+let playerHeading = 0; // direction du joueur (theta du parcours)
+track.update(playerS);
+
+const Y_AXIS = new THREE.Vector3(0, 1, 0);
+const playerPoint = new THREE.Vector3();
+
+// Place le groupe world pour que le point du parcours où se trouve le joueur soit en 0, face à -Z
+function placeWorld() {
+  playerHeading = track.pose(playerS, 0, playerPoint);
+  world.rotation.y = -playerHeading;
+  world.position.copy(playerPoint).applyAxisAngle(Y_AXIS, -playerHeading).negate();
+}
+placeWorld();
+
+// Courbure du monde (démo) : coupée à l'approche des carrefours et juste après
+function bendFade() {
+  const leg = track.legAt(playerS);
+  const toCorner = leg.sArcStart - playerS;
+  const fromCorner = playerS - leg.sStart;
+  return (
+    THREE.MathUtils.clamp((toCorner - 50) / 40, 0, 1) *
+    THREE.MathUtils.clamp(fromCorner / 30, 0, 1)
+  );
+}
 
 // Joueur : groupe déplacé de couloir en couloir, la moto est ajoutée dedans une fois chargée
 const player = new THREE.Group();
@@ -183,7 +235,7 @@ new GLTFLoader().load(
         if (child.isMesh) child.material = atlasMaterial;
       });
       carTemplate.position.set(0, 0, 0); // placée à côté de la moto dans Blender
-      obstacles = createObstacles(scene, carTemplate);
+      obstacles = createObstacles(world, carTemplate, track);
     }
   },
   undefined,
@@ -218,6 +270,10 @@ function restart() {
   laneChange.t = 1;
   player.position.x = laneX(currentLane);
   player.rotation.set(0, 0, 0);
+  playerS = START_S;
+  track.reset(playerS);
+  placeWorld();
+  cameraHeading = playerHeading;
   obstacles?.reset();
   gameOverPanel.hidden = true;
   gameOver = false;
@@ -239,6 +295,7 @@ const LANE_CHANGE_DURATION = 1; // secondes
 const MAX_STEER = THREE.MathUtils.degToRad(20); // rotation de l'avant
 const STEER_END = 0.6; // l'avant pivote pendant les 60 % premiers du changement
 const MAX_LEAN = THREE.MathUtils.degToRad(25); // inclinaison
+const TURN_LEAN = THREE.MathUtils.degToRad(30); // inclinaison dans les virages à 90°
 const LEAN_START = 0.15; // l'inclinaison commence à 15 % du changement, après l'avant
 player.rotation.order = 'YXZ'; // l'avant tourne d'abord, puis la moto se penche sur son propre axe
 
@@ -329,11 +386,12 @@ function animate(timestamp) {
   if (!paused && !gameOver) {
     // Démo : la route ondule entre virage gauche et virage droit
     gameTime += delta;
-    bendUniforms.uBend.value = Math.sin(gameTime * 0.5) * 0.003;
+    bendUniforms.uBend.value = Math.sin(gameTime * 0.5) * 0.003 * bendFade();
 
-    // La route défile, le joueur reste sur place
-    road.update(delta, SPEED);
-    city.update(delta, SPEED);
+    // Le joueur avance sur le parcours ; le monde est replacé autour de lui
+    playerS += SPEED * delta;
+    track.update(playerS);
+    placeWorld();
     distance += SPEED * delta;
 
     const meters = Math.floor(distance);
@@ -374,12 +432,19 @@ function animate(timestamp) {
     // 2) Puis la moto se penche (rotation autour de l'axe avant ; pivot au sol) :
     //    démarre après l'avant, pic après le milieu, revient droite à l'arrivée
     const leanPhase = THREE.MathUtils.clamp((t - LEAN_START) / (1 - LEAN_START), 0, 1);
-    const targetLean = -amount * MAX_LEAN * Math.sin(Math.PI * leanPhase);
+    let targetLean = -amount * MAX_LEAN * Math.sin(Math.PI * leanPhase);
+
+    // 3) Dans un virage du parcours, la moto se penche vers l'intérieur
+    const leg = track.legAt(playerS);
+    if (playerS > leg.sArcStart) {
+      const turnPhase = (playerS - leg.sArcStart) / (leg.sEnd - leg.sArcStart);
+      targetLean += -leg.turn * TURN_LEAN * Math.sin(Math.PI * turnPhase);
+    }
     player.rotation.z = THREE.MathUtils.damp(player.rotation.z, targetLean, 20, delta);
 
     // Voitures : défilement, apparition, puis collision avec la moto
     if (obstacles) {
-      obstacles.update(delta, SPEED);
+      obstacles.update(delta, SPEED, playerS);
       if (
         obstacles.hits(player.position.x, PLAYER_HALF_WIDTH, PLAYER_FRONT, PLAYER_BACK)
       ) {

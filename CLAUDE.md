@@ -25,8 +25,10 @@ Jeu web : une moto roule sur une route infinie à 3 couloirs, le joueur change d
 index.html          canvas #game, HUD (#hud/#distance), bouton #pause, panneau #gameover (#final-distance, #restart)
 src/main.js         scène, caméra, lumières, brouillard, chargement du GLB, joueur, motos, pilote, entrées clavier,
                     changement de couloir (inclinaison + pivot de l'avant), pause, game over, boucle de jeu
-src/road.js         route infinie : tronçons recyclés, 3 couloirs, shader des pavés (texture d'atlas répétée)
-src/obstacles.js    voitures obstacles : pool de clones de car_1, apparition par rangées, collision
+src/track.js        parcours : rues droites reliées par des virages à 90° (gauche/droite au hasard), pose(s, décalage)
+src/road.js         tronçons de route (3 couloirs + trottoirs) et carrefours posés le long du parcours, shader des pavés
+src/city.js         bâtiments (boîtes) le long des rues, angles de rue et « mur » au bout de chaque rue ; sol uni
+src/obstacles.js    voitures obstacles : pool de clones de car_1, repérées sur le parcours (s, couloir), collision
 src/smoke.js        fumée d'échappement : pool de sprites
 src/worldBend.js    effet de courbure du monde (vertex shader) : applyWorldBend(material), bendUniforms
 src/atlas.js        texture partagée bikeTXT.jpg + position des pavés dans l'atlas
@@ -40,7 +42,9 @@ public/motolowpoly.glb  modèle de moto ajouté par l'utilisateur, NON utilisé 
 
 ## Principes d'architecture (à respecter)
 
-- **La route défile, le joueur reste à z = 0.** Tout ce qui « avance » se déplace vers +Z. Évite les problèmes de précision des flottants.
+- **Le joueur reste en (0, 0, 0), face à -Z ; c'est le monde qui bouge.** Route, bâtiments et voitures sont des enfants du groupe `world`, posés une fois pour toutes le long du parcours (`track.js`). À chaque image, `placeWorld()` déplace et tourne `world` pour amener le point du parcours où est le joueur (`playerS`) en 0. Dans les virages à 90°, c'est donc la ville qui pivote.
+- **Parcours** : position = distance `s` le long de la ligne médiane. Une rue (`leg`) va du centre d'un carrefour au suivant (4 à 9 tronçons de 20 m + 6 m), puis tourne ; dans le carrefour, la ligne médiane suit un quart de cercle de rayon 3 centré sur le coin intérieur (chaque couloir garde sa place). Jamais 3 virages du même côté d'affilée. Les rues sont créées 170 m devant et retirées 40 m après leur virage (contenu rendu aux pools).
+- La caméra tourne avec un léger retard dans les virages (`CAMERA_TURN_DAMPING`) ; la moto se penche (`TURN_LEAN` 30°). La courbure du monde (démo) est coupée à l'approche des carrefours (`bendFade`).
 - **Pooling partout** : tronçons de route, voitures, sprites de fumée sont créés une fois puis recyclés. Ne pas créer d'objets ni de `new Vector3()` dans la boucle de jeu.
 - **World bending** : tout matériau visible dans le décor doit passer par `applyWorldBend(material)`, sinon il ne suit pas les virages. Si un matériau a déjà un `onBeforeCompile`, l'enchaîner (voir `road.js`).
 - **Brouillard** (`FOG_NEAR` 30, `FOG_FAR` 85, couleur du ciel `0x87ceeb`) : cache l'apparition des voitures (SPAWN_Z = -90) et la fin de la route (~ -110). Garder `FOG_FAR` < ~90.
@@ -89,7 +93,8 @@ Les cases de couleur sont échantillonnées en leur centre : le filtrage lissé 
 - Vitesse : `SPEED` = 12 (main.js). Changement de couloir : `LANE_CHANGE_DURATION` = 1 s, avec pivot de l'avant (`MAX_STEER` 20°, pendant les 60 % premiers) puis inclinaison (`MAX_LEAN` 25°, à partir de 15 %), pivot au sol.
 - Collision moto : `PLAYER_HALF_WIDTH` 0,3, `PLAYER_FRONT` -0,85, `PLAYER_BACK` 1,0 (boîte de l'ancienne moto, à ajuster pour la MotoCub si besoin).
 - Voitures (obstacles.js) : `CAR_SPEED` 4 (même sens que le joueur), rangées tous les `GAP_MIN`–`GAP_MAX` (24–36), 30 % de rangées à 2 voitures, jamais 3 couloirs bloqués.
-- Route : tronçons de 20 m × 6, pavés répétés 1 fois par couloir en largeur et 14 fois par tronçon.
+- Route : tronçons de 20 m × 6, pavés répétés 1 fois par couloir en largeur et 14 fois par tronçon. Trottoirs 1,5 m, bâtiments à partir de ±4,5 m.
+- Les virages sont automatiques pour l'instant (étape 1) ; étape suivante prévue : virage commandé par le joueur.
 
 ## Ce qui n'est PAS possible depuis Claude Code mobile / web
 
