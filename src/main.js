@@ -5,6 +5,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { applyWorldBend, bendUniforms } from './worldBend.js';
 import { LANE_COUNT, LANE_WIDTH, laneX, createRoad } from './road.js';
 import { createSmoke } from './smoke.js';
+import { createCity } from './city.js';
 import { createObstacles } from './obstacles.js';
 import { atlas } from './atlas.js';
 
@@ -81,6 +82,7 @@ scene.add(sun);
 
 // Route infinie (tronçons recyclés)
 const road = createRoad(scene);
+const city = createCity(scene);
 
 // Joueur : groupe déplacé de couloir en couloir, la moto est ajoutée dedans une fois chargée
 const player = new THREE.Group();
@@ -331,6 +333,7 @@ function animate(timestamp) {
 
     // La route défile, le joueur reste sur place
     road.update(delta, SPEED);
+    city.update(delta, SPEED);
     distance += SPEED * delta;
 
     const meters = Math.floor(distance);
