@@ -39,11 +39,39 @@ const camera = new THREE.PerspectiveCamera(
 );
 camera.position.set(0, 3, 6);
 
-// Contrôles de la caméra
-const controls = new OrbitControls(camera, renderer.domElement);
-controls.target.set(0, 1, 0);
-controls.enableDamping = true;
-controls.update();
+// Caméra sur un demi-cercle horizontal centré sur le milieu de la route, devant la moto :
+// quand la moto change de couloir, la caméra glisse sur l'arc et regarde toujours ce point.
+const CAMERA_HEIGHT = 3;
+const CAMERA_PIVOT_Z = -12; // milieu de la route, 12 m devant la moto
+const CAMERA_RADIUS = 6 - CAMERA_PIVOT_Z; // la caméra reste à z = 6 quand la moto est au centre
+const CAMERA_FOLLOW = 1; // 1 = la caméra arrive derrière la moto, < 1 = elle la suit moins
+const CAMERA_LOOK_Y = CAMERA_HEIGHT - (CAMERA_HEIGHT - 1) * CAMERA_RADIUS / 6; // garde l'inclinaison vers le bas d'origine
+const cameraLookAt = new THREE.Vector3();
+let cameraAngle = 0;
+
+function updateCamera(delta) {
+  // Angle sur l'arc qui amène la caméra au-dessus du couloir de la moto
+  const targetX = THREE.MathUtils.clamp(player.position.x * CAMERA_FOLLOW, -CAMERA_RADIUS, CAMERA_RADIUS);
+  const targetAngle = Math.asin(targetX / CAMERA_RADIUS);
+  cameraAngle = THREE.MathUtils.damp(cameraAngle, targetAngle, 6, delta);
+  camera.position.set(
+    CAMERA_RADIUS * Math.sin(cameraAngle),
+    CAMERA_HEIGHT,
+    CAMERA_PIVOT_Z + CAMERA_RADIUS * Math.cos(cameraAngle)
+  );
+  cameraLookAt.set(0, CAMERA_LOOK_Y, CAMERA_PIVOT_Z);
+  camera.lookAt(cameraLookAt);
+}
+
+// Caméra libre à la souris (développement) : mettre à true. Désactive la caméra sur l'arc.
+const DEBUG_ORBIT = false;
+let controls = null;
+if (DEBUG_ORBIT) {
+  controls = new OrbitControls(camera, renderer.domElement);
+  controls.target.set(0, 1, 0);
+  controls.enableDamping = true;
+  controls.update();
+}
 
 // Lumières
 scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 1.2));
@@ -357,7 +385,8 @@ function animate(timestamp) {
     }
   }
 
-  controls.update();
+  if (controls) controls.update();
+  else updateCamera(delta);
 
   renderer.render(scene, camera);
   requestAnimationFrame(animate);
