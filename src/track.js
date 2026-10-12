@@ -9,7 +9,8 @@ import { ROAD_HALF_WIDTH, CHUNK_LENGTH } from './road.js';
 // C'est le joueur qui choisit le virage (choose) dans les derniers mètres avant le carrefour.
 // Les rues qui partent du prochain carrefour (une par option, les « branches ») sont créées à l'avance
 // pour qu'on les voie en approchant ; au choix, la branche prise devient la rue suivante et l'autre
-// disparaît. Sans choix, la moto continue tout droit (turn = 0) : elle va dans le mur.
+// disparaît une fois le carrefour traversé (hors caméra).
+// Sans choix, la moto continue tout droit (turn = 0) : elle va dans le mur.
 //
 // La position le long du parcours est une distance s (mètres) mesurée sur la ligne médiane.
 // Dans un virage, la ligne médiane suit un quart de cercle de rayon TURN_RADIUS centré sur le
@@ -25,10 +26,14 @@ const MIN_CHUNKS = 4; // longueur d'une rue : 4 à 9 tronçons de route de 20 m 
 const MAX_CHUNKS = 9;
 const T_CHANCE = 0.4; // probabilité d'un carrefour en T
 const BEHIND = 40; // une rue est retirée quand le joueur est à cette distance après son virage
+// La rue non choisie d'un T reste affichée jusqu'à ce que le joueur ait traversé le carrefour et
+// soit à cette distance dans la nouvelle rue : elle est alors derrière lui, hors du champ de la caméra
+const DISCARD_DELAY = 25;
 
 // listener : { add(leg), remove(leg) } appelés quand une rue apparaît / disparaît
 export function createTrack(listener) {
   const legs = []; // rues du chemin suivi ; la dernière attend le choix du joueur
+  const discarded = []; // rues non choisies, en attente de retrait : { leg, removeAt }
 
   // prev : rue précédente (null pour la première) ; dir : virage pris au carrefour de départ
   function createLeg(prev, dir) {
@@ -86,7 +91,7 @@ export function createTrack(listener) {
     if (leg.turn !== undefined) return;
     leg.turn = dir;
     for (const [side, branch] of leg.branches) {
-      if (side !== dir) listener.remove(branch);
+      if (side !== dir) discarded.push({ leg: branch, removeAt: leg.sEnd + DISCARD_DELAY });
     }
     if (dir !== 0) {
       const next = leg.branches.get(dir);
@@ -140,6 +145,9 @@ export function createTrack(listener) {
     while (legs.length > 1 && legs[0].sEnd + BEHIND < s) {
       listener.remove(legs.shift());
     }
+    while (discarded.length && discarded[0].removeAt < s) {
+      listener.remove(discarded.shift().leg);
+    }
   }
 
   function reset(s) {
@@ -147,6 +155,8 @@ export function createTrack(listener) {
       listener.remove(leg);
       if (leg.branches) for (const branch of leg.branches.values()) listener.remove(branch);
     }
+    for (const item of discarded) listener.remove(item.leg);
+    discarded.length = 0;
     legs.length = 0;
     update(s);
   }
