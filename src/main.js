@@ -7,6 +7,7 @@ import { LANE_COUNT, LANE_WIDTH, ROAD_HALF_WIDTH, SIDEWALK_WIDTH, laneX, createR
 import { createSmoke } from './smoke.js';
 import { createCity } from './city.js';
 import { createTrack } from './track.js';
+import { toToon, addOutline } from './toon.js';
 import { createObstacles } from './obstacles.js';
 import { atlas } from './atlas.js';
 
@@ -179,6 +180,7 @@ atlas.anisotropy = renderer.capabilities.getMaxAnisotropy();
 const atlasMaterial = applyWorldBend(
   new THREE.MeshStandardMaterial({ map: atlas, roughness: 0.65, metalness: 0 })
 );
+const toonAtlasMaterial = toToon(new THREE.MeshStandardMaterial({ map: atlas })); // ancienne moto
 
 // Motos jouables : chacune a sa pose de pilote (animation du GLB) et sa position de pilote
 const BIKES = {
@@ -243,15 +245,26 @@ new GLTFLoader().load(
       }
     };
 
+    // Pièces des motos en style cartoon (aplats + contour noir, voir toon.js) ; pilote inchangé.
+    // Les maillages sont listés d'abord : addOutline ajoute des enfants pendant le parcours.
+    const meshes = [];
     moto.traverse((child) => {
-      if (!child.isMesh) return;
-      if (child.name.startsWith('MotoCub')) {
-        // MotoCub : ses propres matériaux (exportés de Blender), avec la courbure du monde
-        for (const material of [].concat(child.material)) applyWorldBend(material);
-      } else {
-        child.material = atlasMaterial; // ancienne moto et pilote : atlas bikeTXT
-      }
+      if (child.isMesh) meshes.push(child);
     });
+    for (const child of meshes) {
+      if (child.name.startsWith('MotoCub')) {
+        // MotoCub : ses propres matériaux (exportés de Blender), convertis en cartoon
+        child.material = Array.isArray(child.material)
+          ? child.material.map(toToon)
+          : toToon(child.material);
+        addOutline(child);
+      } else if (child.name.startsWith('Moto_')) {
+        child.material = toonAtlasMaterial; // ancienne moto : atlas bikeTXT, en cartoon
+        addOutline(child);
+      } else {
+        child.material = atlasMaterial; // pilote : atlas bikeTXT
+      }
+    }
 
     selectBike(DEFAULT_BIKE);
     player.add(moto);

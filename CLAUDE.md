@@ -31,6 +31,8 @@ src/road.js         tronçons de route (3 couloirs + trottoirs) et carrefours po
 src/city.js         bâtiments (boîtes) le long des rues, angles de rue et « mur » au bout de chaque rue ; sol uni
 public/arrow.png    flèche de virage (pointe à droite ; retournée en CSS pour la gauche), fond rendu transparent
 src/obstacles.js    voitures obstacles : pool de clones de car_1, repérées sur le parcours (s, couloir), collision
+src/toon.js         effet cartoon des motos : toToon(material) (MeshToonMaterial, 3 paliers) et addOutline(mesh)
+                    (contour noir « inverted hull », normales lissées) ; le pilote n'est pas concerné
 src/smoke.js        fumée d'échappement : pool de sprites
 src/worldBend.js    effet de courbure du monde (vertex shader) : applyWorldBend(material), bendUniforms
 src/atlas.js        texture partagée bikeTXT.jpg + position des pavés dans l'atlas
