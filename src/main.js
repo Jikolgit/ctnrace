@@ -385,10 +385,13 @@ function steer(direction) {
   if (currentLane !== lane) startLaneChange();
 }
 
-// Boutons tactiles (mobile) : pointerdown réagit dès le contact, sans attendre le relâchement
+// Boutons tactiles (mobile) : pointerdown réagit dès le contact, sans attendre le relâchement.
+// Légère vibration à chaque appui (API Vibration : Android ; ignorée là où elle n'existe pas, ex. iPhone)
+const BUTTON_VIBRATION = 15; // millisecondes
 for (const [id, direction] of [['left', -1], ['right', 1]]) {
   document.getElementById(id).addEventListener('pointerdown', (event) => {
     event.preventDefault(); // pas de zoom / sélection / clic fantôme
+    navigator.vibrate?.(BUTTON_VIBRATION);
     steer(direction);
   });
 }
