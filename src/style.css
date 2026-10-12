@@ -132,3 +132,37 @@ body {
 #touch-controls button:active {
   background: rgba(232, 100, 42, 0.8);
 }
+
+/* Flèches de virage : clignotent à l'approche d'un carrefour (la gauche est l'image retournée) */
+#turn-arrows {
+  position: fixed;
+  top: 18%;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  gap: 40px;
+  pointer-events: none;
+}
+
+#turn-arrows img {
+  width: min(22vw, 140px);
+  animation: blink 0.35s steps(2, jump-none) infinite alternate;
+}
+
+#turn-arrows img[hidden] {
+  display: none;
+}
+
+#arrow-left {
+  transform: scaleX(-1);
+}
+
+@keyframes blink {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0.15;
+  }
+}

@@ -22,12 +22,14 @@ Jeu web : une moto roule sur une route infinie à 3 couloirs, le joueur change d
 ## Arborescence
 
 ```
-index.html          canvas #game, HUD (#hud/#distance), bouton #pause, panneau #gameover (#final-distance, #restart)
+index.html          canvas #game, HUD (#hud/#distance), bouton #pause, flèches #arrow-left/#arrow-right, boutons tactiles #left/#right,
+                    panneau #gameover (#final-distance, #restart)
 src/main.js         scène, caméra, lumières, brouillard, chargement du GLB, joueur, motos, pilote, entrées clavier,
                     changement de couloir (inclinaison + pivot de l'avant), pause, game over, boucle de jeu
-src/track.js        parcours : rues droites reliées par des virages à 90° (gauche/droite au hasard), pose(s, décalage)
+src/track.js        parcours : rues droites reliées par des carrefours en L ou en T, virage choisi par le joueur, pose(s, décalage)
 src/road.js         tronçons de route (3 couloirs + trottoirs) et carrefours posés le long du parcours, shader des pavés
 src/city.js         bâtiments (boîtes) le long des rues, angles de rue et « mur » au bout de chaque rue ; sol uni
+public/arrow.png    flèche de virage (pointe à droite ; retournée en CSS pour la gauche), fond rendu transparent
 src/obstacles.js    voitures obstacles : pool de clones de car_1, repérées sur le parcours (s, couloir), collision
 src/smoke.js        fumée d'échappement : pool de sprites
 src/worldBend.js    effet de courbure du monde (vertex shader) : applyWorldBend(material), bendUniforms
@@ -43,7 +45,9 @@ public/motolowpoly.glb  modèle de moto ajouté par l'utilisateur, NON utilisé 
 ## Principes d'architecture (à respecter)
 
 - **Le joueur reste en (0, 0, 0), face à -Z ; c'est le monde qui bouge.** Route, bâtiments et voitures sont des enfants du groupe `world`, posés une fois pour toutes le long du parcours (`track.js`). À chaque image, `placeWorld()` déplace et tourne `world` pour amener le point du parcours où est le joueur (`playerS`) en 0. Dans les virages à 90°, c'est donc la ville qui pivote.
-- **Parcours** : position = distance `s` le long de la ligne médiane. Une rue (`leg`) va du centre d'un carrefour au suivant (4 à 9 tronçons de 20 m + 6 m), puis tourne ; dans le carrefour, la ligne médiane suit un quart de cercle de rayon 3 centré sur le coin intérieur (chaque couloir garde sa place). Jamais 3 virages du même côté d'affilée. Les rues sont créées 170 m devant et retirées 40 m après leur virage (contenu rendu aux pools).
+- **Parcours** : position = distance `s` le long de la ligne médiane. Une rue (`leg`) va du centre d'un carrefour au suivant (4 à 9 tronçons de 20 m + 6 m), puis tourne ; dans le carrefour, la ligne médiane suit un quart de cercle de rayon 3 centré sur le coin intérieur (chaque couloir garde sa place). Carrefour en L (`options` = [-1] ou [+1], jamais 3 L du même côté d'affilée) ou en T (`options` = [-1, +1], 40 %). Les rues qui partent du prochain carrefour (« branches ») sont créées à l'avance ; `track.choose(dir)` garde la branche prise et retire l'autre, puis crée les branches du carrefour suivant. Rues retirées 40 m après leur virage (contenu rendu aux pools).
+- **Virage commandé** : dans les `TURN_WINDOW` (15) derniers mètres avant le carrefour, gauche/droite (clavier ou boutons tactiles) choisissent le virage au lieu de changer de couloir (direction impossible ignorée) et les flèches possibles clignotent. Sans choix à l'entrée du carrefour : `turn = 0`, la moto continue tout droit et percute le mur (`WALL_HIT`) → Game Over.
+- Le « mur » au bout de chaque rue (bâtiments hauts sur ±14,5 m) appartient à la rue d'arrivée ; les rangées des rues suivantes commencent après lui.
 - La caméra tourne avec un léger retard dans les virages (`CAMERA_TURN_DAMPING`) ; la moto se penche (`TURN_LEAN` 30°). La courbure du monde (démo) est coupée à l'approche des carrefours (`bendFade`).
 - **Pooling partout** : tronçons de route, voitures, sprites de fumée sont créés une fois puis recyclés. Ne pas créer d'objets ni de `new Vector3()` dans la boucle de jeu.
 - **World bending** : tout matériau visible dans le décor doit passer par `applyWorldBend(material)`, sinon il ne suit pas les virages. Si un matériau a déjà un `onBeforeCompile`, l'enchaîner (voir `road.js`).
@@ -94,7 +98,6 @@ Les cases de couleur sont échantillonnées en leur centre : le filtrage lissé 
 - Collision moto : `PLAYER_HALF_WIDTH` 0,3, `PLAYER_FRONT` -0,85, `PLAYER_BACK` 1,0 (boîte de l'ancienne moto, à ajuster pour la MotoCub si besoin).
 - Voitures (obstacles.js) : `CAR_SPEED` 4 (même sens que le joueur), rangées tous les `GAP_MIN`–`GAP_MAX` (24–36), 30 % de rangées à 2 voitures, jamais 3 couloirs bloqués. **Elles ne prennent jamais les virages** : elles ralentissent (sur `SLOW_DISTANCE` 12 m) et s’arrêtent 3 m avant le carrefour, en file si besoin ; au plus 2 couloirs occupés par des voitures arrêtées au même carrefour ; une rangée qui apparaîtrait dans un carrefour est placée au début de la rue suivante.
 - Route : tronçons de 20 m × 6, pavés répétés 1 fois par couloir en largeur et 14 fois par tronçon. Trottoirs 1,5 m, bâtiments à partir de ±4,5 m.
-- Les virages sont automatiques pour l'instant (étape 1) ; étape suivante prévue : virage commandé par le joueur.
 
 ## Ce qui n'est PAS possible depuis Claude Code mobile / web
 

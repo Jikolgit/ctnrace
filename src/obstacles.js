@@ -79,7 +79,9 @@ export function createObstacles(world, template, track) {
     let s = playerS + SPAWN_AHEAD;
     let leg = track.legAt(s);
     if (s > stopPoint(leg)) {
-      // Trop près du carrefour (ou dedans) : la rangée apparaît au début de la rue suivante
+      // Trop près du carrefour (ou dedans) : la rangée apparaît au début de la rue suivante,
+      // seulement si le joueur a déjà choisi son virage (sinon on ne sait pas encore où elle sera)
+      if (!leg.turn) return;
       s = leg.sEnd + AFTER_CORNER;
       leg = track.legAt(s);
     }

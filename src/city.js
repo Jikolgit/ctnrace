@@ -5,12 +5,13 @@ import { ROAD_HALF_WIDTH, SIDEWALK_WIDTH } from './road.js';
 // Décor de ville : bâtiments (simples boîtes) le long de chaque rue du parcours (track.js).
 // Les bâtiments d'une rue sont posés quand la rue apparaît et rendus au pool quand elle disparaît.
 //
-// Aux carrefours (virage à droite, en miroir à gauche) :
-//  - côté intérieur du virage : la rangée s'arrête au trottoir de la rue transversale ;
-//    son dernier bâtiment est profond (DEPTH_MAX) pour former l'angle de rue ;
-//  - côté extérieur : la rangée continue jusqu'au bout du carrefour ;
-//  - la rue suivante commence, côté extérieur, par des bâtiments hauts qui ferment le bout de la rue
-//    d'arrivée : on voit le mur approcher et on comprend que la route tourne.
+// Aux carrefours :
+//  - côté où part une rue (les deux côtés pour un T) : la rangée s'arrête au trottoir de la rue
+//    transversale ; son dernier bâtiment est profond (DEPTH_MAX) pour former l'angle de rue ;
+//  - côté fermé (carrefour en L) : la rangée continue jusqu'au bout du carrefour ;
+//  - au bout de la rue, des bâtiments hauts ferment le carrefour (« mur ») : on le voit approcher et on
+//    comprend que la route tourne. Il appartient à la rue d'arrivée : il reste en place quel que soit
+//    le virage choisi. Les rues suivantes commencent donc leurs rangées après ce mur.
 
 const BUILDING_START = ROAD_HALF_WIDTH + SIDEWALK_WIDTH; // façades alignées au bord du trottoir : ±4,5
 
@@ -22,6 +23,7 @@ const DEPTH_MAX = 10;
 const HEIGHT_MIN = 4;
 const HEIGHT_MAX = 22;
 const END_WALL_HEIGHT_MIN = 10; // bâtiments qui ferment le bout d'une rue
+const END_WALL_HALF_WIDTH = BUILDING_START + DEPTH_MAX; // le mur couvre aussi les angles de rue
 const GAP_CHANCE = 0.4; // probabilité d'une ruelle avant un bâtiment
 const GAP_MIN = 0.5;
 const GAP_MAX = 1.5;
@@ -68,50 +70,56 @@ export function createCity(scene, world) {
     free.push(building);
   }
 
-  // Bâtiment le long de la rue leg, côté side (-1 gauche, +1 droite), centré en u (distance depuis
-  // le centre du carrefour de départ, le long de la rue)
-  function placeBuilding(leg, side, u, length, depth, height) {
+  // Bâtiment dans le repère de la rue leg : centre à la distance u le long de la rue et au décalage
+  // latéral v ; width = taille latérale, length = taille le long de la rue
+  function placeBuilding(leg, u, v, width, length, height) {
     const building = getBuilding();
-    building.scale.set(depth, height, length);
-    building.position
-      .copy(leg.origin)
-      .addScaledVector(leg.dir, u)
-      .addScaledVector(leg.right, side * (BUILDING_START + depth / 2));
+    building.scale.set(width, height, length);
+    building.position.copy(leg.origin).addScaledVector(leg.dir, u).addScaledVector(leg.right, v);
     building.rotation.y = leg.theta;
     building.material = buildingMaterials[Math.floor(Math.random() * buildingMaterials.length)];
     leg.buildings.push(building);
+  }
+
+  // Remplit [from, to] de morceaux de LENGTH_MIN à LENGTH_MAX, avec des ruelles éventuelles (gaps) ;
+  // piece(début, longueur, estLeDernier) place chaque morceau
+  function fill(from, to, gaps, piece) {
+    let u = from;
+    while (to - u > 0.01) {
+      if (gaps && Math.random() < GAP_CHANCE && to - u > GAP_MAX + 2 * LENGTH_MIN) {
+        u += randomRange(GAP_MIN, GAP_MAX);
+      }
+      let length = randomRange(LENGTH_MIN, LENGTH_MAX);
+      if (to - u - length < LENGTH_MIN) length = to - u; // le dernier finit pile au bout
+      piece(u, length, u + length >= to - 0.01);
+      u += length;
+    }
   }
 
   function addLeg(leg) {
     leg.buildings = [];
 
     for (const side of [-1, 1]) {
-      // Début de la rangée
-      let u;
-      if (leg.prevTurn === 0) u = -10; // première rue : commence derrière la caméra
-      else if (side === leg.prevTurn) u = BUILDING_START + DEPTH_MAX; // après l'angle de rue
-      else u = -BUILDING_START - DEPTH_MAX; // ferme le bout de la rue précédente
+      // Première rue : commence derrière la caméra ; sinon après le mur du carrefour précédent
+      const uStart = leg.prevTurn === 0 ? -10 : END_WALL_HALF_WIDTH;
+      // Côté où part une rue : s'arrête à la rue transversale ; côté fermé : jusqu'au bout
+      const open = leg.options.includes(side);
+      const uEnd = open ? leg.length - BUILDING_START : leg.length + BUILDING_START;
 
-      // Fin de la rangée
-      const inner = side === leg.turn;
-      const uEnd = inner ? leg.length - BUILDING_START : leg.length + BUILDING_START;
-
-      while (uEnd - u > 0.01) {
-        if (Math.random() < GAP_CHANCE && uEnd - u > GAP_MAX + 2 * LENGTH_MIN) {
-          u += randomRange(GAP_MIN, GAP_MAX);
-        }
-        let length = randomRange(LENGTH_MIN, LENGTH_MAX);
-        if (uEnd - u - length < LENGTH_MIN) length = uEnd - u; // le dernier finit pile au carrefour
-        const last = u + length >= uEnd - 0.01;
-
-        const depth = inner && last ? DEPTH_MAX : randomRange(DEPTH_MIN, DEPTH_MAX);
-        let height = randomRange(HEIGHT_MIN, HEIGHT_MAX);
-        if (u + length / 2 < BUILDING_START) height = Math.max(height, END_WALL_HEIGHT_MIN);
-
-        placeBuilding(leg, side, u + length / 2, length, depth, height);
-        u += length;
-      }
+      fill(uStart, uEnd, true, (u, length, last) => {
+        const depth = open && last ? DEPTH_MAX : randomRange(DEPTH_MIN, DEPTH_MAX);
+        const height = randomRange(HEIGHT_MIN, HEIGHT_MAX);
+        placeBuilding(leg, u + length / 2, side * (BUILDING_START + depth / 2), depth, length, height);
+      });
     }
+
+    // Mur au bout de la rue, de l'autre côté du carrefour, sur toute la largeur (sans ruelle : on verrait
+    // le ciel au travers)
+    const depth = randomRange(DEPTH_MIN, DEPTH_MAX);
+    fill(-END_WALL_HALF_WIDTH, END_WALL_HALF_WIDTH, false, (v, width) => {
+      const height = randomRange(END_WALL_HEIGHT_MIN, HEIGHT_MAX);
+      placeBuilding(leg, leg.length + BUILDING_START + depth / 2, v + width / 2, width, depth, height);
+    });
   }
 
   function removeLeg(leg) {

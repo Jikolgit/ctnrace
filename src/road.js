@@ -110,6 +110,18 @@ function createCorner() {
   return corner;
 }
 
+// Carrefour en T : on arrive par +Z, on repart vers -X ou +X ; le fond (côté -Z) est fermé.
+function createTCorner() {
+  const corner = new THREE.Group();
+  corner.add(new THREE.Mesh(crossingGeometry, crossingMaterial));
+  const r = ROAD_HALF_WIDTH;
+  const e = SIDEWALK_EDGE;
+  addBlock(corner, -r, r, -e, -r); // fond du carrefour, face à la rue d'arrivée
+  addBlock(corner, r, e, r, e); // coins intérieurs, de part et d'autre de la rue d'arrivée
+  addBlock(corner, -e, -r, r, e);
+  return corner;
+}
+
 // Pool d'objets : créés à la demande puis réutilisés
 function createPool(scene, factory) {
   const free = [];
@@ -131,11 +143,13 @@ function createPool(scene, factory) {
 export function createRoad(world) {
   const chunks = createPool(world, createChunk);
   const corners = createPool(world, createCorner);
+  const tCorners = createPool(world, createTCorner);
   // Préremplissage : évite de créer des objets pendant la partie
   const warm = [];
   for (let i = 0; i < 30; i++) warm.push(chunks.get());
   warm.forEach((c) => chunks.release(c));
   for (let i = 0; i < 4; i++) corners.release(corners.get());
+  for (let i = 0; i < 4; i++) tCorners.release(tCorners.get());
 
   function addLeg(leg) {
     leg.roadPieces = [];
@@ -147,16 +161,16 @@ export function createRoad(world) {
       chunk.rotation.y = leg.theta;
       leg.roadPieces.push(chunk);
     }
-    const corner = corners.get();
+    const corner = leg.isT ? tCorners.get() : corners.get();
     corner.position.copy(leg.origin).addScaledVector(leg.dir, leg.length);
     corner.rotation.y = leg.theta;
-    corner.scale.x = leg.turn; // miroir pour un virage à gauche
+    corner.scale.x = leg.isT ? 1 : leg.options[0]; // carrefour en L : miroir pour un virage à gauche
     leg.corner = corner;
   }
 
   function removeLeg(leg) {
     for (const chunk of leg.roadPieces) chunks.release(chunk);
-    corners.release(leg.corner);
+    (leg.isT ? tCorners : corners).release(leg.corner);
   }
 
   return { addLeg, removeLeg };

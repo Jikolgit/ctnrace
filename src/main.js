@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { applyWorldBend, bendUniforms } from './worldBend.js';
-import { LANE_COUNT, LANE_WIDTH, laneX, createRoad } from './road.js';
+import { LANE_COUNT, LANE_WIDTH, ROAD_HALF_WIDTH, SIDEWALK_WIDTH, laneX, createRoad } from './road.js';
 import { createSmoke } from './smoke.js';
 import { createCity } from './city.js';
 import { createTrack } from './track.js';
@@ -16,6 +16,8 @@ const pauseButton = document.getElementById('pause');
 const gameOverPanel = document.getElementById('gameover');
 const finalDistance = document.getElementById('final-distance');
 const restartButton = document.getElementById('restart');
+const arrowLeft = document.getElementById('arrow-left');
+const arrowRight = document.getElementById('arrow-right');
 
 // Renderer
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -124,6 +126,29 @@ function placeWorld() {
   world.position.copy(playerPoint).applyAxisAngle(Y_AXIS, -playerHeading).negate();
 }
 placeWorld();
+
+// Virages : dans les TURN_WINDOW derniers mètres avant un carrefour, gauche / droite choisissent le
+// virage (au lieu de changer de couloir) et les flèches possibles clignotent. Sans choix, la moto
+// continue tout droit et percute le mur au bout de la rue.
+const TURN_WINDOW = 15;
+
+// Rue dont le joueur est dans la fenêtre de virage (choix pas encore fait), sinon null
+function turnWindowLeg() {
+  const leg = track.pendingLeg();
+  return leg && playerS >= leg.sArcStart - TURN_WINDOW ? leg : null;
+}
+
+function updateArrows() {
+  const leg = gameOver ? null : turnWindowLeg();
+  const left = !!leg && leg.options.includes(-1);
+  const right = !!leg && leg.options.includes(1);
+  if (arrowLeft.hidden === left) arrowLeft.hidden = !left;
+  if (arrowRight.hidden === right) arrowRight.hidden = !right;
+}
+
+// Distance parcourue tout droit dans le carrefour avant que l'avant de la moto touche le mur
+// (traversée du carrefour + trottoir d'en face)
+const WALL_HIT = 2 * ROAD_HALF_WIDTH + SIDEWALK_WIDTH - 0.85;
 
 // Courbure du monde (démo) : coupée à l'approche des carrefours et juste après
 function bendFade() {
@@ -258,6 +283,7 @@ function endGame() {
   gameOver = true;
   finalDistance.textContent = `${Math.floor(distance)} m`;
   gameOverPanel.hidden = false;
+  updateArrows();
   restartButton.focus();
 }
 
@@ -275,6 +301,7 @@ function restart() {
   placeWorld();
   cameraHeading = playerHeading;
   obstacles?.reset();
+  updateArrows();
   gameOverPanel.hidden = true;
   gameOver = false;
   restartButton.blur();
@@ -340,9 +367,19 @@ window.addEventListener('keydown', (event) => {
   else if (event.key === 'ArrowRight') steer(1);
 });
 
-// Change de couloir : -1 = gauche, +1 = droite (clavier et boutons tactiles)
+// Gauche / droite (clavier et boutons tactiles) : -1 = gauche, +1 = droite.
+// Près d'un carrefour : choisit le virage (une direction impossible est ignorée) ;
+// sinon : change de couloir.
 function steer(direction) {
   if (paused || gameOver) return;
+  const turnLeg = turnWindowLeg();
+  if (turnLeg) {
+    if (turnLeg.options.includes(direction)) {
+      track.choose(direction);
+      updateArrows();
+    }
+    return;
+  }
   const lane = currentLane;
   currentLane = Math.min(LANE_COUNT - 1, Math.max(0, currentLane + direction));
   if (currentLane !== lane) startLaneChange();
@@ -393,6 +430,11 @@ function animate(timestamp) {
     track.update(playerS);
     placeWorld();
     distance += SPEED * delta;
+    updateArrows();
+
+    // Pas de virage choisi : la moto traverse le carrefour tout droit jusqu'au mur
+    const crossing = track.legAt(playerS);
+    if (crossing.turn === 0 && playerS > crossing.sArcStart + WALL_HIT) endGame();
 
     const meters = Math.floor(distance);
     if (meters !== displayedDistance) {
