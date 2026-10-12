@@ -249,14 +249,25 @@ window.addEventListener('keydown', (event) => {
     return;
   }
 
-  const lane = currentLane;
-  if (event.key === 'ArrowLeft') {
-    currentLane = Math.max(0, currentLane - 1);
-  } else if (event.key === 'ArrowRight') {
-    currentLane = Math.min(LANE_COUNT - 1, currentLane + 1);
-  }
-  if (currentLane !== lane) startLaneChange();
+  if (event.key === 'ArrowLeft') steer(-1);
+  else if (event.key === 'ArrowRight') steer(1);
 });
+
+// Change de couloir : -1 = gauche, +1 = droite (clavier et boutons tactiles)
+function steer(direction) {
+  if (paused || gameOver) return;
+  const lane = currentLane;
+  currentLane = Math.min(LANE_COUNT - 1, Math.max(0, currentLane + direction));
+  if (currentLane !== lane) startLaneChange();
+}
+
+// Boutons tactiles (mobile) : pointerdown réagit dès le contact, sans attendre le relâchement
+for (const [id, direction] of [['left', -1], ['right', 1]]) {
+  document.getElementById(id).addEventListener('pointerdown', (event) => {
+    event.preventDefault(); // pas de zoom / sélection / clic fantôme
+    steer(direction);
+  });
+}
 
 // Redimensionnement
 window.addEventListener('resize', () => {
