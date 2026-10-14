@@ -304,6 +304,7 @@ function endGame() {
 function restart() {
   distance = 0;
   gameTime = 0;
+  resetRoadWave();
   displayedDistance = -1;
   currentLane = 1;
   laneChange.from = laneChange.to = laneX(currentLane);
@@ -426,6 +427,41 @@ const PLAYER_BACK = 1.0;
 const SPEED = 12; // unités par seconde
 let distance = 0;
 let gameTime = 0; // temps de jeu, figé pendant la pause
+
+// Ondulation de la route (courbure du monde) : une ligne droite d'au moins BEND_STRAIGHT_MIN mètres,
+// puis une ondulation d'un seul côté (au hasard) qui se forme et s'efface sur BEND_CURVE_MIN à
+// BEND_CURVE_MAX mètres, puis de nouveau une ligne droite, et ainsi de suite.
+// Toujours coupée autour des carrefours (bendFade).
+const BEND_STRAIGHT_MIN = 50;
+const BEND_STRAIGHT_MAX = 80;
+const BEND_CURVE_MIN = 60;
+const BEND_CURVE_MAX = 100;
+const BEND_AMOUNT = 0.003; // courbure maximale
+const randomBetween = (min, max) => min + Math.random() * (max - min);
+const roadWave = { curving: false, length: 0, done: 0, side: 1 };
+
+function resetRoadWave() {
+  roadWave.curving = false;
+  roadWave.length = randomBetween(BEND_STRAIGHT_MIN, BEND_STRAIGHT_MAX);
+  roadWave.done = 0;
+}
+resetRoadWave();
+
+// step : distance parcourue depuis l'image précédente
+function updateRoadWave(step) {
+  roadWave.done += step;
+  if (roadWave.done >= roadWave.length) {
+    roadWave.done -= roadWave.length;
+    roadWave.curving = !roadWave.curving;
+    roadWave.length = roadWave.curving
+      ? randomBetween(BEND_CURVE_MIN, BEND_CURVE_MAX)
+      : randomBetween(BEND_STRAIGHT_MIN, BEND_STRAIGHT_MAX);
+    if (roadWave.curving) roadWave.side = Math.random() < 0.5 ? -1 : 1;
+  }
+  // Ondulation : monte puis redescend en douceur (demi-sinus), toujours du même côté
+  const shape = roadWave.curving ? Math.sin((Math.PI * roadWave.done) / roadWave.length) : 0;
+  bendUniforms.uBend.value = roadWave.side * BEND_AMOUNT * shape * bendFade();
+}
 let displayedDistance = -1;
 
 // Boucle de jeu
@@ -440,7 +476,7 @@ function animate(timestamp) {
   if (!paused && !gameOver) {
     // Démo : la route ondule entre virage gauche et virage droit
     gameTime += delta;
-    bendUniforms.uBend.value = Math.sin(gameTime * 0.5) * 0.003 * bendFade();
+    updateRoadWave(SPEED * delta);
 
     // Le joueur avance sur le parcours ; le monde est replacé autour de lui
     playerS += SPEED * delta;
