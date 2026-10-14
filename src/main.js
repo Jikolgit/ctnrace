@@ -152,18 +152,14 @@ function updateArrows() {
 // (traversée du carrefour + trottoir d'en face)
 const WALL_HIT = 2 * ROAD_HALF_WIDTH + SIDEWALK_WIDTH - 0.85;
 
-// Courbure du monde (démo) : la route reste droite sur STRAIGHT_BEFORE mètres avant chaque carrefour
-// et STRAIGHT_AFTER mètres après ; la courbure revient / s'efface progressivement sur BEND_RAMP mètres
-const STRAIGHT_BEFORE = 50;
-const STRAIGHT_AFTER = 50;
-const BEND_RAMP = 40;
+// Courbure du monde (démo) : coupée à l'approche des carrefours et juste après
 function bendFade() {
   const leg = track.legAt(playerS);
   const toCorner = leg.sArcStart - playerS;
   const fromCorner = playerS - leg.sStart;
   return (
-    THREE.MathUtils.clamp((toCorner - STRAIGHT_BEFORE) / BEND_RAMP, 0, 1) *
-    THREE.MathUtils.clamp((fromCorner - STRAIGHT_AFTER) / BEND_RAMP, 0, 1)
+    THREE.MathUtils.clamp((toCorner - 50) / 40, 0, 1) *
+    THREE.MathUtils.clamp(fromCorner / 30, 0, 1)
   );
 }
 
