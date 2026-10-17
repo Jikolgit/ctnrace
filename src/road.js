@@ -10,7 +10,7 @@ export const ROAD_HALF_WIDTH = (LANE_COUNT * LANE_WIDTH) / 2; // bord de la rout
 
 // Trottoirs
 export const SIDEWALK_WIDTH = 1.5;
-const SIDEWALK_HEIGHT = 0.12;
+export const SIDEWALK_HEIGHT = 0.12;
 const SIDEWALK_EDGE = ROAD_HALF_WIDTH + SIDEWALK_WIDTH; // ±4,5 : début des bâtiments
 
 // Tronçons de route : une rue (track.js) est une suite de tronçons de 20 m, puis un carrefour
@@ -23,9 +23,9 @@ const CHUNK_SEGMENTS = 10; // subdivisions en longueur, pour suivre la courbure 
 // (fract), et textureGrad garde le bon niveau de détail aux jonctions (sinon une ligne apparaît).
 // La répétition passe par un uniform : on utilise directement l'atlas partagé (pas de copie de la
 // texture, qui était signalée "sans image" tant que bikeTXT.jpg n'était pas chargé).
-const ROAD_REPEAT = new THREE.Vector2(1, Math.round(CHUNK_LENGTH / (LANE_WIDTH * ROAD_ASPECT)));
+export const ROAD_REPEAT = new THREE.Vector2(1, Math.round(CHUNK_LENGTH / (LANE_WIDTH * ROAD_ASPECT)));
 
-function createPavedMaterial(repeat) {
+export function createPavedMaterial(repeat) {
   const material = applyWorldBend(
     new THREE.MeshStandardMaterial({ map: atlas, roughness: 0.9, metalness: 0 })
   );
@@ -59,7 +59,7 @@ const crossingMaterial = createPavedMaterial(
   new THREE.Vector2(LANE_COUNT, (ROAD_REPEAT.y * ROAD_WIDTH) / CHUNK_LENGTH)
 );
 
-const sidewalkMaterial = applyWorldBend(
+export const sidewalkMaterial = applyWorldBend(
   new THREE.MeshStandardMaterial({ color: 0xa9a9a4, roughness: 1, metalness: 0 })
 );
 

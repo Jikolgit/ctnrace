@@ -166,3 +166,164 @@ body {
     opacity: 0.15;
   }
 }
+
+/* Menu principal : par-dessus la scène 3D (figée derrière, légèrement floutée) */
+#menu {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px 16px;
+  box-sizing: border-box;
+  overflow-y: auto;
+  background: linear-gradient(rgba(10, 30, 50, 0.35), rgba(10, 20, 35, 0.75));
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  font-family: system-ui, sans-serif;
+  color: #fff;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+body:not(.in-menu) #menu {
+  display: none;
+}
+
+/* Pendant le menu : pas de HUD, de bouton pause, de flèches ni de boutons tactiles */
+body.in-menu #hud,
+body.in-menu #pause,
+body.in-menu #turn-arrows,
+body.in-menu #touch-controls {
+  display: none;
+}
+
+#menu .title {
+  margin: 0;
+  font-size: clamp(48px, 12vw, 96px);
+  font-weight: 900;
+  font-style: italic;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  color: #fff;
+  -webkit-text-stroke: 3px #1b1b1b;
+  paint-order: stroke fill;
+  text-shadow: 0 6px 0 #1b1b1b;
+}
+
+#menu .title span {
+  color: #e8642a;
+}
+
+#menu .subtitle {
+  margin: 4px 0 24px;
+  font-size: 18px;
+  opacity: 0.85;
+}
+
+#menu .modes {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 20px;
+  width: 100%;
+  max-width: 640px;
+}
+
+#menu .mode {
+  position: relative;
+  flex: 1 1 240px;
+  max-width: 300px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 24px 20px 22px;
+  border: 3px solid #1b1b1b;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 6px 0 #1b1b1b;
+  color: #1b1b1b;
+  font: inherit;
+  text-align: center;
+  cursor: pointer;
+  transition: transform 0.12s, box-shadow 0.12s, background 0.12s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#menu .mode svg {
+  width: 72px;
+  height: 72px;
+}
+
+#menu .mode .name {
+  font-size: 28px;
+  font-weight: 900;
+}
+
+#menu .mode .desc {
+  font-size: 15px;
+  line-height: 1.35;
+  opacity: 0.75;
+}
+
+#menu .mode:not(:disabled):hover,
+#menu .mode:not(:disabled):focus-visible {
+  transform: translateY(-3px);
+  box-shadow: 0 9px 0 #1b1b1b;
+  background: #fff3e8;
+  outline: none;
+}
+
+#menu .mode:not(:disabled):active {
+  transform: translateY(4px);
+  box-shadow: 0 2px 0 #1b1b1b;
+}
+
+/* Mode pas encore disponible */
+#menu .mode:disabled {
+  cursor: not-allowed;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+#menu .mode:disabled svg,
+#menu .mode:disabled .name,
+#menu .mode:disabled .desc {
+  opacity: 0.45;
+}
+
+#menu .badge {
+  position: absolute;
+  top: -12px;
+  right: -8px;
+  padding: 5px 10px;
+  border: 2px solid #1b1b1b;
+  border-radius: 999px;
+  background: #ffd23f;
+  font-size: 13px;
+  font-weight: 800;
+  transform: rotate(6deg);
+}
+
+/* Écran Game Over : Rejouer et Menu côte à côte */
+#gameover .actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}
+
+#to-menu {
+  padding: 10px 24px;
+  border: 0;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  font: bold 20px/1 system-ui, sans-serif;
+  cursor: pointer;
+}
+
+#to-menu:hover {
+  background: rgba(255, 255, 255, 0.28);
+}

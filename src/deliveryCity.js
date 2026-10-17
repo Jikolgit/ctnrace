@@ -1,0 +1,253 @@
+import * as THREE from 'three';
+import { applyWorldBend } from './worldBend.js';
+import {
+  CHUNK_LENGTH, ROAD_REPEAT, SIDEWALK_HEIGHT, createPavedMaterial, sidewalkMaterial,
+} from './road.js';
+import { SIDEWALK_WIDTH } from './deliveryMap.js';
+import { NORTH, EAST, SOUTH, WEST, DIR_X, DIR_Y, halfWidth, isHorizontal } from './network.js';
+
+// Mode Livraison : la ville entière, construite une fois au démarrage (pas de recyclage : le réseau est fixe).
+// Petites rues pavées (3 couloirs), grandes routes goudronnées (4 couloirs), carrefours, trottoirs et
+// bâtiments (boîtes) le long de chaque rue. Repère : x de la carte → X, y de la carte → Z.
+//
+// Angles de rue : les rangées de bâtiments des rues horizontales vont jusqu'au trottoir de la rue
+// transversale, avec un dernier bâtiment profond (DEPTH_MAX) qui forme l'angle ; celles des rues
+// verticales s'arrêtent DEPTH_MAX plus tôt (pas de façades superposées). Là où le carrefour n'a pas de
+// rue d'un côté (T, L), la rangée continue jusqu'au centre et rejoint celle d'en face.
+
+const LENGTH_MIN = 4; // longueur d'un bâtiment le long de la rue
+const LENGTH_MAX = 11;
+const DEPTH_MIN = 5; // profondeur en s'éloignant de la rue
+const DEPTH_MAX = 10;
+const HEIGHT_MIN = 4;
+const HEIGHT_MAX = 22;
+const GAP_CHANCE = 0.4; // probabilité d'une ruelle avant un bâtiment
+const GAP_MIN = 0.5;
+const GAP_MAX = 1.5;
+const ASPHALT_TILE = 6; // longueur (m) couverte par la texture du goudron
+
+const randomRange = (min, max) => min + Math.random() * (max - min);
+
+// Mêmes façades que la ville du mode Défis (city.js)
+const BUILDING_COLORS = [0xb8b2a7, 0x9c8f80, 0xc9a27e, 0x8a9199, 0xa0624b, 0xd8d2c4, 0x6f7782, 0xbfae8e];
+const ASPHALT_COLOR = '#45484d';
+
+// Goudron d'une grande route (4 couloirs) dessiné dans un canvas : largeur de la route × ASPHALT_TILE m.
+// Lignes blanches discontinues entre les couloirs d'un même sens, ligne jaune continue au centre.
+function createAsphaltTexture(lanes) {
+  const PX = 32; // pixels par mètre
+  const width = lanes * 2;
+  const canvas = document.createElement('canvas');
+  canvas.width = width * PX;
+  canvas.height = ASPHALT_TILE * PX;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = ASPHALT_COLOR;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  // Grain du goudron
+  for (let i = 0; i < 1600; i++) {
+    const shade = 50 + Math.floor(Math.random() * 40);
+    ctx.fillStyle = `rgb(${shade},${shade + 2},${shade + 6})`;
+    ctx.fillRect(Math.random() * canvas.width, Math.random() * canvas.height, 2, 2);
+  }
+  const line = 0.12 * PX;
+  ctx.fillStyle = '#f0f0f0';
+  for (let i = 1; i < lanes; i++) {
+    if (i === lanes / 2) continue;
+    ctx.fillRect(i * 2 * PX - line / 2, 0, line, canvas.height / 2); // tiret de 3 m, espace de 3 m
+  }
+  ctx.fillRect(0.15 * PX, 0, line, canvas.height); // bords
+  ctx.fillRect(canvas.width - 0.15 * PX - line, 0, line, canvas.height);
+  ctx.fillStyle = '#f2c94c';
+  ctx.fillRect(canvas.width / 2 - line / 2, 0, line, canvas.height); // centre
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.wrapS = THREE.ClampToEdgeWrapping;
+  texture.wrapT = THREE.RepeatWrapping;
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = 8;
+  return texture;
+}
+
+// Plan horizontal de width (X) × depth (Z), centré en (x, z), avec des UV [0, uMax] × [0, vMax]
+function flatPlane(width, depth, uMax, vMax) {
+  const geometry = new THREE.PlaneGeometry(width, depth, 1, Math.max(1, Math.round(depth / 2)));
+  const uv = geometry.attributes.uv;
+  for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * uMax, uv.getY(i) * vMax);
+  geometry.rotateX(-Math.PI / 2);
+  return geometry;
+}
+
+// parent : groupe qui porte la ville (déplacé/tourné par main.js pour que le joueur reste en 0)
+export function createDeliveryCity(parent, graph) {
+  const group = new THREE.Group();
+  parent.add(group);
+
+  const pavedMaterial = createPavedMaterial(ROAD_REPEAT);
+  const asphaltMaterial = applyWorldBend(
+    new THREE.MeshStandardMaterial({ map: createAsphaltTexture(4), roughness: 0.95, metalness: 0 })
+  );
+  const plainAsphalt = applyWorldBend(
+    new THREE.MeshStandardMaterial({ color: ASPHALT_COLOR, roughness: 0.95, metalness: 0 })
+  );
+
+  // Chaussée d'une rue sur la portion [u1, u2] (distance depuis le bout ouest / nord de la rue)
+  function addSurface(road, u1, u2) {
+    const length = u2 - u1;
+    if (length <= 0.01) return;
+    const width = 2 * halfWidth(road);
+    const big = road.type === 'big';
+    const geometry = big
+      ? flatPlane(width, length, 1, length / ASPHALT_TILE)
+      : flatPlane(width, length, width / 2, length / CHUNK_LENGTH);
+    const mesh = new THREE.Mesh(geometry, big ? asphaltMaterial : pavedMaterial);
+    const mid = (u1 + u2) / 2;
+    if (isHorizontal(road)) {
+      mesh.position.set(road.x1 + mid, 0, road.y);
+      mesh.rotation.y = Math.PI / 2;
+    } else {
+      mesh.position.set(road.x, 0, road.y1 + mid);
+    }
+    group.add(mesh);
+  }
+
+  // Trottoirs et bâtiments : boîtes 1 × 1 × 1 redimensionnées, regroupées en InstancedMesh
+  const sidewalks = []; // matrices
+  const buildings = BUILDING_COLORS.map(() => []);
+  const matrix = new THREE.Matrix4();
+  const position = new THREE.Vector3();
+  const scale = new THREE.Vector3();
+  const noRotation = new THREE.Quaternion();
+
+  // Boîte alignée sur les axes, de (x1, z1) à (x2, z2), de hauteur height
+  function box(list, x1, x2, z1, z2, height) {
+    position.set((x1 + x2) / 2, 0, (z1 + z2) / 2);
+    scale.set(Math.abs(x2 - x1), height, Math.abs(z2 - z1));
+    list.push(matrix.compose(position, noRotation, scale).clone());
+  }
+  const building = (x1, x2, z1, z2, height) =>
+    box(buildings[Math.floor(Math.random() * buildings.length)], x1, x2, z1, z2, height);
+
+  // Remplit [from, to] de bâtiments de LENGTH_MIN à LENGTH_MAX, avec des ruelles éventuelles ;
+  // piece(début, longueur, premier, dernier) place chaque bâtiment
+  function fill(from, to, piece) {
+    let u = from;
+    let first = true;
+    while (to - u > 0.01) {
+      if (!first && Math.random() < GAP_CHANCE && to - u > GAP_MAX + 2 * LENGTH_MIN) {
+        u += randomRange(GAP_MIN, GAP_MAX);
+      }
+      let length = randomRange(LENGTH_MIN, LENGTH_MAX);
+      if (to - u - length < LENGTH_MIN) length = to - u; // le dernier finit pile au bout
+      piece(u, length, first, u + length >= to - 0.01);
+      u += length;
+      first = false;
+    }
+  }
+
+  // Demi-largeur de la rue qui croise `road` au nœud (0 s'il n'y en a pas)
+  const crossHalf = (node, road) => {
+    const cross = isHorizontal(road) ? node.v : node.h;
+    return cross ? halfWidth(cross) : 0;
+  };
+
+  // Chaque bras du graphe (une seule fois : de l'ouest vers l'est, du nord vers le sud)
+  for (const a of graph.nodes) {
+    for (const d of [EAST, SOUTH]) {
+      const arm = a.arms[d];
+      if (!arm) continue;
+      const b = arm.node;
+      const road = arm.road;
+      const horizontal = isHorizontal(road);
+      const hw = halfWidth(road);
+      const base = horizontal ? a.x - road.x1 : a.y - road.y1; // u du nœud a sur la rue
+
+      // Chaussée et trottoirs, entre les carrefours
+      const u1 = base + crossHalf(a, road);
+      const u2 = base + arm.length - crossHalf(b, road);
+      addSurface(road, u1, u2);
+
+      // Côtés : pour une rue horizontale nord (-1) et sud (+1) ; pour une verticale ouest (-1) et est (+1)
+      for (const side of [-1, 1]) {
+        const sideDir = horizontal ? (side < 0 ? NORTH : SOUTH) : side < 0 ? WEST : EAST;
+        // Point (x, z) à la distance u le long de la rue et au décalage latéral v (côté side)
+        const at = (u, v) =>
+          horizontal ? [road.x1 + u, road.y + side * v] : [road.x + side * v, road.y1 + u];
+
+        // Trottoir
+        const [sx1, sz1] = at(u1, hw);
+        const [sx2, sz2] = at(u2, hw + SIDEWALK_WIDTH);
+        if (u2 - u1 > 0.01) box(sidewalks, sx1, sx2, sz1, sz2, SIDEWALK_HEIGHT);
+
+        // Rangée de bâtiments : s'arrête avant une rue transversale de ce côté, sinon va jusqu'au centre
+        const corner = horizontal ? 0 : DEPTH_MAX; // les rues verticales laissent l'angle aux horizontales
+        const openA = !!a.arms[sideDir];
+        const openB = !!b.arms[sideDir];
+        const from = base + (openA ? crossHalf(a, road) + SIDEWALK_WIDTH + corner : 0);
+        const to = base + arm.length - (openB ? crossHalf(b, road) + SIDEWALK_WIDTH + corner : 0);
+        const facade = hw + SIDEWALK_WIDTH;
+        fill(from, to, (u, length, first, last) => {
+          const deep = horizontal && ((first && openA) || (last && openB));
+          const depth = deep ? DEPTH_MAX : randomRange(DEPTH_MIN, DEPTH_MAX);
+          const [x1, z1] = at(u, facade);
+          const [x2, z2] = at(u + length, facade + depth);
+          building(x1, x2, z1, z2, randomRange(HEIGHT_MIN, HEIGHT_MAX));
+        });
+      }
+    }
+  }
+
+  for (const node of graph.nodes) {
+    // Impasse (bord de la carte) : un mur de bâtiments ferme la rue
+    if (node.deadEnd) {
+      const d = node.arms.findIndex(Boolean);
+      const road = node.arms[d].road;
+      const half = halfWidth(road) + SIDEWALK_WIDTH + DEPTH_MAX;
+      const depth = randomRange(DEPTH_MIN, DEPTH_MAX);
+      // Le mur part du nœud, à l'opposé du bras
+      const bx = node.x - DIR_X[d] * depth;
+      const bz = node.y - DIR_Y[d] * depth;
+      if (DIR_X[d] !== 0) building(node.x, bx, node.y - half, node.y + half, randomRange(10, HEIGHT_MAX));
+      else building(node.x - half, node.x + half, node.y, bz, randomRange(10, HEIGHT_MAX));
+      continue;
+    }
+    if (!node.h || !node.v) continue;
+
+    // Carrefour : chaussée (goudron dès qu'une grande route y passe), coins de trottoir, et trottoir
+    // en travers des côtés sans rue (T, L)
+    const hx = halfWidth(node.v); // demi-largeur en X (rue verticale)
+    const hz = halfWidth(node.h); // demi-largeur en Z (rue horizontale)
+    const big = node.h.type === 'big' || node.v.type === 'big';
+    const geometry = big ? flatPlane(2 * hx, 2 * hz, 1, 1) : flatPlane(2 * hx, 2 * hz, hx, (2 * hz) / CHUNK_LENGTH);
+    const crossing = new THREE.Mesh(geometry, big ? plainAsphalt : pavedMaterial);
+    crossing.position.set(node.x, 0, node.y);
+    group.add(crossing);
+
+    const sw = SIDEWALK_WIDTH;
+    for (const sx of [-1, 1]) {
+      for (const sz of [-1, 1]) {
+        box(sidewalks, node.x + sx * hx, node.x + sx * (hx + sw), node.y + sz * hz, node.y + sz * (hz + sw), SIDEWALK_HEIGHT);
+      }
+    }
+    if (!node.arms[NORTH]) box(sidewalks, node.x - hx, node.x + hx, node.y - hz - sw, node.y - hz, SIDEWALK_HEIGHT);
+    if (!node.arms[SOUTH]) box(sidewalks, node.x - hx, node.x + hx, node.y + hz, node.y + hz + sw, SIDEWALK_HEIGHT);
+    if (!node.arms[WEST]) box(sidewalks, node.x - hx - sw, node.x - hx, node.y - hz, node.y + hz, SIDEWALK_HEIGHT);
+    if (!node.arms[EAST]) box(sidewalks, node.x + hx, node.x + hx + sw, node.y - hz, node.y + hz, SIDEWALK_HEIGHT);
+  }
+
+  // Une boîte 1 × 1 × 1 posée au sol, partagée par les trottoirs et les bâtiments
+  const unitBox = new THREE.BoxGeometry(1, 1, 1);
+  unitBox.translate(0, 0.5, 0);
+  function instanced(material, matrices) {
+    if (!matrices.length) return;
+    const mesh = new THREE.InstancedMesh(unitBox, material, matrices.length);
+    matrices.forEach((m, i) => mesh.setMatrixAt(i, m));
+    mesh.computeBoundingSphere();
+    group.add(mesh);
+  }
+  instanced(sidewalkMaterial, sidewalks);
+  BUILDING_COLORS.forEach((color, i) =>
+    instanced(applyWorldBend(new THREE.MeshStandardMaterial({ color, roughness: 0.95, metalness: 0 })), buildings[i])
+  );
+
+  return group;
+}

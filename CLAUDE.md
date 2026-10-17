@@ -33,6 +33,10 @@ public/arrow.png    flèche de virage (pointe à droite ; retournée en CSS pour
 src/obstacles.js    voitures obstacles : pool de clones de car_1, repérées sur le parcours (s, couloir), collision
 src/toon.js         effet cartoon des motos : toToon(material) (MeshToonMaterial, 3 paliers) et addOutline(mesh)
                     (contour noir « inverted hull », normales lissées) ; le pilote n'est pas concerné
+src/deliveryMap.js  mode Livraison : données du réseau de rues (inspiré de Ségbeya / Kpondehou, Cotonou), lieux, quartiers
+src/network.js      mode Livraison : graphe du réseau (carrefours, bras) et parcours du joueur (même interface que track.js)
+src/deliveryCity.js mode Livraison : ville fixe construite une fois (goudron, pavés, trottoirs et bâtiments en InstancedMesh)
+tools/drawDeliveryMap.mjs  dessine le plan du réseau dans docs/reseau-livraison.svg (node tools/drawDeliveryMap.mjs)
 src/smoke.js        fumée d'échappement : pool de sprites (dans la scène, pas dans `world` : repère de la caméra)
 src/worldBend.js    effet de courbure du monde (vertex shader) : applyWorldBend(material), bendUniforms
 src/atlas.js        texture partagée bikeTXT.jpg + position des pavés dans l'atlas
@@ -55,6 +59,12 @@ public/motolowpoly.glb  modèle de moto ajouté par l'utilisateur, NON utilisé 
 - **World bending** : tout matériau visible dans le décor doit passer par `applyWorldBend(material)`, sinon il ne suit pas les virages. Si un matériau a déjà un `onBeforeCompile`, l'enchaîner (voir `road.js`).
 - **Brouillard** (`FOG_NEAR` 30, `FOG_FAR` 85, couleur du ciel `0x87ceeb`) : cache l'apparition des voitures (au plus `SPAWN_AHEAD` = 90 m devant) et des rues créées à l'avance (branches du carrefour suivant). Garder `FOG_FAR` < ~90.
 - `delta` est plafonné à 0,1 s ; le temps vient de `THREE.Timer` (pas `THREE.Clock`, déprécié).
+
+## Menu et modes de jeu (src/main.js)
+
+- Menu principal (`#menu`, classe `in-menu` sur `body`) au lancement et via le bouton **Menu** du Game Over. `startGame(mode)` : `'challenge'` (Défis) ou `'delivery'` (Livraison).
+- `world` contient deux décors : `challengeWorld` (ville infinie de track.js, voitures) et `deliveryWorld` (ville fixe de deliveryCity.js, construite au premier lancement). `activeTrack` = `track` ou `network`.
+- **Livraison** : réseau de `deliveryMap.js` (repère carte : x → X, y vers le sud → Z). Petites rues pavées à 3 couloirs, grandes routes goudronnées à 4 couloirs (la moto se replace dans le couloir le plus proche en changeant de rue, `laneCount()`). Aux carrefours en croix, sans choix la moto va tout droit ; en T ou en L, elle va dans le mur (Game Over). Les bras qui mènent à une impasse (bord de carte) ne sont jamais proposés. Rayon de virage = demi-largeur de la plus large rue du carrefour. Départ : Rue 1451 × Route de l'Ouémé, vers le nord. Pas de voitures, pas d'ondulation de la route, pas encore de colis ni de minimap ; pas d'eau (la côte du plan n'est pas modélisée).
 
 ## Caméra et contrôles (src/main.js)
 

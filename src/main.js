@@ -9,6 +9,8 @@ import { createCity } from './city.js';
 import { createTrack } from './track.js';
 import { toToon, addOutline } from './toon.js';
 import { createObstacles } from './obstacles.js';
+import { buildGraph, createNetworkTrack } from './network.js';
+import { createDeliveryCity } from './deliveryCity.js';
 import { atlas } from './atlas.js';
 
 const canvas = document.getElementById('game');
@@ -19,6 +21,9 @@ const finalDistance = document.getElementById('final-distance');
 const restartButton = document.getElementById('restart');
 const arrowLeft = document.getElementById('arrow-left');
 const arrowRight = document.getElementById('arrow-right');
+const challengeButton = document.getElementById('mode-challenge');
+const deliveryButton = document.getElementById('mode-delivery');
+const menuButton = document.getElementById('to-menu');
 
 // Renderer
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -100,8 +105,15 @@ scene.add(sun);
 const world = new THREE.Group();
 scene.add(world);
 
-const road = createRoad(world);
-const city = createCity(scene, world);
+// Deux décors dans world, un par mode : la ville infinie du mode Défis (rues créées et recyclées au fil
+// du parcours) et la ville fixe du mode Livraison (réseau de deliveryMap.js, construit au premier lancement)
+const challengeWorld = new THREE.Group();
+const deliveryWorld = new THREE.Group();
+deliveryWorld.visible = false;
+world.add(challengeWorld, deliveryWorld);
+
+const road = createRoad(challengeWorld);
+const city = createCity(scene, challengeWorld);
 const track = createTrack({
   add(leg) {
     road.addLeg(leg);
@@ -118,12 +130,24 @@ let playerS = START_S;
 let playerHeading = 0; // direction du joueur (theta du parcours)
 track.update(playerS);
 
+// Mode Livraison : parcours dans le réseau de rues (même interface que track)
+const graph = buildGraph();
+const network = createNetworkTrack(graph);
+let deliveryCity = null;
+
+// Parcours du mode en cours : track (Défis) ou network (Livraison)
+let activeTrack = track;
+
+// Couloirs de la rue où se trouve le joueur : 3 (petite rue pavée) ou 4 (grande route goudronnée)
+const laneCount = () => activeTrack.legAt(playerS).lanes ?? LANE_COUNT;
+const laneXOf = (index, count) => (index - (count - 1) / 2) * LANE_WIDTH;
+
 const Y_AXIS = new THREE.Vector3(0, 1, 0);
 const playerPoint = new THREE.Vector3();
 
 // Place le groupe world pour que le point du parcours où se trouve le joueur soit en 0, face à -Z
 function placeWorld() {
-  playerHeading = track.pose(playerS, 0, playerPoint);
+  playerHeading = activeTrack.pose(playerS, 0, playerPoint);
   world.rotation.y = -playerHeading;
   world.position.copy(playerPoint).applyAxisAngle(Y_AXIS, -playerHeading).negate();
 }
@@ -136,12 +160,12 @@ const TURN_WINDOW = 15;
 
 // Rue dont le joueur est dans la fenêtre de virage (choix pas encore fait), sinon null
 function turnWindowLeg() {
-  const leg = track.pendingLeg();
+  const leg = activeTrack.pendingLeg();
   return leg && playerS >= leg.sArcStart - TURN_WINDOW ? leg : null;
 }
 
 function updateArrows() {
-  const leg = gameOver ? null : turnWindowLeg();
+  const leg = gameOver || inMenu ? null : turnWindowLeg();
   const left = !!leg && leg.options.includes(-1);
   const right = !!leg && leg.options.includes(1);
   if (arrowLeft.hidden === left) arrowLeft.hidden = !left;
@@ -154,7 +178,7 @@ const WALL_HIT = 2 * ROAD_HALF_WIDTH + SIDEWALK_WIDTH - 0.85;
 
 // Courbure du monde (démo) : coupée à l'approche des carrefours et juste après
 function bendFade() {
-  const leg = track.legAt(playerS);
+  const leg = activeTrack.legAt(playerS);
   const toCorner = leg.sArcStart - playerS;
   const fromCorner = playerS - leg.sStart;
   return (
@@ -274,7 +298,7 @@ new GLTFLoader().load(
         if (child.isMesh) child.material = atlasMaterial;
       });
       carTemplate.position.set(0, 0, 0); // placée à côté de la moto dans Blender
-      obstacles = createObstacles(world, carTemplate, track);
+      obstacles = createObstacles(challengeWorld, carTemplate, track);
     }
   },
   undefined,
@@ -285,7 +309,7 @@ new GLTFLoader().load(
 let paused = false;
 
 function togglePause() {
-  if (gameOver) return;
+  if (gameOver || inMenu) return;
   paused = !paused;
   pauseButton.textContent = paused ? 'Reprendre' : 'Pause';
 }
@@ -306,13 +330,15 @@ function restart() {
   gameTime = 0;
   resetRoadWave();
   displayedDistance = -1;
-  currentLane = 1;
-  laneChange.from = laneChange.to = laneX(currentLane);
-  laneChange.t = 1;
-  player.position.x = laneX(currentLane);
   player.rotation.set(0, 0, 0);
   playerS = START_S;
-  track.reset(playerS);
+  activeTrack.reset(playerS);
+  // Couloir de départ : le centre (3 couloirs) ou le couloir de droite du milieu (4 couloirs)
+  currentLeg = activeTrack.legAt(playerS);
+  currentLane = Math.floor(laneCount() / 2);
+  laneChange.from = laneChange.to = laneXOf(currentLane, laneCount());
+  laneChange.t = 1;
+  player.position.x = laneChange.to;
   placeWorld();
   cameraHeading = playerHeading;
   obstacles?.reset();
@@ -324,6 +350,40 @@ function restart() {
 
 restartButton.addEventListener('click', restart);
 
+// Menu principal : affiché au lancement et depuis l'écran Game Over. La scène reste figée derrière.
+// Modes : 'challenge' (Défis : roule sans fin) ; 'delivery' (Livraison : réseau de rues fixe).
+let inMenu = true;
+let gameMode = null;
+
+function startGame(mode) {
+  gameMode = mode;
+  const delivery = mode === 'delivery';
+  if (delivery && !deliveryCity) deliveryCity = createDeliveryCity(deliveryWorld, graph);
+  activeTrack = delivery ? network : track;
+  challengeWorld.visible = !delivery;
+  deliveryWorld.visible = delivery;
+  if (delivery) {
+    obstacles?.reset(); // pas encore de voitures en Livraison
+    bendUniforms.uBend.value = 0; // rues droites, comme sur le plan
+  }
+  restart();
+  inMenu = false;
+  document.body.classList.remove('in-menu');
+}
+
+function showMenu() {
+  restart(); // repart d'une scène propre derrière le menu
+  paused = false;
+  pauseButton.textContent = 'Pause';
+  inMenu = true;
+  document.body.classList.add('in-menu');
+  challengeButton.focus();
+}
+
+challengeButton.addEventListener('click', () => startGame('challenge'));
+deliveryButton.addEventListener('click', () => startGame('delivery'));
+menuButton.addEventListener('click', showMenu);
+
 pauseButton.addEventListener('click', () => {
   togglePause();
   pauseButton.blur(); // évite que Espace / Entrée ne re-déclenche le bouton
@@ -331,6 +391,8 @@ pauseButton.addEventListener('click', () => {
 
 // Déplacement entre couloirs
 let currentLane = 1;
+let currentLeg = null; // rue du parcours où se trouve le joueur (pour remettre la moto dans un couloir
+// quand le nombre de couloirs change d'une rue à l'autre)
 
 // Changement de couloir : durée fixe, inclinaison et orientation de l'avant
 const LANE_CHANGE_DURATION = 1; // secondes
@@ -346,7 +408,7 @@ const laneChange = { from: laneX(currentLane), to: laneX(currentLane), t: 1 };
 
 function startLaneChange() {
   laneChange.from = player.position.x; // repart de la position actuelle, même en plein changement
-  laneChange.to = laneX(currentLane);
+  laneChange.to = laneXOf(currentLane, laneCount());
   laneChange.t = 0;
 }
 
@@ -355,6 +417,7 @@ const easeInOut = (t) => 0.5 - 0.5 * Math.cos(Math.PI * t);
 
 window.addEventListener('keydown', (event) => {
   if (event.repeat) return;
+  if (inMenu) return; // le menu se pilote avec ses boutons (Tab / Entrée au clavier)
 
   if (gameOver) {
     if (event.key === 'Enter' || event.key === ' ') {
@@ -386,17 +449,17 @@ window.addEventListener('keydown', (event) => {
 // Près d'un carrefour : choisit le virage (une direction impossible est ignorée) ;
 // sinon : change de couloir.
 function steer(direction) {
-  if (paused || gameOver) return;
+  if (paused || gameOver || inMenu) return;
   const turnLeg = turnWindowLeg();
   if (turnLeg) {
     if (turnLeg.options.includes(direction)) {
-      track.choose(direction);
+      activeTrack.choose(direction);
       updateArrows();
     }
     return;
   }
   const lane = currentLane;
-  currentLane = Math.min(LANE_COUNT - 1, Math.max(0, currentLane + direction));
+  currentLane = Math.min(laneCount() - 1, Math.max(0, currentLane + direction));
   if (currentLane !== lane) startLaneChange();
 }
 
@@ -473,21 +536,41 @@ function animate(timestamp) {
   // Plafonné pour éviter un grand saut après un onglet resté en arrière-plan
   const delta = Math.min(timer.getDelta(), 0.1);
 
-  if (!paused && !gameOver) {
+  if (!paused && !gameOver && !inMenu) {
     // Démo : la route ondule entre virage gauche et virage droit
     gameTime += delta;
-    updateRoadWave(SPEED * delta);
+    if (gameMode !== 'delivery') updateRoadWave(SPEED * delta);
 
     // Le joueur avance sur le parcours ; le monde est replacé autour de lui
     playerS += SPEED * delta;
-    track.update(playerS);
+    activeTrack.update(playerS);
     placeWorld();
     distance += SPEED * delta;
     updateArrows();
 
-    // Pas de virage choisi : la moto traverse le carrefour tout droit jusqu'au mur
-    const crossing = track.legAt(playerS);
-    if (crossing.turn === 0 && playerS > crossing.sArcStart + WALL_HIT) endGame();
+    // Pas de virage choisi et tout droit impossible : la moto traverse le carrefour jusqu'au mur
+    // (en Livraison, tout droit est possible aux carrefours en croix)
+    const crossing = activeTrack.legAt(playerS);
+    if (
+      crossing.turn === 0 &&
+      !crossing.options.includes(0) &&
+      playerS > crossing.sArcStart + (crossing.wallHit ?? WALL_HIT)
+    ) {
+      endGame();
+    }
+
+    // Nouvelle rue : si le nombre de couloirs change (3 ↔ 4), la moto glisse vers le couloir le plus proche
+    if (crossing !== currentLeg) {
+      const lanes = crossing.lanes ?? LANE_COUNT;
+      if (lanes !== (currentLeg?.lanes ?? LANE_COUNT)) {
+        currentLane = THREE.MathUtils.clamp(
+          Math.round(player.position.x / LANE_WIDTH + (lanes - 1) / 2), 0, lanes - 1
+        );
+        currentLeg = crossing;
+        startLaneChange();
+      }
+      currentLeg = crossing;
+    }
 
     const meters = Math.floor(distance);
     if (meters !== displayedDistance) {
@@ -530,7 +613,7 @@ function animate(timestamp) {
     let targetLean = -amount * MAX_LEAN * Math.sin(Math.PI * leanPhase);
 
     // 3) Dans un virage du parcours, la moto se penche vers l'intérieur
-    const leg = track.legAt(playerS);
+    const leg = activeTrack.legAt(playerS);
     if (playerS > leg.sArcStart) {
       const turnPhase = (playerS - leg.sArcStart) / (leg.sEnd - leg.sArcStart);
       targetLean += -leg.turn * TURN_LEAN * Math.sin(Math.PI * turnPhase);
@@ -538,7 +621,7 @@ function animate(timestamp) {
     player.rotation.z = THREE.MathUtils.damp(player.rotation.z, targetLean, 20, delta);
 
     // Voitures : défilement, apparition, puis collision avec la moto
-    if (obstacles) {
+    if (obstacles && gameMode !== 'delivery') {
       obstacles.update(delta, SPEED, playerS);
       if (
         obstacles.hits(player.position.x, PLAYER_HALF_WIDTH, PLAYER_FRONT, PLAYER_BACK)
