@@ -1,6 +1,6 @@
 # ctnRacer — runner infini 3D en moto
 
-Jeu web : une moto roule sur une route infinie à 3 couloirs, le joueur change de couloir pour éviter des voitures. Percuter une voiture = Game Over.
+Jeu web : une moto roule dans une ville sur une route infinie à 3 couloirs, faite de rues droites reliées par des carrefours (virages à 90°, en L ou en T). Le joueur change de couloir pour éviter des voitures et choisit le virage à chaque carrefour. Percuter une voiture ou le mur au bout d'une rue = Game Over. Jouable au clavier et sur mobile (boutons tactiles).
 
 **Langue : l'utilisateur travaille en français. Réponds en français, commente le code en français.**
 
@@ -33,10 +33,10 @@ public/arrow.png    flèche de virage (pointe à droite ; retournée en CSS pour
 src/obstacles.js    voitures obstacles : pool de clones de car_1, repérées sur le parcours (s, couloir), collision
 src/toon.js         effet cartoon des motos : toToon(material) (MeshToonMaterial, 3 paliers) et addOutline(mesh)
                     (contour noir « inverted hull », normales lissées) ; le pilote n'est pas concerné
-src/smoke.js        fumée d'échappement : pool de sprites
+src/smoke.js        fumée d'échappement : pool de sprites (dans la scène, pas dans `world` : repère de la caméra)
 src/worldBend.js    effet de courbure du monde (vertex shader) : applyWorldBend(material), bendUniforms
 src/atlas.js        texture partagée bikeTXT.jpg + position des pavés dans l'atlas
-src/style.css       HUD, bouton pause, écran Game Over
+src/style.css       HUD, bouton pause, flèches de virage (clignotement), boutons tactiles (écrans tactiles seulement), écran Game Over
 public/models.glb   tous les modèles 3D (voir plus bas)
 public/bikeTXT.jpg  atlas de textures unique (voir plus bas)
 public/smoketxt.png texture de la fumée (fichier en minuscules, attention à la casse)
@@ -53,12 +53,20 @@ public/motolowpoly.glb  modèle de moto ajouté par l'utilisateur, NON utilisé 
 - La caméra tourne avec un léger retard dans les virages (`CAMERA_TURN_DAMPING`) ; la moto se penche (`TURN_LEAN` 30°). Ondulation de la route (courbure du monde, `updateRoadWave`) : ligne droite de 50 à 80 m, puis ondulation d'un seul côté (au hasard) sur 60 à 100 m, puis ligne droite, etc. ; toujours coupée à l'approche des carrefours (`bendFade`).
 - **Pooling partout** : tronçons de route, voitures, sprites de fumée sont créés une fois puis recyclés. Ne pas créer d'objets ni de `new Vector3()` dans la boucle de jeu.
 - **World bending** : tout matériau visible dans le décor doit passer par `applyWorldBend(material)`, sinon il ne suit pas les virages. Si un matériau a déjà un `onBeforeCompile`, l'enchaîner (voir `road.js`).
-- **Brouillard** (`FOG_NEAR` 30, `FOG_FAR` 85, couleur du ciel `0x87ceeb`) : cache l'apparition des voitures (SPAWN_Z = -90) et la fin de la route (~ -110). Garder `FOG_FAR` < ~90.
+- **Brouillard** (`FOG_NEAR` 30, `FOG_FAR` 85, couleur du ciel `0x87ceeb`) : cache l'apparition des voitures (au plus `SPAWN_AHEAD` = 90 m devant) et des rues créées à l'avance (branches du carrefour suivant). Garder `FOG_FAR` < ~90.
 - `delta` est plafonné à 0,1 s ; le temps vient de `THREE.Timer` (pas `THREE.Clock`, déprécié).
+
+## Caméra et contrôles (src/main.js)
+
+- **Caméra sur un arc** : elle glisse sur un demi-cercle horizontal centré sur le milieu de la route `CAMERA_PIVOT_Z` (-12 m) devant la moto, et regarde toujours ce point. Elle suit le couloir de la moto à `CAMERA_FOLLOW` = 0,6 : sur un couloir latéral, elle reste un peu décalée vers le centre et on voit le flanc de la moto. Hauteur `CAMERA_HEIGHT` 3. Retard dans les virages : `CAMERA_TURN_DAMPING`.
+- **Caméra libre (développement)** : `DEBUG_ORBIT = true` réactive OrbitControls (souris) et coupe la caméra sur l'arc. `false` par défaut.
+- **Clavier** : ← / → (couloir, ou virage près d'un carrefour), **M** (moto), **P** / **Échap** (pause), **Entrée** / **Espace** (rejouer après Game Over).
+- **Mobile** : boutons ◀ ▶ (`#left`/`#right`), visibles seulement sur écran tactile (`@media (hover: none) and (pointer: coarse)`), réagissent au `pointerdown` et appellent la même fonction `steer(direction)` que le clavier. Légère vibration à chaque appui (`BUTTON_VIBRATION` 15 ms, `navigator.vibrate` : Android ; ignorée sur iPhone).
+- **Effet cartoon** des motos : `toon.js` (`TONES` = paliers de lumière, `OUTLINE_WIDTH` = épaisseur du contour).
 
 ## Repères et conventions 3D
 
-- Three.js : Y = haut, l'avant de la moto regarde vers **-Z**, la caméra est en (0, 3, 6).
+- Three.js : Y = haut, l'avant de la moto regarde vers **-Z**, la caméra est en (0, 3, 6) quand la moto est au centre.
 - Blender : Z = haut, l'avant regarde vers **+Y**. L'export glTF convertit : (x, y, z) Blender → (x, z, -y) Three.js.
 - Couloirs : `LANE_WIDTH` = 2, `laneX(0..2)` = -2, 0, 2. Le joueur démarre au couloir 1 (centre).
 - Échelle : 1 unité = 1 mètre.
@@ -101,19 +109,25 @@ Les cases de couleur sont échantillonnées en leur centre : le filtrage lissé 
 - Voitures (obstacles.js) : `CAR_SPEED` 4 (même sens que le joueur), **une seule voiture à la fois** (jamais deux côte à côte), couloir au hasard. **Aucune voiture dans les `CAR_FREE_ZONE` (30) derniers mètres avant un carrefour**, ni dans les virages, ni dans les `AFTER_CORNER` (25) premiers mètres d'une rue : on choisit d'abord l'endroit où le joueur croisera la voiture (`nextEncounter`, tous les 36–54 m parcourus), puis on la fait apparaître (≤ 90 m devant) à la position d'où elle sera rejointe à cet endroit.
 - Route : tronçons de 20 m × 6, pavés répétés 1 fois par couloir en largeur et 14 fois par tronçon. Trottoirs 1,5 m, bâtiments à partir de ±4,5 m.
 
-## Ce qui n'est PAS possible depuis Claude Code mobile / web
+## Sessions Claude Code dans le cloud (mobile / web) et en local
 
-Une session Claude Code sur mobile tourne dans un environnement cloud, pas sur l'ordinateur de l'utilisateur :
+L'utilisateur travaille tantôt en local (VS Code sur son ordinateur, avec Blender), tantôt depuis son téléphone (session Claude Code dans le cloud, sur une copie fraîche du dépôt GitHub `Jikolgit/ctnrace`).
 
-- **Pas de Blender** : le serveur Blender MCP (port 9876) et Blender ne sont pas disponibles. Pas de modélisation, pas de ré-export du GLB, pas de rendus. Les modifications de modèles 3D sont à reporter au retour sur l'ordinateur — ou à faire en code Three.js (géométries procédurales, déplacement/rotation/échelle de nœuds existants, couleurs de matériaux).
-- **Pas de navigateur pour voir le jeu** : vérifie avec `npm run build` et décris précisément ce qui doit changer à l'écran ; l'utilisateur teste lui-même (en local au retour, ou via un déploiement web s'il en met un en place, par ex. GitHub Pages — il faudra alors régler `base` dans une config Vite).
+- **Synchronisation** : les deux pushent sur `master`. En local, faire `git pull origin master` avant de travailler (les sessions cloud ont pu pousser des commits) ; dans le cloud, `git fetch` avant de pousser.
+- **Déploiement** : le dépôt est relié à **Vercel**, qui redéploie à chaque push sur `master` ; c'est ainsi que l'utilisateur teste depuis son téléphone. Pousser après chaque modification validée par `npm run build`.
+- **Dans le cloud, pas de Blender** : le serveur Blender MCP (port 9876) tourne sur l'ordinateur de l'utilisateur et n'est pas joignable. Pas de modélisation, pas de ré-export du GLB. Modifications 3D possibles seulement en code Three.js (géométries procédurales, déplacement/rotation/échelle de nœuds existants, matériaux). Un nouveau `models.glb` exporté en local doit être poussé sur GitHub (git ou « Add file → Upload files » sur github.com) ; le vérifier ensuite avec le script Node décrit plus haut.
+- **Voir le jeu dans le cloud** : Chromium sans écran est disponible pour Playwright (`executablePath: '/opt/pw-browsers/chromium'`, options `--use-gl=swiftshader --enable-unsafe-swiftshader`) : `npm run build`, `npx vite preview`, puis captures d'écran (format mobile : `devices['Pixel 7']`). Le rendu logiciel est lent (le jeu tourne au ralenti). Pour observer longtemps sans Game Over, tester une copie du projet dans un dossier temporaire où `hits()` de `obstacles.js` renvoie `false` — ne jamais pousser cette modification.
 - Les fichiers `.blend` sont binaires : ne pas les modifier.
 
 ## Pistes en attente / limites connues
 
 - `MotoCub_Direction` ne pivote pas seule : toute la moto tourne lors des changements de couloir.
 - La boîte de collision de la moto est celle de l'ancienne moto.
-- La première voiture est croisée vers 135 m (plus loin si la première rue est courte).
+- La première voiture est croisée vers 135 m (plus loin si la première rue est courte). Les voitures sont assez rares dans les rues courtes (zone sans voiture de 30 m avant et 25 m après chaque carrefour).
+- Le virage à 90° est rapide (~0,4 s, rayon 3 m) ; des carrefours plus larges permettraient un virage plus doux.
+- La fenêtre de virage (15 m ≈ 1,25 s) est courte, surtout sur mobile ; option envisagée : afficher les flèches plus tôt.
+- Le pilote, les voitures et le décor ne sont pas en style cartoon (seules les motos le sont).
+- Compteur de distance négatif (« -4 m ») observé une fois au démarrage : le premier `delta` de la boucle peut être négatif (non plafonné vers le bas). Non corrigé.
 - `public/motolowpoly.glb` n'est pas utilisé (l'utilisateur a choisi la MotoCub de models.glb).
 - Un modèle « tête de moto » lissé (`moto_2_head`) et une moto `moto_2` existent seulement dans la scène Blender, pas dans le jeu.
-- OrbitControls est encore actif (caméra déplaçable à la souris), utile en développement, à retirer pour le jeu final.
+- OrbitControls n'est plus actif (voir `DEBUG_ORBIT`) ; l'import reste dans `main.js` pour le développement.
