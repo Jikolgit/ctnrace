@@ -11,9 +11,10 @@ export const MAP_HEIGHT = 520;
 // trottoirs de 1,5 m de chaque côté.
 // Les grandes routes ont un terre-plein central (median, en m) : 2 couloirs de chaque côté, et on ne peut
 // rouler que dans les 2 couloirs de son sens (on roule à droite). Le terre-plein s'interrompt aux carrefours.
+// uturn : demi-tour possible aux carrefours (pas dans les ruelles).
 export const ROAD_TYPES = {
-  small: { lanes: 3, surface: 'pavés' },
-  big: { lanes: 4, surface: 'goudron', median: 2, laneWidth: 2.5 }, // couloirs plus larges : 12 m au total
+  small: { lanes: 3, surface: 'pavés', uturn: true },
+  big: { lanes: 4, surface: 'goudron', median: 2, laneWidth: 2.5, uturn: true }, // couloirs plus larges : 12 m au total
   alley: { lanes: 2, surface: 'petits pavés' },
 };
 export const LANE_WIDTH = 2;

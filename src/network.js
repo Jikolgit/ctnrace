@@ -69,11 +69,18 @@ export function buildGraph() {
 // Point de départ du joueur : carrefour Rue 1451 × Route de l'Ouémé, en direction du nord
 const START = { x: 240, y: 500, dir: NORTH, after: 6 }; // after : mètres après la sortie du carrefour
 const BEHIND = 40; // une rue est oubliée quand le joueur est à cette distance après son virage
+// Demi-tour (grandes routes et rues pavées) : demi-cercle autour d'un point de l'axe de la rue, à l'entrée du
+// carrefour (le terre-plein y est interrompu). Chaque couloir garde sa distance à l'axe : la moto arrive dans
+// le couloir symétrique d'en face. Vers la gauche depuis un couloir de droite, vers la droite depuis un
+// couloir de gauche (sinon le demi-cercle sortirait de la rue). UTURN_RADIUS sert à mesurer sa longueur.
+export const UTURN = 2;
+const UTURN_RADIUS = 3.5;
 
 // Parcours dans le réseau, même interface que track.js : update, reset, pose, legAt, choose, pendingLeg.
 // Une « rue » (leg) va du centre d'un carrefour au centre du suivant. Dans le carrefour d'arrivée, le joueur
 // tourne (-1 gauche, +1 droite) sur un quart de cercle de rayon node.radius, ou va tout droit (0) s'il
-// n'a rien choisi. Si tout droit est impossible (carrefour en T ou en L), il va dans le mur.
+// n'a rien choisi. Si tout droit est impossible (carrefour en T ou en L), il va dans le mur. Sur une grande
+// route (terre-plein), il peut aussi faire demi-tour (UTURN = 2, touche ↓).
 // Les bras qui mènent à une impasse (bord de la carte) ne sont jamais proposés.
 export function createNetworkTrack(graph) {
   const legs = [];
@@ -91,10 +98,14 @@ export function createNetworkTrack(graph) {
       const next = to.arms[(d + turn + 4) % 4];
       if (next && !next.node.deadEnd) options.push(turn);
     }
+    if (ROAD_TYPES[arm.road.type].uturn) options.push(UTURN);
     // Rue transversale au carrefour d'arrivée : son trottoir d'en face est le « mur » si on va tout droit
     const cross = d === EAST || d === WEST ? to.v : to.h;
     const radius = to.radius;
     const sArcStart = sStart + arm.length - startOffset - radius;
+    // Demi-tour : on avance jusqu'au bord du carrefour (fin du terre-plein), puis demi-cercle
+    const crossHalf = cross ? halfWidth(cross) : 0;
+    const uturnStraight = Math.max(0, radius - crossHalf);
     return {
       from,
       to,
@@ -115,17 +126,27 @@ export function createNetworkTrack(graph) {
       sStart,
       sArcStart,
       sEnd: Infinity, // fixé au choix du virage
+      crossHalf,
+      uturnStraight,
       // Distance après sArcStart où l'avant de la moto touche le mur d'en face (main.js)
       wallHit: radius + (cross ? halfWidth(cross) : 0) + SIDEWALK_WIDTH - 0.85,
     };
   }
 
-  // Virage choisi au carrefour au bout de la dernière rue (-1, +1, ou 0 = tout droit)
-  function choose(dir) {
+  // Virage choisi au carrefour au bout de la dernière rue (-1, +1, 0 = tout droit, UTURN = demi-tour)
+  // uturnSide (demi-tour seulement) : +1 vers la gauche (moto à droite de l'axe), -1 vers la droite
+  function choose(dir, uturnSide = 1) {
     const leg = legs[legs.length - 1];
     if (leg.turn !== undefined) return;
     leg.turn = dir;
     if (!leg.options.includes(dir)) return; // tout droit impossible : la moto va dans le mur
+    if (dir === UTURN) {
+      // La rue suivante est la même rue en sens inverse, depuis le bord du carrefour ; l'angle continue (±180°)
+      leg.uturnSide = uturnSide;
+      leg.sEnd = leg.sArcStart + leg.uturnStraight + Math.PI * UTURN_RADIUS;
+      legs.push(createLeg(leg.to, (leg.d + 2) % 4, leg.theta + uturnSide * Math.PI, leg.crossHalf, leg.sEnd));
+      return;
+    }
     leg.sEnd = leg.sArcStart + (dir === 0 ? 2 * leg.radius : (leg.radius * Math.PI) / 2);
     legs.push(createLeg(leg.to, (leg.d + dir + 4) % 4, leg.theta - dir * (Math.PI / 2), leg.radius, leg.sEnd));
   }
@@ -142,9 +163,15 @@ export function createNetworkTrack(graph) {
   function pose(s, lateral, out) {
     const leg = legAt(s);
     let theta = leg.theta;
-    if (s <= leg.sArcStart || !leg.turn) {
-      // Ligne droite (ou tout droit dans le carrefour)
+    if (s <= leg.sArcStart || !leg.turn || (leg.turn === UTURN && s <= leg.sArcStart + leg.uturnStraight)) {
+      // Ligne droite (ou tout droit dans le carrefour, ou approche du demi-tour)
       out.copy(leg.origin).addScaledVector(leg.dir, leg.startOffset + (s - leg.sStart));
+    } else if (leg.turn === UTURN) {
+      // Demi-tour autour du point de l'axe au bord du carrefour ; le décalage latéral (plus bas) fait décrire à
+      // chaque couloir un demi-cercle jusqu'au couloir symétrique d'en face
+      const angle = Math.min((s - leg.sArcStart - leg.uturnStraight) / UTURN_RADIUS, Math.PI);
+      theta = leg.theta + leg.uturnSide * angle;
+      out.copy(leg.origin).addScaledVector(leg.dir, leg.length - leg.crossHalf);
     } else {
       const r = leg.radius;
       const angle = Math.min((s - leg.sArcStart) / r, Math.PI / 2);

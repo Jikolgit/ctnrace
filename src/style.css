@@ -759,3 +759,50 @@ body.in-menu #unloading {
 #complete-menu:hover {
   background: rgba(255, 255, 255, 0.28);
 }
+
+/* Demi-tour : flèche vers le bas entre les flèches de virage */
+#arrow-uturn {
+  transform: rotate(90deg);
+}
+
+#turn-arrows #arrow-uturn {
+  width: min(16vw, 100px);
+}
+
+
+/* Bouton tactile STOP (frein, à maintenir) entre ◀ et ▶ ; bouton ▼ (demi-tour) juste au-dessus, affiché
+   seulement quand le demi-tour est possible */
+#touch-controls {
+  align-items: flex-end;
+}
+
+#touch-controls #brake {
+  font-size: 18px;
+  letter-spacing: 0.04em;
+}
+
+#touch-controls #brake:active {
+  background: rgba(214, 40, 40, 0.85);
+}
+
+#touch-controls #down {
+  position: absolute;
+  left: 50%;
+  bottom: calc(84px + 12px);
+  width: 64px;
+  height: 64px;
+  margin-left: -32px;
+  background: rgba(232, 100, 42, 0.85);
+  font-size: 26px;
+}
+
+#touch-controls #down[hidden] {
+  display: none;
+}
+
+/* Écrans tactiles : l'indication de départ passe au-dessus de la mini-carte (elle-même au-dessus des boutons) */
+@media (hover: none) and (pointer: coarse) {
+  #start-hint {
+    bottom: calc(24px + 84px + 12px + min(40vw, 220px) * 0.82 + 20px + env(safe-area-inset-bottom));
+  }
+}

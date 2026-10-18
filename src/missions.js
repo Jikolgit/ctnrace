@@ -5,7 +5,9 @@
 export const MISSION_COUNT = 5;
 const STORAGE_KEY = 'ctnRacer.unlockedMission';
 
-// Contenu des missions. Chaque livraison est un point au bord d'une rue de deliveryMap.js :
+// Contenu des missions. pickup (facultatif) : point de chargement où l'on prend les produits avant de
+// pouvoir livrer (sans pickup, les produits sont déjà chargés au départ). Chaque point (chargement ou
+// livraison) est au bord d'une rue de deliveryMap.js :
 //  - road : nom de la rue ; at : position le long de la rue (y pour une rue verticale, x pour une horizontale) ;
 //  - side : côté du trottoir où l'on livre (rue verticale : -1 ouest, +1 est ; horizontale : -1 nord, +1 sud).
 // Garder les points à une vingtaine de mètres au moins des carrefours (place pour freiner).
@@ -16,6 +18,15 @@ const MISSIONS = [
       { name: 'Ferrari Lounge', road: 'Rue 1520', at: 392, side: -1 }, // entre Rue 1614 et la ruelle
       { name: 'Hôtel Mavilla', road: 'Rue 1402', at: 405, side: -1 },
       { name: 'Résidence Royale', road: 'Rue 1660', at: 450, side: 1 },
+    ],
+  },
+  {
+    // Mission 2 : charger les produits au Marché Dantokpa, puis les livrer dans le nord et l'est du quartier
+    pickup: { name: 'Marché Dantokpa', road: 'Rue Bel Air', at: 470, side: -1 },
+    deliveries: [
+      { name: 'Nora Hôtel', road: 'Rue 1650', at: 200, side: 1 },
+      { name: 'Boutique Kpondehou', road: 'Rue 1460', at: 300, side: 1 },
+      { name: 'Akpakpa', road: 'Rue 1180', at: 440, side: -1 },
     ],
   },
 ];

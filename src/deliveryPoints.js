@@ -3,9 +3,10 @@ import { applyWorldBend } from './worldBend.js';
 import { ROADS } from './deliveryMap.js';
 import { halfWidth, laneWidthOf, isHorizontal } from './network.js';
 
-// Mode Livraison : points de livraison de la mission en cours. Chacun est marqué sur la route par une
-// grosse flèche orange qui pointe vers le bas (elle tourne sur elle-même et flotte) au-dessus du couloir
-// qui longe le trottoir de livraison, avec un cercle au sol. La moto livre en roulant dessus.
+// Mode Livraison : points d'arrêt de la mission en cours, chargement (kind 'pickup', vert) ou livraison
+// ('delivery', orange). Chacun est marqué sur la route par une grosse flèche qui pointe vers le bas (elle
+// tourne sur elle-même et flotte) au-dessus du couloir qui longe le trottoir, avec un cercle au sol.
+// La moto s'y arrête en roulant dessus.
 
 const ARROW_HEIGHT = 1.7; // hauteur du bas de la flèche au-dessus de la route
 const BOB_AMPLITUDE = 0.2;
@@ -43,28 +44,32 @@ export function deliveryPosition(delivery) {
 // parent : groupe de la ville de Livraison (repère de la carte : x → X, y → Z)
 export function createDeliveryPoints(parent) {
   const arrowGeometry = createArrowGeometry();
-  const arrowMaterial = applyWorldBend(
-    new THREE.MeshStandardMaterial({ color: 0xe8642a, emissive: 0x7a2a08, roughness: 0.5, metalness: 0 })
-  );
   const ringGeometry = new THREE.RingGeometry(0.9, 1.2, 32);
   ringGeometry.rotateX(-Math.PI / 2);
-  const ringMaterial = applyWorldBend(
-    new THREE.MeshBasicMaterial({ color: 0xe8642a, transparent: true, opacity: 0.8, depthWrite: false })
-  );
+  // Matériaux de la flèche et du cercle pour chaque sorte de point
+  const looks = {};
+  for (const [kind, color, emissive] of [['delivery', 0xe8642a, 0x7a2a08], ['pickup', 0x2e9e4f, 0x0f4a1f]]) {
+    looks[kind] = {
+      arrow: applyWorldBend(new THREE.MeshStandardMaterial({ color, emissive, roughness: 0.5, metalness: 0 })),
+      ring: applyWorldBend(
+        new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.8, depthWrite: false })
+      ),
+    };
+  }
 
   // points : { x, y, active, arrow, ring } ; visibles tant qu'ils ne sont pas livrés
   const points = [];
   for (let i = 0; i < MAX_POINTS; i++) {
-    const arrow = new THREE.Mesh(arrowGeometry, arrowMaterial);
-    const ring = new THREE.Mesh(ringGeometry, ringMaterial);
+    const arrow = new THREE.Mesh(arrowGeometry, looks.delivery.arrow);
+    const ring = new THREE.Mesh(ringGeometry, looks.delivery.ring);
     arrow.visible = ring.visible = false;
     parent.add(arrow, ring);
-    points.push({ x: 0, y: 0, active: false, arrow, ring, phase: i });
+    points.push({ x: 0, y: 0, kind: 'delivery', active: false, arrow, ring, phase: i });
   }
   let count = 0;
 
-  // Nouvelle partie : une flèche par livraison de la mission
-  function reset(deliveries) {
+  // Affiche une flèche par point de la liste (et retire les autres) ; kind : 'delivery' ou 'pickup'
+  function reset(deliveries, kind = 'delivery') {
     count = deliveries.length;
     points.forEach((point, i) => {
       point.active = i < count;
@@ -73,6 +78,9 @@ export function createDeliveryPoints(parent) {
       const { x, y } = deliveryPosition(deliveries[i]);
       point.x = x;
       point.y = y;
+      point.kind = kind;
+      point.arrow.material = looks[kind].arrow;
+      point.ring.material = looks[kind].ring;
       point.ring.position.set(x, 0.03, y);
       point.arrow.position.set(x, ARROW_HEIGHT, y);
     });
@@ -105,5 +113,8 @@ export function createDeliveryPoints(parent) {
     return remaining;
   }
 
-  return { reset, update, remove, active };
+  // Sorte du point i : 'delivery' ou 'pickup'
+  const kindOf = (i) => points[i].kind;
+
+  return { reset, update, remove, active, kindOf };
 }

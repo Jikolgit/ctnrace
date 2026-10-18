@@ -71,7 +71,7 @@ export function createMinimap(canvas) {
   const plan = drawPlan();
 
   // x, y : position du joueur sur la carte (mètres) ; theta : direction (repère de track.js / network.js) ;
-  // points : points de livraison restants { x, y } (deliveryPoints.js)
+  // points : points d'arrêt restants { x, y, kind } (deliveryPoints.js) : livraison orange, chargement vert
   function update(x, y, theta, points) {
     ctx.clearRect(0, 0, WIDTH, HEIGHT);
     ctx.drawImage(plan, 0, 0);
@@ -83,7 +83,7 @@ export function createMinimap(canvas) {
       const cy = py(point.y);
       ctx.beginPath();
       ctx.arc(cx, cy, 11, 0, Math.PI * 2);
-      ctx.fillStyle = '#e8642a';
+      ctx.fillStyle = point.kind === 'pickup' ? '#2e9e4f' : '#e8642a';
       ctx.fill();
       ctx.lineWidth = 3;
       ctx.strokeStyle = '#1b1b1b';
