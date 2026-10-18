@@ -36,6 +36,9 @@ src/toon.js         effet cartoon des motos : toToon(material) (MeshToonMaterial
 src/deliveryMap.js  mode Livraison : données du réseau de rues (inspiré de Ségbeya / Kpondehou, Cotonou), lieux, quartiers
 src/network.js      mode Livraison : graphe du réseau (carrefours, bras) et parcours du joueur (même interface que track.js)
 src/deliveryCity.js mode Livraison : ville fixe construite une fois (goudron, pavés, trottoirs et bâtiments en InstancedMesh)
+src/minimap.js      mode Livraison : mini-carte (canvas #minimap, coin inférieur gauche) : plan, lieux, flèche du joueur
+src/fuelCans.js     mode Livraison : bidons d'essence (sprites public/jerrycan.png), ramassés en roulant dessus
+src/missions.js     mode Livraison : nombre de missions et progression (localStorage), completeMission(n)
 tools/drawDeliveryMap.mjs  dessine le plan du réseau dans docs/reseau-livraison.svg (node tools/drawDeliveryMap.mjs)
 src/smoke.js        fumée d'échappement : pool de sprites (dans la scène, pas dans `world` : repère de la caméra)
 src/worldBend.js    effet de courbure du monde (vertex shader) : applyWorldBend(material), bendUniforms
@@ -62,9 +65,10 @@ public/motolowpoly.glb  modèle de moto ajouté par l'utilisateur, NON utilisé 
 
 ## Menu et modes de jeu (src/main.js)
 
-- Menu principal (`#menu`, classe `in-menu` sur `body`) au lancement et via le bouton **Menu** du Game Over. `startGame(mode)` : `'challenge'` (Défis) ou `'delivery'` (Livraison).
+- Menu principal (`#menu`, classe `in-menu` sur `body`) au lancement et via le bouton **Menu** du Game Over ou du panneau Pause (`#pause-menu` : Reprendre / Menu principal). Le bouton Livraison ouvre l'écran Missions (`#missions`, classe `in-missions`) : grille de `MISSION_COUNT` (5) cartes, seules les missions débloquées sont jouables ; pour l'instant chaque mission lance la même partie libre et rien n'appelle encore `completeMission`. `startGame(mode)` : `'challenge'` (Défis) ou `'delivery'` (Livraison).
 - `world` contient deux décors : `challengeWorld` (ville infinie de track.js, voitures) et `deliveryWorld` (ville fixe de deliveryCity.js, construite au premier lancement). `activeTrack` = `track` ou `network`.
-- **Livraison** : réseau de `deliveryMap.js` (repère carte : x → X, y vers le sud → Z). Petites rues pavées à 3 couloirs, grandes routes goudronnées à 4 couloirs (la moto se replace dans le couloir le plus proche en changeant de rue, `laneCount()`). Aux carrefours en croix, sans choix la moto va tout droit ; en T ou en L, elle va dans le mur (Game Over). Les bras qui mènent à une impasse (bord de carte) ne sont jamais proposés. Rayon de virage = demi-largeur de la plus large rue du carrefour. Départ : Rue 1451 × Route de l'Ouémé, vers le nord. Pas de voitures, pas d'ondulation de la route, pas encore de colis ni de minimap ; pas d'eau (la côte du plan n'est pas modélisée).
+- **Livraison** : réseau de `deliveryMap.js` (repère carte : x → X, y vers le sud → Z). Petites rues pavées à 3 couloirs, grandes routes goudronnées à 4 couloirs (la moto se replace dans le couloir le plus proche en changeant de rue, `laneCount()`). Aux carrefours en croix, sans choix la moto va tout droit ; en T ou en L, elle va dans le mur (Game Over). Les bras qui mènent à une impasse (bord de carte) ne sont jamais proposés. Rayon de virage = demi-largeur de la plus large rue du carrefour. Départ : Rue 1451 × Route de l'Ouémé, vers le nord. L'angle des rues (theta) continue celui de la rue précédente (± 90°), jamais recalculé depuis la direction : sinon la caméra fait un tour autour de la moto. Pas de voitures, pas d'ondulation de la route, pas encore de colis ; pas d'eau (la côte du plan n'est pas modélisée).
+- **Essence (Livraison)** : jauge verticale `#fuel` sous le compteur de distance. `FUEL_MAX` 100, consommation `FUEL_PER_METER` (plein ≈ 600 m), bidon = `CAN_FUEL` 30 (14 bidons sur la carte, un bidon ramassé réapparaît à ≥ 120 m). À 0, la moto ralentit (`BRAKE` 6 m/s²) jusqu'à l'arrêt puis Game Over « Panne d'essence ! ». La vitesse courante est `speed` (`SPEED` hors panne).
 
 ## Caméra et contrôles (src/main.js)
 

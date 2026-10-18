@@ -11,11 +11,17 @@ import { toToon, addOutline } from './toon.js';
 import { createObstacles } from './obstacles.js';
 import { buildGraph, createNetworkTrack } from './network.js';
 import { createDeliveryCity } from './deliveryCity.js';
+import { createMinimap } from './minimap.js';
+import { createFuelCans } from './fuelCans.js';
+import { MISSION_COUNT, unlockedMission } from './missions.js';
 import { atlas } from './atlas.js';
 
 const canvas = document.getElementById('game');
 const distanceDisplay = document.getElementById('distance');
 const pauseButton = document.getElementById('pause');
+const pausePanel = document.getElementById('pause-menu');
+const resumeButton = document.getElementById('resume');
+const pauseMenuButton = document.getElementById('pause-to-menu');
 const gameOverPanel = document.getElementById('gameover');
 const finalDistance = document.getElementById('final-distance');
 const restartButton = document.getElementById('restart');
@@ -23,6 +29,11 @@ const arrowLeft = document.getElementById('arrow-left');
 const arrowRight = document.getElementById('arrow-right');
 const challengeButton = document.getElementById('mode-challenge');
 const deliveryButton = document.getElementById('mode-delivery');
+const minimap = createMinimap(document.getElementById('minimap'));
+const fuelGauge = document.getElementById('fuel');
+const fuelLevel = fuelGauge.querySelector('.level');
+const fuelValue = fuelGauge.querySelector('.value');
+const gameOverReason = document.getElementById('gameover-reason');
 const menuButton = document.getElementById('to-menu');
 
 // Renderer
@@ -134,6 +145,7 @@ track.update(playerS);
 const graph = buildGraph();
 const network = createNetworkTrack(graph);
 let deliveryCity = null;
+let fuelCans = null; // bidons d'essence (Livraison), créés avec la ville
 
 // Parcours du mode en cours : track (Défis) ou network (Livraison)
 let activeTrack = track;
@@ -144,6 +156,7 @@ const laneXOf = (index, count) => (index - (count - 1) / 2) * LANE_WIDTH;
 
 const Y_AXIS = new THREE.Vector3(0, 1, 0);
 const playerPoint = new THREE.Vector3();
+const minimapPoint = new THREE.Vector3();
 
 // Place le groupe world pour que le point du parcours où se trouve le joueur soit en 0, face à -Z
 function placeWorld() {
@@ -305,20 +318,29 @@ new GLTFLoader().load(
   (error) => console.error('Impossible de charger models.glb', error)
 );
 
-// Pause
+// Pause : le jeu se fige et le panneau Pause (Reprendre / Menu principal) remplace le bouton Pause
 let paused = false;
+
+function setPaused(value) {
+  paused = value;
+  pausePanel.hidden = !paused;
+  pauseButton.hidden = paused;
+  if (paused) resumeButton.focus();
+  else resumeButton.blur();
+}
 
 function togglePause() {
   if (gameOver || inMenu) return;
-  paused = !paused;
-  pauseButton.textContent = paused ? 'Reprendre' : 'Pause';
+  setPaused(!paused);
 }
 
 // Game over et nouvelle partie
 let gameOver = false;
 
-function endGame() {
+function endGame(reason = '') {
   gameOver = true;
+  gameOverReason.textContent = reason;
+  gameOverReason.hidden = !reason;
   finalDistance.textContent = `${Math.floor(distance)} m`;
   gameOverPanel.hidden = false;
   updateArrows();
@@ -342,6 +364,12 @@ function restart() {
   placeWorld();
   cameraHeading = playerHeading;
   obstacles?.reset();
+  speed = SPEED;
+  setFuel(FUEL_MAX);
+  if (gameMode === 'delivery') {
+    activeTrack.pose(playerS, player.position.x, minimapPoint);
+    fuelCans.reset(minimapPoint.x, minimapPoint.z);
+  }
   updateArrows();
   gameOverPanel.hidden = true;
   gameOver = false;
@@ -350,7 +378,7 @@ function restart() {
 
 restartButton.addEventListener('click', restart);
 
-// Menu principal : affiché au lancement et depuis l'écran Game Over. La scène reste figée derrière.
+// Menu principal : affiché au lancement, depuis l'écran Game Over et depuis le panneau Pause. La scène reste figée derrière.
 // Modes : 'challenge' (Défis : roule sans fin) ; 'delivery' (Livraison : réseau de rues fixe).
 let inMenu = true;
 let gameMode = null;
@@ -358,36 +386,79 @@ let gameMode = null;
 function startGame(mode) {
   gameMode = mode;
   const delivery = mode === 'delivery';
-  if (delivery && !deliveryCity) deliveryCity = createDeliveryCity(deliveryWorld, graph);
+  if (delivery && !deliveryCity) {
+    deliveryCity = createDeliveryCity(deliveryWorld, graph);
+    fuelCans = createFuelCans(deliveryWorld, graph);
+  }
   activeTrack = delivery ? network : track;
   challengeWorld.visible = !delivery;
   deliveryWorld.visible = delivery;
+  document.body.classList.toggle('delivery', delivery); // affiche la mini-carte
   if (delivery) {
     obstacles?.reset(); // pas encore de voitures en Livraison
     bendUniforms.uBend.value = 0; // rues droites, comme sur le plan
   }
   restart();
   inMenu = false;
-  document.body.classList.remove('in-menu');
+  document.body.classList.remove('in-menu', 'in-missions');
 }
 
 function showMenu() {
   restart(); // repart d'une scène propre derrière le menu
-  paused = false;
-  pauseButton.textContent = 'Pause';
+  setPaused(false);
   inMenu = true;
   document.body.classList.add('in-menu');
+  document.body.classList.remove('in-missions');
   challengeButton.focus();
 }
 
+// Écran des missions (Livraison) : une case par mission, seules les missions débloquées sont jouables.
+// Pour l'instant, chaque mission lance la même partie libre dans le réseau de rues.
+const missionGrid = document.querySelector('#missions .grid');
+const LOCK_ICON = `<svg class="lock" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10V7a5 5 0 0 1 10 0v3"
+  fill="none" stroke="#1b1b1b" stroke-width="2.5"/><rect x="4" y="10" width="16" height="12" rx="2" fill="#1b1b1b"/></svg>`;
+let currentMission = 1;
+
+function showMissions() {
+  const unlocked = unlockedMission();
+  missionGrid.replaceChildren();
+  for (let n = 1; n <= MISSION_COUNT; n++) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'mission';
+    button.textContent = n;
+    if (n > unlocked) {
+      button.disabled = true;
+      button.insertAdjacentHTML('beforeend', LOCK_ICON);
+      button.setAttribute('aria-label', `Mission ${n} (verrouillée)`);
+    } else {
+      button.setAttribute('aria-label', `Mission ${n}`);
+      button.addEventListener('click', () => {
+        currentMission = n;
+        startGame('delivery');
+      });
+    }
+    missionGrid.append(button);
+  }
+  document.body.classList.add('in-missions');
+  missionGrid.querySelector('.mission:not(:disabled)')?.focus();
+}
+
+document.getElementById('missions-back').addEventListener('click', () => {
+  document.body.classList.remove('in-missions');
+  deliveryButton.focus();
+});
+
 challengeButton.addEventListener('click', () => startGame('challenge'));
-deliveryButton.addEventListener('click', () => startGame('delivery'));
+deliveryButton.addEventListener('click', showMissions);
 menuButton.addEventListener('click', showMenu);
 
 pauseButton.addEventListener('click', () => {
   togglePause();
   pauseButton.blur(); // évite que Espace / Entrée ne re-déclenche le bouton
 });
+resumeButton.addEventListener('click', () => setPaused(false));
+pauseMenuButton.addEventListener('click', showMenu);
 
 // Déplacement entre couloirs
 let currentLane = 1;
@@ -488,7 +559,29 @@ const PLAYER_BACK = 1.0;
 
 // Progression
 const SPEED = 12; // unités par seconde
+let speed = SPEED; // vitesse actuelle : SPEED, sauf quand la moto s'arrête faute d'essence
 let distance = 0;
+
+// Essence (Livraison) : réservoir de FUEL_MAX points, consommé en roulant. Un bidon ramassé en donne
+// CAN_FUEL. À 0, la moto ralentit (BRAKE) jusqu'à l'arrêt : Game Over.
+const FUEL_MAX = 100;
+const FUEL_PER_METER = FUEL_MAX / 600; // réservoir plein : environ 600 m (50 s)
+const CAN_FUEL = 30;
+const BRAKE = 6; // décélération (m/s²) en panne : arrêt en 2 s
+const RESTART_ACCELERATION = 6; // reprise de vitesse si on ramasse un bidon en roue libre
+let fuel = FUEL_MAX;
+let displayedFuel = -1;
+
+function setFuel(value) {
+  fuel = THREE.MathUtils.clamp(value, 0, FUEL_MAX);
+  const shown = Math.ceil(fuel);
+  if (shown === displayedFuel) return; // le DOM n'est mis à jour que si la valeur affichée change
+  displayedFuel = shown;
+  fuelLevel.style.transform = `scaleY(${fuel / FUEL_MAX})`;
+  fuelValue.textContent = shown;
+  fuelGauge.classList.toggle('medium', shown <= 50 && shown > 25);
+  fuelGauge.classList.toggle('low', shown <= 25);
+}
 let gameTime = 0; // temps de jeu, figé pendant la pause
 
 // Ondulation de la route (courbure du monde) : une ligne droite d'au moins BEND_STRAIGHT_MIN mètres,
@@ -539,13 +632,25 @@ function animate(timestamp) {
   if (!paused && !gameOver && !inMenu) {
     // Démo : la route ondule entre virage gauche et virage droit
     gameTime += delta;
-    if (gameMode !== 'delivery') updateRoadWave(SPEED * delta);
+    const delivery = gameMode === 'delivery';
+
+    // Panne d'essence : la moto ralentit jusqu'à l'arrêt, puis Game Over
+    if (delivery && fuel <= 0) {
+      speed = Math.max(0, speed - BRAKE * delta);
+      if (speed === 0) endGame("Panne d'essence !");
+    } else if (speed < SPEED) {
+      speed = Math.min(SPEED, speed + RESTART_ACCELERATION * delta);
+    }
+    const step = speed * delta; // distance parcourue pendant cette image
+
+    if (!delivery) updateRoadWave(step);
 
     // Le joueur avance sur le parcours ; le monde est replacé autour de lui
-    playerS += SPEED * delta;
+    playerS += step;
     activeTrack.update(playerS);
     placeWorld();
-    distance += SPEED * delta;
+    distance += step;
+    if (delivery) setFuel(fuel - step * FUEL_PER_METER);
     updateArrows();
 
     // Pas de virage choisi et tout droit impossible : la moto traverse le carrefour jusqu'au mur
@@ -580,7 +685,7 @@ function animate(timestamp) {
 
     // Roues : roulement sans glissement, angle = distance parcourue / rayon
     // (rotation négative autour de X = le haut de la roue part vers l'avant, -Z)
-    const spin = (SPEED * delta) / bike.wheelRadius / 2; // réduit de moitié
+    const spin = step / bike.wheelRadius / 2; // réduit de moitié
     for (const wheel of wheels) {
       wheel.rotateX(bike.spinSign * spin);
     }
@@ -589,7 +694,7 @@ function animate(timestamp) {
     if (wheels.length) {
       exhaustWorld.copy(bike.exhaust);
       player.localToWorld(exhaustWorld); // suit aussi l'inclinaison de la moto
-      smoke.update(delta, SPEED, exhaustWorld);
+      smoke.update(delta, speed, exhaustWorld);
     }
 
     // Glissement vers le couloir cible, en LANE_CHANGE_DURATION secondes
@@ -620,8 +725,21 @@ function animate(timestamp) {
     }
     player.rotation.z = THREE.MathUtils.damp(player.rotation.z, targetLean, 20, delta);
 
+    // Bidons d'essence (Livraison) : ramassés en roulant dessus (position de la moto sur la carte)
+    if (delivery) {
+      activeTrack.pose(playerS, player.position.x, minimapPoint);
+      const picked = fuelCans.update(gameTime, minimapPoint.x, minimapPoint.z);
+      if (picked) {
+        setFuel(fuel + picked * CAN_FUEL);
+        // Petit grossissement de la jauge (on relance l'animation CSS)
+        fuelGauge.classList.remove('refuel');
+        void fuelGauge.offsetWidth;
+        fuelGauge.classList.add('refuel');
+      }
+    }
+
     // Voitures : défilement, apparition, puis collision avec la moto
-    if (obstacles && gameMode !== 'delivery') {
+    if (obstacles && !delivery) {
       obstacles.update(delta, SPEED, playerS);
       if (
         obstacles.hits(player.position.x, PLAYER_HALF_WIDTH, PLAYER_FRONT, PLAYER_BACK)
@@ -629,6 +747,12 @@ function animate(timestamp) {
         endGame();
       }
     }
+  }
+
+  // Mini-carte (Livraison) : position de la moto, couloir compris (x → x de la carte, z → y)
+  if (gameMode === 'delivery' && !inMenu) {
+    const theta = activeTrack.pose(playerS, player.position.x, minimapPoint);
+    minimap.update(minimapPoint.x, minimapPoint.z, theta);
   }
 
   if (controls) controls.update();

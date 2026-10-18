@@ -75,12 +75,14 @@ const BEHIND = 40; // une rue est oubliée quand le joueur est à cette distance
 export function createNetworkTrack(graph) {
   const legs = [];
 
-  // from : nœud de départ ; d : direction ; startOffset : distance après le centre de from où commence la
-  // ligne droite (rayon du virage précédent) ; sStart : s à cet endroit
-  function createLeg(from, d, startOffset, sStart) {
+  // from : nœud de départ ; d : direction ; theta : angle correspondant ; startOffset : distance après le
+  // centre de from où commence la ligne droite (rayon du virage précédent) ; sStart : s à cet endroit.
+  // theta n'est pas recalculé depuis d (-d × 90°) : il continue celui de la rue précédente (± 90°), sinon il
+  // sauterait d'un tour complet entre le nord et l'ouest et la caméra, qui le suit avec retard, ferait
+  // un tour autour de la moto.
+  function createLeg(from, d, theta, startOffset, sStart) {
     const arm = from.arms[d];
     const to = arm.node;
-    const theta = (-d * Math.PI) / 2;
     const options = [];
     for (const turn of [-1, 0, 1]) {
       const next = to.arms[(d + turn + 4) % 4];
@@ -120,7 +122,7 @@ export function createNetworkTrack(graph) {
     leg.turn = dir;
     if (!leg.options.includes(dir)) return; // tout droit impossible : la moto va dans le mur
     leg.sEnd = leg.sArcStart + (dir === 0 ? 2 * leg.radius : (leg.radius * Math.PI) / 2);
-    legs.push(createLeg(leg.to, (leg.d + dir + 4) % 4, leg.radius, leg.sEnd));
+    legs.push(createLeg(leg.to, (leg.d + dir + 4) % 4, leg.theta - dir * (Math.PI / 2), leg.radius, leg.sEnd));
   }
 
   function legAt(s) {
@@ -165,7 +167,7 @@ export function createNetworkTrack(graph) {
   function reset(s) {
     legs.length = 0;
     const start = graph.nodeAt(START.x, START.y);
-    legs.push(createLeg(start, START.dir, start.radius, s - START.after));
+    legs.push(createLeg(start, START.dir, (-START.dir * Math.PI) / 2, start.radius, s - START.after));
   }
 
   // Rue en attente du choix du joueur (la dernière), ou null si le choix est fait

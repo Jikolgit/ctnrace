@@ -34,7 +34,21 @@
         </button>
       </div>
     </div>
+    <div id="missions">
+      <h1 class="title">Livraison</h1>
+      <p class="subtitle">Choisis ta mission</p>
+      <div class="board">
+        <div class="grid"><!-- cases créées par main.js --></div>
+      </div>
+      <button id="missions-back" type="button">Retour</button>
+    </div>
     <div id="hud"><span id="distance">0 m</span></div>
+    <canvas id="minimap" aria-label="Mini-carte"></canvas>
+    <div id="fuel" aria-label="Essence">
+      <img src="/jerrycan.png" alt="" />
+      <div class="bar"><div class="level"></div></div>
+      <span class="value">100</span>
+    </div>
     <button id="pause" type="button">Pause</button>
     <div id="turn-arrows">
       <img id="arrow-left" src="/arrow.png" alt="Tourne à gauche" hidden />
@@ -44,9 +58,20 @@
       <button id="left" type="button" aria-label="Gauche">&#9664;</button>
       <button id="right" type="button" aria-label="Droite">&#9654;</button>
     </div>
+    <div id="pause-menu" hidden>
+      <div class="panel">
+        <h1>Pause</h1>
+        <div class="actions">
+          <button id="resume" type="button">Reprendre</button>
+          <button id="pause-to-menu" type="button">Menu principal</button>
+        </div>
+        <p class="hint">ou appuie sur P / Échap pour reprendre</p>
+      </div>
+    </div>
     <div id="gameover" hidden>
       <div class="panel">
         <h1>Game Over</h1>
+        <p id="gameover-reason" hidden></p>
         <p>Distance : <span id="final-distance">0 m</span></p>
         <div class="actions">
           <button id="restart" type="button">Rejouer</button>
