@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { applyWorldBend, bendUniforms } from './worldBend.js';
-import { LANE_COUNT, LANE_WIDTH, ROAD_HALF_WIDTH, SIDEWALK_WIDTH, laneX, createRoad } from './road.js';
+import { LANE_COUNT, LANE_WIDTH, ROAD_HALF_WIDTH, SIDEWALK_WIDTH, SIDEWALK_HEIGHT, laneX, createRoad } from './road.js';
 import { createSmoke } from './smoke.js';
 import { createCity } from './city.js';
 import { createTrack } from './track.js';
@@ -13,7 +13,8 @@ import { buildGraph, createNetworkTrack } from './network.js';
 import { createDeliveryCity } from './deliveryCity.js';
 import { createMinimap } from './minimap.js';
 import { createFuelCans } from './fuelCans.js';
-import { MISSION_COUNT, unlockedMission } from './missions.js';
+import { MISSION_COUNT, unlockedMission, completeMission, missionData } from './missions.js';
+import { createDeliveryPoints } from './deliveryPoints.js';
 import { atlas } from './atlas.js';
 
 const canvas = document.getElementById('game');
@@ -34,6 +35,21 @@ const fuelGauge = document.getElementById('fuel');
 const fuelLevel = fuelGauge.querySelector('.level');
 const fuelValue = fuelGauge.querySelector('.value');
 const gameOverReason = document.getElementById('gameover-reason');
+const startHint = document.getElementById('start-hint');
+const cargoCount = document.querySelector('#cargo .count');
+const unloadingPanel = document.getElementById('unloading');
+const unloadingLevel = unloadingPanel.querySelector('.level');
+const missionPanel = document.getElementById('mission-complete');
+const missionSummary = document.getElementById('mission-summary');
+
+// Indication « Appuie sur ← pour partir » : side = côté du trottoir où attend la moto (+1 droite, -1 gauche),
+// la flèche à presser est celle qui ramène vers la route
+function showStartHint(side, verb) {
+  const left = side > 0;
+  startHint.innerHTML = `Appuie sur <span class="key-keyboard">${left ? '←' : '→'}</span><span class="key-touch">${
+    left ? '◀' : '▶'}</span> pour ${verb}`;
+  startHint.hidden = false;
+}
 const menuButton = document.getElementById('to-menu');
 
 // Renderer
@@ -146,13 +162,26 @@ const graph = buildGraph();
 const network = createNetworkTrack(graph);
 let deliveryCity = null;
 let fuelCans = null; // bidons d'essence (Livraison), créés avec la ville
+let deliveryPoints = null; // flèches de livraison de la mission (Livraison), créées avec la ville
 
 // Parcours du mode en cours : track (Défis) ou network (Livraison)
 let activeTrack = track;
 
 // Couloirs de la rue où se trouve le joueur : 3 (petite rue pavée) ou 4 (grande route goudronnée)
 const laneCount = () => activeTrack.legAt(playerS).lanes ?? LANE_COUNT;
-const laneXOf = (index, count) => (index - (count - 1) / 2) * LANE_WIDTH;
+// Terre-plein central de la rue (grandes routes de Livraison) : les couloirs s'écartent de median / 2 de
+// chaque côté, et on ne roule que dans ceux de droite (on roule à droite, comme au Bénin)
+const medianOf = () => activeTrack.legAt(playerS).median ?? 0;
+// Largeur de couloir de la rue (2 m, 2,5 m sur les grandes routes de Livraison)
+const laneWidthNow = () => activeTrack.legAt(playerS).laneWidth ?? LANE_WIDTH;
+const laneXOf = (index, count, median = 0, width = LANE_WIDTH) => {
+  const x = (index - (count - 1) / 2) * width;
+  return x + (Math.sign(x) * median) / 2;
+};
+// Premier couloir autorisé : avec un terre-plein, seulement la moitié droite de la route
+const firstLane = () => (medianOf() > 0 ? laneCount() / 2 : 0);
+// Bord de la chaussée (terre-plein compris)
+const roadHalfWidth = () => (laneCount() * laneWidthNow() + medianOf()) / 2;
 
 const Y_AXIS = new THREE.Vector3(0, 1, 0);
 const playerPoint = new THREE.Vector3();
@@ -355,20 +384,30 @@ function restart() {
   player.rotation.set(0, 0, 0);
   playerS = START_S;
   activeTrack.reset(playerS);
-  // Couloir de départ : le centre (3 couloirs) ou le couloir de droite du milieu (4 couloirs)
+  // Départ à l'arrêt sur le trottoir de droite : « couloir » d'indice laneCount() (juste après le dernier)
   currentLeg = activeTrack.legAt(playerS);
-  currentLane = Math.floor(laneCount() / 2);
-  laneChange.from = laneChange.to = laneXOf(currentLane, laneCount());
+  started = false;
+  parkedSide = 1;
+  deliveryState = null;
+  unloadingPanel.hidden = true;
+  missionPanel.hidden = true;
+  currentLane = laneCount();
+  laneChange.from = laneChange.to = sidewalkX();
   laneChange.t = 1;
   player.position.x = laneChange.to;
+  player.position.y = SIDEWALK_HEIGHT;
+  showStartHint(1, 'partir');
   placeWorld();
   cameraHeading = playerHeading;
   obstacles?.reset();
-  speed = SPEED;
+  speed = 0;
   setFuel(FUEL_MAX);
   if (gameMode === 'delivery') {
     activeTrack.pose(playerS, player.position.x, minimapPoint);
     fuelCans.reset(minimapPoint.x, minimapPoint.z);
+    const { deliveries } = missionData(currentMission);
+    deliveryPoints.reset(deliveries);
+    setCargo(deliveries.length);
   }
   updateArrows();
   gameOverPanel.hidden = true;
@@ -389,6 +428,7 @@ function startGame(mode) {
   if (delivery && !deliveryCity) {
     deliveryCity = createDeliveryCity(deliveryWorld, graph);
     fuelCans = createFuelCans(deliveryWorld, graph);
+    deliveryPoints = createDeliveryPoints(deliveryWorld);
   }
   activeTrack = delivery ? network : track;
   challengeWorld.visible = !delivery;
@@ -402,6 +442,24 @@ function startGame(mode) {
   inMenu = false;
   document.body.classList.remove('in-menu', 'in-missions');
 }
+
+// Tous les produits livrés : mission réussie, la suivante est débloquée
+function finishMission() {
+  gameOver = true; // fige la partie (Entrée relance la mission, comme après un Game Over)
+  completeMission(currentMission);
+  const total = missionData(currentMission).deliveries.length;
+  missionSummary.textContent = `${total} produits livrés en ${Math.floor(distance)} m.`;
+  missionPanel.hidden = false;
+  startHint.hidden = true;
+  updateArrows();
+  document.getElementById('complete-missions').focus();
+}
+
+document.getElementById('complete-missions').addEventListener('click', () => {
+  showMenu();
+  showMissions();
+});
+document.getElementById('complete-menu').addEventListener('click', showMenu);
 
 function showMenu() {
   restart(); // repart d'une scène propre derrière le menu
@@ -479,7 +537,7 @@ const laneChange = { from: laneX(currentLane), to: laneX(currentLane), t: 1 };
 
 function startLaneChange() {
   laneChange.from = player.position.x; // repart de la position actuelle, même en plein changement
-  laneChange.to = laneXOf(currentLane, laneCount());
+  laneChange.to = laneTarget(currentLane);
   laneChange.t = 0;
 }
 
@@ -521,6 +579,15 @@ window.addEventListener('keydown', (event) => {
 // sinon : change de couloir.
 function steer(direction) {
   if (paused || gameOver || inMenu) return;
+  // Départ : la flèche gauche fait descendre la moto du trottoir vers le couloir de droite, et elle démarre
+  if (!started) {
+    if (deliveryState || direction !== -parkedSide) return; // pas pendant la livraison
+    started = true;
+    startHint.hidden = true;
+    currentLane = parkedSide > 0 ? laneCount() - 1 : firstLane();
+    startLaneChange();
+    return;
+  }
   const turnLeg = turnWindowLeg();
   if (turnLeg) {
     if (turnLeg.options.includes(direction)) {
@@ -530,7 +597,7 @@ function steer(direction) {
     return;
   }
   const lane = currentLane;
-  currentLane = Math.min(laneCount() - 1, Math.max(0, currentLane + direction));
+  currentLane = Math.min(laneCount() - 1, Math.max(firstLane(), currentLane + direction));
   if (currentLane !== lane) startLaneChange();
 }
 
@@ -559,7 +626,33 @@ const PLAYER_BACK = 1.0;
 
 // Progression
 const SPEED = 12; // unités par seconde
-let speed = SPEED; // vitesse actuelle : SPEED, sauf quand la moto s'arrête faute d'essence
+let speed = 0; // vitesse actuelle : 0 à l'arrêt au départ, SPEED en roulant, en baisse en panne d'essence
+let started = false; // la moto roule (false : garée sur un trottoir, au départ ou pour une livraison)
+let parkedSide = 1; // trottoir où la moto est garée : +1 droite, -1 gauche
+
+// Livraison : rouler sur une flèche → la moto freine en montant sur le trottoir le plus proche
+// ('braking'), puis le produit est livré en UNLOAD_TIME s ('unloading'), puis elle attend le départ
+const DELIVERY_BRAKE = 10; // m/s² : arrêt en un peu plus d'1 s
+const UNLOAD_TIME = 2; // secondes
+let deliveryState = null; // null, 'braking' ou 'unloading'
+let unloadTimer = 0;
+let cargo = 0; // produits encore à livrer
+
+function setCargo(value) {
+  cargo = value;
+  cargoCount.textContent = cargo;
+}
+
+// Position latérale visée pour l'indice de couloir i (-1 : trottoir de gauche, laneCount() : trottoir de droite)
+function laneTarget(i) {
+  const count = laneCount();
+  if (i >= count) return sidewalkX();
+  if (i < 0) return -sidewalkX();
+  return laneXOf(i, count, medianOf(), laneWidthNow());
+}
+
+// Position latérale du trottoir de droite (milieu du trottoir) sur la rue où se trouve le joueur
+const sidewalkX = () => roadHalfWidth() + SIDEWALK_WIDTH / 2;
 let distance = 0;
 
 // Essence (Livraison) : réservoir de FUEL_MAX points, consommé en roulant. Un bidon ramassé en donne
@@ -568,7 +661,7 @@ const FUEL_MAX = 100;
 const FUEL_PER_METER = FUEL_MAX / 600; // réservoir plein : environ 600 m (50 s)
 const CAN_FUEL = 30;
 const BRAKE = 6; // décélération (m/s²) en panne : arrêt en 2 s
-const RESTART_ACCELERATION = 6; // reprise de vitesse si on ramasse un bidon en roue libre
+const ACCELERATION = 6; // m/s² : au départ (SPEED atteinte en 2 s) et à la reprise après un bidon en roue libre
 let fuel = FUEL_MAX;
 let displayedFuel = -1;
 
@@ -635,11 +728,30 @@ function animate(timestamp) {
     const delivery = gameMode === 'delivery';
 
     // Panne d'essence : la moto ralentit jusqu'à l'arrêt, puis Game Over
-    if (delivery && fuel <= 0) {
+    if (deliveryState === 'braking') {
+      speed = Math.max(0, speed - DELIVERY_BRAKE * delta);
+      if (speed === 0) {
+        deliveryState = 'unloading';
+        unloadTimer = UNLOAD_TIME;
+        unloadingLevel.style.transform = 'scaleX(1)';
+        unloadingPanel.hidden = false;
+      }
+    } else if (deliveryState === 'unloading') {
+      unloadTimer = Math.max(0, unloadTimer - delta);
+      unloadingLevel.style.transform = `scaleX(${unloadTimer / UNLOAD_TIME})`;
+      if (unloadTimer === 0) {
+        deliveryState = null;
+        unloadingPanel.hidden = true;
+        setCargo(cargo - 1);
+        if (cargo === 0) finishMission();
+        else showStartHint(parkedSide, 'repartir');
+      }
+    } else if (delivery && fuel <= 0) {
       speed = Math.max(0, speed - BRAKE * delta);
       if (speed === 0) endGame("Panne d'essence !");
-    } else if (speed < SPEED) {
-      speed = Math.min(SPEED, speed + RESTART_ACCELERATION * delta);
+    } else if (started && speed < SPEED) {
+      // Démarrage (ou reprise après un bidon ramassé en roue libre)
+      speed = Math.min(SPEED, speed + ACCELERATION * delta);
     }
     const step = speed * delta; // distance parcourue pendant cette image
 
@@ -664,17 +776,26 @@ function animate(timestamp) {
       endGame();
     }
 
-    // Nouvelle rue : si le nombre de couloirs change (3 ↔ 4), la moto glisse vers le couloir le plus proche
+    // Nouvelle rue : si les couloirs changent (2, 3 ou 4 couloirs, terre-plein ou non), la moto glisse vers
+    // le couloir autorisé le plus proche (avec un terre-plein : un des 2 couloirs de droite)
     if (crossing !== currentLeg) {
       const lanes = crossing.lanes ?? LANE_COUNT;
-      if (lanes !== (currentLeg?.lanes ?? LANE_COUNT)) {
-        currentLane = THREE.MathUtils.clamp(
-          Math.round(player.position.x / LANE_WIDTH + (lanes - 1) / 2), 0, lanes - 1
-        );
-        currentLeg = crossing;
+      const median = crossing.median ?? 0;
+      const width = crossing.laneWidth ?? LANE_WIDTH;
+      const changed =
+        lanes !== (currentLeg?.lanes ?? LANE_COUNT) ||
+        median !== (currentLeg?.median ?? 0) ||
+        width !== (currentLeg?.laneWidth ?? LANE_WIDTH);
+      currentLeg = crossing;
+      if (changed && started) {
+        let nearest = firstLane();
+        for (let i = firstLane(); i < lanes; i++) {
+          const gap = Math.abs(laneXOf(i, lanes, median, width) - player.position.x);
+          if (gap < Math.abs(laneXOf(nearest, lanes, median, width) - player.position.x)) nearest = i;
+        }
+        currentLane = nearest;
         startLaneChange();
       }
-      currentLeg = crossing;
     }
 
     const meters = Math.floor(distance);
@@ -702,6 +823,11 @@ function animate(timestamp) {
     const t = laneChange.t;
     const shift = laneChange.to - laneChange.from;
     player.position.x = laneChange.from + shift * easeInOut(t);
+    // Sur le trottoir, la moto est posée sur sa bordure (hauteur SIDEWALK_HEIGHT) ; elle en descend en
+    // passant le bord de la route
+    const roadEdge = roadHalfWidth();
+    player.position.y =
+      SIDEWALK_HEIGHT * THREE.MathUtils.clamp((Math.abs(player.position.x) - roadEdge + 0.3) / 0.6, 0, 1);
 
     // Sens et ampleur du changement (1 = un couloir entier)
     const amount = THREE.MathUtils.clamp(shift / LANE_WIDTH, -1, 1);
@@ -736,10 +862,22 @@ function animate(timestamp) {
         void fuelGauge.offsetWidth;
         fuelGauge.classList.add('refuel');
       }
+
+      // Flèche de livraison : déclenchée dans les deux sens. La moto s'arrête sur le trottoir le plus
+      // proche (celui de gauche si elle arrive à contresens) pour livrer
+      const hit = deliveryPoints.update(gameTime, minimapPoint.x, minimapPoint.z);
+      if (hit >= 0 && started && !deliveryState) {
+        deliveryPoints.remove(hit);
+        deliveryState = 'braking';
+        started = false;
+        parkedSide = player.position.x >= 0 ? 1 : -1;
+        currentLane = parkedSide > 0 ? laneCount() : -1;
+        startLaneChange();
+      }
     }
 
     // Voitures : défilement, apparition, puis collision avec la moto
-    if (obstacles && !delivery) {
+    if (obstacles && !delivery && started) {
       obstacles.update(delta, SPEED, playerS);
       if (
         obstacles.hits(player.position.x, PLAYER_HALF_WIDTH, PLAYER_FRONT, PLAYER_BACK)
@@ -752,7 +890,7 @@ function animate(timestamp) {
   // Mini-carte (Livraison) : position de la moto, couloir compris (x → x de la carte, z → y)
   if (gameMode === 'delivery' && !inMenu) {
     const theta = activeTrack.pose(playerS, player.position.x, minimapPoint);
-    minimap.update(minimapPoint.x, minimapPoint.z, theta);
+    minimap.update(minimapPoint.x, minimapPoint.z, theta, deliveryPoints.active());
   }
 
   if (controls) controls.update();

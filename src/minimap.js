@@ -1,6 +1,7 @@
-import { MAP_WIDTH, MAP_HEIGHT, ROADS, PLACES } from './deliveryMap.js';
+import { MAP_WIDTH, MAP_HEIGHT, ROADS } from './deliveryMap.js';
 
-// Mode Livraison : mini-carte du réseau (nord en haut) avec la position et la direction du joueur.
+// Mode Livraison : mini-carte du réseau (nord en haut) avec les points de livraison restants et la
+// position et la direction du joueur.
 // Le plan est dessiné une seule fois dans un canvas hors écran ; à chaque image on le recopie puis on
 // dessine la flèche du joueur par-dessus.
 
@@ -10,8 +11,9 @@ const SCALE = (WIDTH - 2 * PADDING) / MAP_WIDTH; // pixels par mètre
 const HEIGHT = Math.round(MAP_HEIGHT * SCALE + 2 * PADDING);
 
 const ROAD_STYLE = {
-  big: { color: '#e9e9e9', width: 6 },
+  big: { color: '#e9e9e9', width: 8 },
   small: { color: '#a99c86', width: 3.5 },
+  alley: { color: '#8a7f6c', width: 2.5 },
 };
 
 // Coordonnées de la carte (mètres) → pixels du canvas
@@ -25,8 +27,8 @@ function drawPlan() {
   const ctx = plan.getContext('2d');
   ctx.lineCap = 'square';
 
-  // Petites rues d'abord : les grandes routes passent dessus
-  for (const type of ['small', 'big']) {
+  // Ruelles et petites rues d'abord : les grandes routes passent dessus
+  for (const type of ['alley', 'small', 'big']) {
     const style = ROAD_STYLE[type];
     ctx.strokeStyle = style.color;
     ctx.lineWidth = style.width;
@@ -44,16 +46,21 @@ function drawPlan() {
     ctx.stroke();
   }
 
-  // Lieux de livraison
-  ctx.fillStyle = '#e8642a';
-  ctx.strokeStyle = '#1b1b1b';
-  ctx.lineWidth = 2;
-  for (const place of PLACES) {
-    ctx.beginPath();
-    ctx.arc(px(place.x), py(place.y), 6, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
+  // Terre-plein central des grandes routes : trait vert au milieu
+  ctx.strokeStyle = '#5f8a3a';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  for (const road of ROADS) {
+    if (road.type !== 'big') continue;
+    if (road.y !== undefined) {
+      ctx.moveTo(px(road.x1), py(road.y));
+      ctx.lineTo(px(road.x2), py(road.y));
+    } else {
+      ctx.moveTo(px(road.x), py(road.y1));
+      ctx.lineTo(px(road.x), py(road.y2));
+    }
   }
+  ctx.stroke();
   return plan;
 }
 
@@ -63,10 +70,36 @@ export function createMinimap(canvas) {
   const ctx = canvas.getContext('2d');
   const plan = drawPlan();
 
-  // x, y : position du joueur sur la carte (mètres) ; theta : direction (repère de track.js / network.js)
-  function update(x, y, theta) {
+  // x, y : position du joueur sur la carte (mètres) ; theta : direction (repère de track.js / network.js) ;
+  // points : points de livraison restants { x, y } (deliveryPoints.js)
+  function update(x, y, theta, points) {
     ctx.clearRect(0, 0, WIDTH, HEIGHT);
     ctx.drawImage(plan, 0, 0);
+
+    // Points de livraison : pastille orange avec une flèche vers le bas, comme sur la route
+    ctx.lineJoin = 'round';
+    for (const point of points) {
+      const cx = px(point.x);
+      const cy = py(point.y);
+      ctx.beginPath();
+      ctx.arc(cx, cy, 11, 0, Math.PI * 2);
+      ctx.fillStyle = '#e8642a';
+      ctx.fill();
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = '#1b1b1b';
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(cx - 3, cy - 6);
+      ctx.lineTo(cx + 3, cy - 6);
+      ctx.lineTo(cx + 3, cy);
+      ctx.lineTo(cx + 6, cy);
+      ctx.lineTo(cx, cy + 7);
+      ctx.lineTo(cx - 6, cy);
+      ctx.lineTo(cx - 3, cy);
+      ctx.closePath();
+      ctx.fillStyle = '#fff';
+      ctx.fill();
+    }
 
     // Flèche du joueur : pointe dans le sens de la marche (theta = 0 : vers le nord, en haut)
     ctx.save();

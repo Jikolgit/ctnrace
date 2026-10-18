@@ -1,16 +1,20 @@
 // Mode Livraison : réseau de routes inspiré d'un quartier de Cotonou (Ségbeya / Kpondehou / Akpakpa).
-// Données seules, pas encore utilisées par le jeu. Repère de la carte, en mètres :
+// Repère de la carte, en mètres :
 // x vers l'est (droite), y vers le sud (bas), origine en haut à gauche. Toutes les rues sont droites
 // et orientées nord-sud ou est-ouest (le jeu ne sait tourner qu'à 90°).
 
 export const MAP_WIDTH = 640;
 export const MAP_HEIGHT = 520;
 
-// Deux types de route : petites rues pavées (3 couloirs, celles du jeu actuel) et grandes routes
-// goudronnées (4 couloirs). Largeur de couloir 2 m, trottoirs de 1,5 m de chaque côté.
+// Trois types de route : petites rues pavées (3 couloirs), grandes routes goudronnées (4 couloirs) et
+// ruelles (2 couloirs, petits pavés, raccourcis). Largeur de couloir 2 m (laneWidth pour une autre largeur),
+// trottoirs de 1,5 m de chaque côté.
+// Les grandes routes ont un terre-plein central (median, en m) : 2 couloirs de chaque côté, et on ne peut
+// rouler que dans les 2 couloirs de son sens (on roule à droite). Le terre-plein s'interrompt aux carrefours.
 export const ROAD_TYPES = {
   small: { lanes: 3, surface: 'pavés' },
-  big: { lanes: 4, surface: 'goudron' },
+  big: { lanes: 4, surface: 'goudron', median: 2, laneWidth: 2.5 }, // couloirs plus larges : 12 m au total
+  alley: { lanes: 2, surface: 'petits pavés' },
 };
 export const LANE_WIDTH = 2;
 export const SIDEWALK_WIDTH = 1.5;
@@ -34,6 +38,9 @@ export const ROADS = [
   { name: 'Rue 1520', type: 'small', x: 320, y1: 240, y2: 500 },
   { name: 'Rue 1402', type: 'small', x: 400, y1: 40, y2: 500 },
   { name: 'Rue 1460', type: 'small', x: 480, y1: 140, y2: 370 },
+
+  // Ruelles (raccourcis)
+  { name: 'Ruelle du Lounge', type: 'alley', y: 420, x1: 240, x2: 320 },
 ];
 
 // Lieux remarquables : futurs points de départ / d'arrivée des livraisons

@@ -15,7 +15,10 @@ export const WEST = 3;
 export const DIR_X = [0, 1, 0, -1];
 export const DIR_Y = [-1, 0, 1, 0];
 
-export const halfWidth = (road) => (ROAD_TYPES[road.type].lanes * LANE_WIDTH) / 2;
+// Demi-largeur de la chaussée (terre-plein central compris)
+export const medianWidth = (road) => ROAD_TYPES[road.type].median ?? 0;
+export const laneWidthOf = (road) => ROAD_TYPES[road.type].laneWidth ?? LANE_WIDTH;
+export const halfWidth = (road) => (ROAD_TYPES[road.type].lanes * laneWidthOf(road) + medianWidth(road)) / 2;
 export const isHorizontal = (road) => road.y !== undefined;
 
 // Nœuds : carrefours et bouts de rue (impasses au bord de la carte). Chaque nœud connaît sa rue
@@ -98,6 +101,8 @@ export function createNetworkTrack(graph) {
       d,
       road: arm.road,
       lanes: ROAD_TYPES[arm.road.type].lanes,
+      median: medianWidth(arm.road), // terre-plein central (0 : pas de terre-plein)
+      laneWidth: laneWidthOf(arm.road),
       origin: new THREE.Vector3(from.x, 0, from.y),
       theta,
       dir: new THREE.Vector3(-Math.sin(theta), 0, -Math.cos(theta)),

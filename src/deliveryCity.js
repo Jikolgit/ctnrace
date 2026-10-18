@@ -3,11 +3,11 @@ import { applyWorldBend } from './worldBend.js';
 import {
   CHUNK_LENGTH, ROAD_REPEAT, SIDEWALK_HEIGHT, createPavedMaterial, sidewalkMaterial,
 } from './road.js';
-import { SIDEWALK_WIDTH } from './deliveryMap.js';
-import { NORTH, EAST, SOUTH, WEST, DIR_X, DIR_Y, halfWidth, isHorizontal } from './network.js';
+import { SIDEWALK_WIDTH, ROAD_TYPES } from './deliveryMap.js';
+import { NORTH, EAST, SOUTH, WEST, DIR_X, DIR_Y, halfWidth, medianWidth, isHorizontal } from './network.js';
 
 // Mode Livraison : la ville entière, construite une fois au démarrage (pas de recyclage : le réseau est fixe).
-// Petites rues pavées (3 couloirs), grandes routes goudronnées (4 couloirs), carrefours, trottoirs et
+// Petites rues pavées (3 couloirs), grandes routes goudronnées (4 couloirs), ruelles à petits pavés (2 couloirs), carrefours, trottoirs et
 // bâtiments (boîtes) le long de chaque rue. Repère : x de la carte → X, y de la carte → Z.
 //
 // Angles de rue : les rangées de bâtiments des rues horizontales vont jusqu'au trottoir de la rue
@@ -25,6 +25,7 @@ const GAP_CHANCE = 0.4; // probabilité d'une ruelle avant un bâtiment
 const GAP_MIN = 0.5;
 const GAP_MAX = 1.5;
 const ASPHALT_TILE = 6; // longueur (m) couverte par la texture du goudron
+const MEDIAN_HEIGHT = 0.2; // hauteur de la bordure du terre-plein central
 
 const randomRange = (min, max) => min + Math.random() * (max - min);
 
@@ -32,11 +33,13 @@ const randomRange = (min, max) => min + Math.random() * (max - min);
 const BUILDING_COLORS = [0xb8b2a7, 0x9c8f80, 0xc9a27e, 0x8a9199, 0xa0624b, 0xd8d2c4, 0x6f7782, 0xbfae8e];
 const ASPHALT_COLOR = '#45484d';
 
-// Goudron d'une grande route (4 couloirs) dessiné dans un canvas : largeur de la route × ASPHALT_TILE m.
-// Lignes blanches discontinues entre les couloirs d'un même sens, ligne jaune continue au centre.
-function createAsphaltTexture(lanes) {
+// Goudron d'une grande route dessiné dans un canvas : largeur de la chaussée (terre-plein compris) ×
+// ASPHALT_TILE m. Deux chaussées de lanes / 2 couloirs séparées par le terre-plein (median m, couvert par
+// la bordure en 3D) : ligne blanche discontinue entre les couloirs d'un même sens, lignes blanches
+// continues le long des trottoirs et du terre-plein (marquage blanc, comme au Bénin).
+function createAsphaltTexture(lanes, median, laneWidth) {
   const PX = 32; // pixels par mètre
-  const width = lanes * 2;
+  const width = lanes * laneWidth + median;
   const canvas = document.createElement('canvas');
   canvas.width = width * PX;
   canvas.height = ASPHALT_TILE * PX;
@@ -50,19 +53,66 @@ function createAsphaltTexture(lanes) {
     ctx.fillRect(Math.random() * canvas.width, Math.random() * canvas.height, 2, 2);
   }
   const line = 0.12 * PX;
+  const carriageway = (lanes / 2) * laneWidth; // largeur d'une chaussée (m)
   ctx.fillStyle = '#f0f0f0';
-  for (let i = 1; i < lanes; i++) {
-    if (i === lanes / 2) continue;
-    ctx.fillRect(i * 2 * PX - line / 2, 0, line, canvas.height / 2); // tiret de 3 m, espace de 3 m
+  for (const start of [0, carriageway + median]) {
+    // Tirets entre les couloirs de la chaussée : 3 m de tiret, 3 m d'espace
+    for (let i = 1; i < lanes / 2; i++) {
+      ctx.fillRect((start + i * laneWidth) * PX - line / 2, 0, line, canvas.height / 2);
+    }
+    // Lignes continues des deux bords de la chaussée (trottoir et terre-plein)
+    ctx.fillRect((start + 0.15) * PX, 0, line, canvas.height);
+    ctx.fillRect((start + carriageway - 0.15) * PX - line, 0, line, canvas.height);
   }
-  ctx.fillRect(0.15 * PX, 0, line, canvas.height); // bords
-  ctx.fillRect(canvas.width - 0.15 * PX - line, 0, line, canvas.height);
-  ctx.fillStyle = '#f2c94c';
-  ctx.fillRect(canvas.width / 2 - line / 2, 0, line, canvas.height); // centre
 
   const texture = new THREE.CanvasTexture(canvas);
   texture.wrapS = THREE.ClampToEdgeWrapping;
   texture.wrapT = THREE.RepeatWrapping;
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = 8;
+  return texture;
+}
+
+// Petits pavés des ruelles dessinés dans un canvas : rangées de pavés rectangulaires en quinconce, posées en
+// travers de la ruelle, joints sombres, teintes gris-brun variées. La tuile couvre COBBLE_TILE × COBBLE_TILE m
+// et se raccorde dans les deux sens (nombre pair de rangées, pavés coupés au bord redessinés de l'autre côté).
+const COBBLE_TILE = 2;
+function createCobbleTexture() {
+  const SIZE = 256;
+  const ROWS = 10; // pavés de 20 cm de large
+  const PER_ROW = 7; // et d'environ 29 cm de long
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = SIZE;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#3f3b35'; // joints
+  ctx.fillRect(0, 0, SIZE, SIZE);
+  const rowHeight = SIZE / ROWS;
+  const stoneWidth = SIZE / PER_ROW;
+  const GAP = 3;
+  for (let row = 0; row < ROWS; row++) {
+    const offset = row % 2 ? stoneWidth / 2 : 0; // quinconce
+    for (let i = 0; i < PER_ROW; i++) {
+      const shade = 118 + Math.floor(Math.random() * 40);
+      const color = `rgb(${shade + 8},${shade},${shade - 12})`;
+      const x = i * stoneWidth + offset;
+      const y = row * rowHeight;
+      // Le pavé qui dépasse à droite est aussi dessiné à gauche (raccord horizontal)
+      for (const shift of [0, -SIZE]) {
+        const gradient = ctx.createLinearGradient(0, y, 0, y + rowHeight);
+        gradient.addColorStop(0, `rgba(255,255,255,0.18)`); // arête éclairée
+        gradient.addColorStop(0.5, 'rgba(255,255,255,0)');
+        gradient.addColorStop(1, 'rgba(0,0,0,0.25)'); // arête dans l'ombre
+        ctx.beginPath();
+        ctx.roundRect(x + shift + GAP / 2, y + GAP / 2, stoneWidth - GAP, rowHeight - GAP, 4);
+        ctx.fillStyle = color;
+        ctx.fill();
+        ctx.fillStyle = gradient;
+        ctx.fill();
+      }
+    }
+  }
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.anisotropy = 8;
   return texture;
@@ -84,7 +134,10 @@ export function createDeliveryCity(parent, graph) {
 
   const pavedMaterial = createPavedMaterial(ROAD_REPEAT);
   const asphaltMaterial = applyWorldBend(
-    new THREE.MeshStandardMaterial({ map: createAsphaltTexture(4), roughness: 0.95, metalness: 0 })
+    new THREE.MeshStandardMaterial({ map: createAsphaltTexture(ROAD_TYPES.big.lanes, ROAD_TYPES.big.median, ROAD_TYPES.big.laneWidth), roughness: 0.95, metalness: 0 })
+  );
+  const cobbleMaterial = applyWorldBend(
+    new THREE.MeshStandardMaterial({ map: createCobbleTexture(), roughness: 0.95, metalness: 0 })
   );
   const plainAsphalt = applyWorldBend(
     new THREE.MeshStandardMaterial({ color: ASPHALT_COLOR, roughness: 0.95, metalness: 0 })
@@ -95,11 +148,19 @@ export function createDeliveryCity(parent, graph) {
     const length = u2 - u1;
     if (length <= 0.01) return;
     const width = 2 * halfWidth(road);
-    const big = road.type === 'big';
-    const geometry = big
-      ? flatPlane(width, length, 1, length / ASPHALT_TILE)
-      : flatPlane(width, length, width / 2, length / CHUNK_LENGTH);
-    const mesh = new THREE.Mesh(geometry, big ? asphaltMaterial : pavedMaterial);
+    let geometry;
+    let material;
+    if (road.type === 'big') {
+      geometry = flatPlane(width, length, 1, length / ASPHALT_TILE);
+      material = asphaltMaterial;
+    } else if (road.type === 'alley') {
+      geometry = flatPlane(width, length, width / COBBLE_TILE, length / COBBLE_TILE);
+      material = cobbleMaterial;
+    } else {
+      geometry = flatPlane(width, length, width / 2, length / CHUNK_LENGTH);
+      material = pavedMaterial;
+    }
+    const mesh = new THREE.Mesh(geometry, material);
     const mid = (u1 + u2) / 2;
     if (isHorizontal(road)) {
       mesh.position.set(road.x1 + mid, 0, road.y);
@@ -112,6 +173,8 @@ export function createDeliveryCity(parent, graph) {
 
   // Trottoirs et bâtiments : boîtes 1 × 1 × 1 redimensionnées, regroupées en InstancedMesh
   const sidewalks = []; // matrices
+  const medianCurbs = []; // bordures du terre-plein central des grandes routes
+  const medianGrass = []; // herbe sur le terre-plein
   const buildings = BUILDING_COLORS.map(() => []);
   const matrix = new THREE.Matrix4();
   const position = new THREE.Vector3();
@@ -165,6 +228,21 @@ export function createDeliveryCity(parent, graph) {
       const u1 = base + crossHalf(a, road);
       const u2 = base + arm.length - crossHalf(b, road);
       addSurface(road, u1, u2);
+
+      // Terre-plein central (grandes routes) : bordure en béton surélevée, herbe dessus ; interrompu aux
+      // carrefours pour pouvoir tourner
+      const median = medianWidth(road);
+      if (median > 0 && u2 - u1 > 0.01) {
+        const m = median / 2;
+        const g = m - 0.25; // bordure de 25 cm de chaque côté de l'herbe
+        if (horizontal) {
+          box(medianCurbs, road.x1 + u1, road.x1 + u2, road.y - m, road.y + m, MEDIAN_HEIGHT);
+          box(medianGrass, road.x1 + u1 + 0.25, road.x1 + u2 - 0.25, road.y - g, road.y + g, MEDIAN_HEIGHT + 0.02);
+        } else {
+          box(medianCurbs, road.x - m, road.x + m, road.y1 + u1, road.y1 + u2, MEDIAN_HEIGHT);
+          box(medianGrass, road.x - g, road.x + g, road.y1 + u1 + 0.25, road.y1 + u2 - 0.25, MEDIAN_HEIGHT + 0.02);
+        }
+      }
 
       // Côtés : pour une rue horizontale nord (-1) et sud (+1) ; pour une verticale ouest (-1) et est (+1)
       for (const side of [-1, 1]) {
@@ -245,6 +323,8 @@ export function createDeliveryCity(parent, graph) {
     group.add(mesh);
   }
   instanced(sidewalkMaterial, sidewalks);
+  instanced(applyWorldBend(new THREE.MeshStandardMaterial({ color: 0xc9c5bb, roughness: 0.9, metalness: 0 })), medianCurbs);
+  instanced(applyWorldBend(new THREE.MeshStandardMaterial({ color: 0x5f8a3a, roughness: 1, metalness: 0 })), medianGrass);
   BUILDING_COLORS.forEach((color, i) =>
     instanced(applyWorldBend(new THREE.MeshStandardMaterial({ color, roughness: 0.95, metalness: 0 })), buildings[i])
   );

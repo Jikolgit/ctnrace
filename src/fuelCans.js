@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { ROAD_TYPES, LANE_WIDTH } from './deliveryMap.js';
-import { EAST, SOUTH, isHorizontal } from './network.js';
+import { ROAD_TYPES } from './deliveryMap.js';
+import { EAST, SOUTH, isHorizontal, medianWidth, laneWidthOf } from './network.js';
 
 // Mode Livraison : bidons d'essence posés sur les rues du réseau. La moto les ramasse en roulant dessus ;
 // un bidon ramassé réapparaît aussitôt ailleurs, loin du joueur. Nombre fixe de bidons (pool, aucune
@@ -59,7 +59,8 @@ export function createFuelCans(parent, graph) {
       }
       const { from, arm } = chosen;
       const lanes = ROAD_TYPES[arm.road.type].lanes;
-      const lateral = (Math.floor(Math.random() * lanes) - (lanes - 1) / 2) * LANE_WIDTH;
+      let lateral = (Math.floor(Math.random() * lanes) - (lanes - 1) / 2) * laneWidthOf(arm.road);
+      lateral += (Math.sign(lateral) * medianWidth(arm.road)) / 2; // couloirs écartés par le terre-plein
       const u = MARGIN + Math.random() * (arm.length - 2 * MARGIN);
       if (isHorizontal(arm.road)) {
         can.x = from.x + u;

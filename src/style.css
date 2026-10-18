@@ -396,7 +396,7 @@ body.delivery:not(.in-menu) #fuel {
 #fuel .bar {
   position: relative;
   width: 18px;
-  height: 140px;
+  height: clamp(60px, 20vh, 140px); /* plus courte sur un écran peu haut : ne touche pas la mini-carte */
   border: 2px solid #1b1b1b;
   border-radius: 9px;
   background: rgba(255, 255, 255, 0.2);
@@ -569,4 +569,193 @@ body.in-missions #menu {
 #missions-back:active {
   transform: translateY(3px);
   box-shadow: 0 1px 0 #1b1b1b;
+}
+
+/* Indication de départ : la moto attend sur le trottoir que le joueur appuie sur gauche */
+#start-hint {
+  position: fixed;
+  left: 50%;
+  bottom: 22%;
+  transform: translateX(-50%);
+  padding: 10px 20px;
+  border: 3px solid #1b1b1b;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 4px 0 #1b1b1b;
+  color: #1b1b1b;
+  font: bold 20px/1 system-ui, sans-serif;
+  white-space: nowrap;
+  pointer-events: none;
+  animation: hint-pulse 0.9s ease-in-out infinite alternate;
+}
+
+#start-hint[hidden],
+body.in-menu #start-hint {
+  display: none;
+}
+
+#start-hint span {
+  color: #e8642a;
+}
+
+/* Clavier : flèche ←, écran tactile : bouton ◀ */
+#start-hint .key-touch {
+  display: none;
+}
+
+@media (hover: none) and (pointer: coarse) {
+  #start-hint .key-keyboard {
+    display: none;
+  }
+
+  #start-hint .key-touch {
+    display: inline;
+  }
+}
+
+@keyframes hint-pulse {
+  to {
+    transform: translateX(-50%) scale(1.06);
+  }
+}
+
+/* Compteur de produits transportés (Livraison) : [colis] [nombre], au-dessus de la jauge d'essence */
+#cargo {
+  position: fixed;
+  top: 68px;
+  left: 16px;
+  display: none;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px 6px 8px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  font: bold 24px/1 system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  user-select: none;
+}
+
+body.delivery:not(.in-menu) #cargo {
+  display: flex;
+}
+
+#cargo svg {
+  width: 30px;
+  height: 30px;
+}
+
+/* La jauge d'essence descend sous le compteur de produits */
+#fuel {
+  top: 120px;
+}
+
+/* Livraison en cours : petite jauge qui se vide en 2 s, au-dessus de la moto */
+#unloading {
+  position: fixed;
+  left: 50%;
+  top: 34%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px 12px;
+  border: 3px solid #1b1b1b;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 4px 0 #1b1b1b;
+  color: #1b1b1b;
+  font: bold 18px/1 system-ui, sans-serif;
+  pointer-events: none;
+}
+
+#unloading[hidden],
+body.in-menu #unloading {
+  display: none;
+}
+
+#unloading .bar {
+  width: 160px;
+  height: 14px;
+  border: 2px solid #1b1b1b;
+  border-radius: 7px;
+  background: #e8e2d8;
+  overflow: hidden;
+}
+
+#unloading .level {
+  width: 100%;
+  height: 100%;
+  background: #e8642a;
+  transform-origin: left;
+}
+
+/* Fin de mission : même panneau que le Game Over */
+#mission-complete {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+  font-family: system-ui, sans-serif;
+  color: #fff;
+}
+
+#mission-complete[hidden] {
+  display: none;
+}
+
+#mission-complete .panel {
+  padding: 28px 40px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.7);
+  text-align: center;
+}
+
+#mission-complete h1 {
+  margin: 0 0 12px;
+  font-size: 44px;
+  color: #ffd23f;
+}
+
+#mission-complete p {
+  margin: 0 0 20px;
+  font-size: 20px;
+}
+
+#mission-complete .actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}
+
+#complete-missions {
+  padding: 10px 24px;
+  border: 0;
+  border-radius: 8px;
+  background: #e8642a;
+  color: #fff;
+  font: bold 20px/1 system-ui, sans-serif;
+  cursor: pointer;
+}
+
+#complete-missions:hover {
+  background: #ff7a3d;
+}
+
+#complete-menu {
+  padding: 10px 24px;
+  border: 0;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  font: bold 20px/1 system-ui, sans-serif;
+  cursor: pointer;
+}
+
+#complete-menu:hover {
+  background: rgba(255, 255, 255, 0.28);
 }

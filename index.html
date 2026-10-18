@@ -44,12 +44,25 @@
     </div>
     <div id="hud"><span id="distance">0 m</span></div>
     <canvas id="minimap" aria-label="Mini-carte"></canvas>
+    <div id="cargo" aria-label="Produits à livrer">
+      <svg viewBox="0 0 64 64" aria-hidden="true">
+          <path d="M32 6 56 18v28L32 58 8 46V18Z" fill="#f2b45a" />
+          <path d="M32 30 56 18v28L32 58Z" fill="#d68f2f" />
+          <path d="M8 18 32 30 56 18 32 6Z" fill="#ffd28a" />
+          <path d="M20 12 44 24v8l-6 3v-8L14 15Z" fill="#c9772a" />
+          <path d="M32 6 56 18v28L32 58 8 46V18ZM8 18l24 12 24-12M32 30v28" fill="none" stroke="#1b1b1b" stroke-width="4" stroke-linejoin="round" />
+        </svg>
+      <span class="count">0</span>
+    </div>
     <div id="fuel" aria-label="Essence">
       <img src="/jerrycan.png" alt="" />
       <div class="bar"><div class="level"></div></div>
       <span class="value">100</span>
     </div>
     <button id="pause" type="button">Pause</button>
+    <div id="start-hint" hidden>
+      Appuie sur <span class="key-keyboard">←</span><span class="key-touch">◀</span> pour partir
+    </div>
     <div id="turn-arrows">
       <img id="arrow-left" src="/arrow.png" alt="Tourne à gauche" hidden />
       <img id="arrow-right" src="/arrow.png" alt="Tourne à droite" hidden />
@@ -57,6 +70,20 @@
     <div id="touch-controls">
       <button id="left" type="button" aria-label="Gauche">&#9664;</button>
       <button id="right" type="button" aria-label="Droite">&#9654;</button>
+    </div>
+    <div id="unloading" hidden>
+      <span class="label">Livraison en cours</span>
+      <div class="bar"><div class="level"></div></div>
+    </div>
+    <div id="mission-complete" hidden>
+      <div class="panel">
+        <h1>Mission réussie !</h1>
+        <p id="mission-summary">Tous les produits sont livrés.</p>
+        <div class="actions">
+          <button id="complete-missions" type="button">Missions</button>
+          <button id="complete-menu" type="button">Menu</button>
+        </div>
+      </div>
     </div>
     <div id="pause-menu" hidden>
       <div class="panel">
