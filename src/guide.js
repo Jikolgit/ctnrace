@@ -16,6 +16,7 @@ const LINE_WIDTH = 0.5; // m
 const LINE_HEIGHT = 0.05; // juste au-dessus de la chaussée
 const MAX_POINTS = 64;
 const COLOR = 0x29c5ff;
+const LEAD_IN = 8; // m : la ligne rejoint le couloir de droite à cette distance devant la moto
 
 // Décalage du couloir de droite par rapport à l'axe de la rue
 const laneOffset = (road) => halfWidth(road) - laneWidthOf(road) / 2;
@@ -73,12 +74,14 @@ export function createGuide(parent) {
   // Chemin le plus court depuis la moto (rue leg, position s) vers l'objectif le plus proche (Dijkstra sur les
   // états « carrefour + direction d'arrivée »)
   function computeRoute(leg, s) {
-    const travelled = leg.startOffset + (s - leg.sStart);
+    // Distance depuis le carrefour de départ de la rue ; pendant la traversée de ce carrefour, la moto n'a pas
+    // encore atteint le début de la rue (valeur négative) : on compte 0
+    const travelled = Math.max(0, leg.startOffset + (s - leg.sStart));
     let best = null;
-    // Objectif plus loin sur la rue actuelle : tout droit
+    // Objectif plus loin sur la rue actuelle : tout droit (u = -1 : objectif pas sur cette rue)
     for (const t of objectives) {
       const u = targetOnArm(t, leg.from, leg.d, leg.from.arms[leg.d]);
-      if (u > travelled && (!best || u - travelled < best.cost)) best = { cost: u - travelled, target: t, end: null };
+      if (u >= 0 && u > travelled && (!best || u - travelled < best.cost)) best = { cost: u - travelled, target: t, end: null };
     }
     const key = (node, d) => `${node.x},${node.y},${d}`;
     const dist = new Map();
@@ -153,6 +156,18 @@ export function createGuide(parent) {
     track.pose(s, lateral, playerPoint);
     addPoint(playerPoint.x, playerPoint.z);
     let road = leg.road;
+    // La ligne rejoint d'abord le couloir de droite, au lieu de couper en biais vers le carrefour suivant :
+    // à l'entrée de la rue si la moto est encore dans le carrefour (virage ou traversée), sinon LEAD_IN mètres
+    // devant elle (sans dépasser l'entrée du carrefour suivant ni l'objectif s'il est sur cette rue)
+    const travelled = leg.startOffset + (s - leg.sStart);
+    const limit = route.chain.length
+      ? leg.length - leg.radius
+      : targetOnArm(route.target, leg.from, leg.d, leg.from.arms[leg.d]);
+    const lead = travelled < 0 ? leg.startOffset : travelled + LEAD_IN;
+    if (lead < limit) {
+      const a = laneOffset(road);
+      addPoint(leg.from.x + lead * DIR_X[leg.d] + a * rightX(leg.d), leg.from.y + lead * DIR_Y[leg.d] + a * rightY(leg.d));
+    }
     for (let i = 0; i < route.chain.length; i++) {
       const { node, inDir, outDir } = route.chain[i];
       const outRoad = node.arms[outDir].road;
