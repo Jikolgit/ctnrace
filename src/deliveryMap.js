@@ -54,6 +54,14 @@ export const PLACES = [
   { name: 'Akpakpa', x: 470, y: 90 },
 ];
 
+// Stations essence (modèle StationEssence, voir stations.js) : au bord d'une rue, comme les points de
+// livraison (road, at = position le long de la rue, side = côté du trottoir). Le plein (100 %) se fait sur le
+// point d'arrêt devant la station. Loin des carrefours : la parcelle fait 20 m le long de la rue.
+export const STATIONS = [
+  { name: 'Station Ségbeya', road: 'Rue 1254', at: 135, side: -1 },
+  { name: 'Station Senade', road: 'Rue 1614', at: 520, side: 1 },
+];
+
 // Noms de quartiers (affichage seulement)
 export const DISTRICTS = [
   { name: 'AYELAWADJE', x: 320, y: 90 },

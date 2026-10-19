@@ -143,6 +143,7 @@ export function createNetworkTrack(graph) {
     if (dir === UTURN) {
       // La rue suivante est la même rue en sens inverse, depuis le bord du carrefour ; l'angle continue (±180°)
       leg.uturnSide = uturnSide;
+      leg.uturnPivot = leg.length - leg.crossHalf; // centre du demi-cercle : bord du carrefour
       leg.sEnd = leg.sArcStart + leg.uturnStraight + Math.PI * UTURN_RADIUS;
       legs.push(createLeg(leg.to, (leg.d + 2) % 4, leg.theta + uturnSide * Math.PI, leg.crossHalf, leg.sEnd));
       return;
@@ -171,7 +172,7 @@ export function createNetworkTrack(graph) {
       // chaque couloir un demi-cercle jusqu'au couloir symétrique d'en face
       const angle = Math.min((s - leg.sArcStart - leg.uturnStraight) / UTURN_RADIUS, Math.PI);
       theta = leg.theta + leg.uturnSide * angle;
-      out.copy(leg.origin).addScaledVector(leg.dir, leg.length - leg.crossHalf);
+      out.copy(leg.origin).addScaledVector(leg.dir, leg.uturnPivot);
     } else {
       const r = leg.radius;
       const angle = Math.min((s - leg.sArcStart) / r, Math.PI / 2);
@@ -208,5 +209,29 @@ export function createNetworkTrack(graph) {
     return leg.turn === undefined ? leg : null;
   }
 
-  return { update, reset, pose, legAt, choose, pendingLeg };
+  // Demi-tour en pleine rue, depuis l'endroit s où la moto est arrêtée (après une livraison, un chargement ou
+  // un plein) : demi-cercle autour du point de l'axe de la rue à cet endroit. Les choix déjà faits pour les
+  // carrefours suivants sont oubliés. Renvoie false si la moto n'est pas sur la ligne droite d'une rue.
+  function uturnHere(s, uturnSide) {
+    const leg = legAt(s);
+    if (s > leg.sArcStart) return false;
+    legs.length = legs.indexOf(leg) + 1;
+    leg.turn = UTURN;
+    leg.uturnSide = uturnSide;
+    leg.uturnPivot = leg.startOffset + (s - leg.sStart); // distance du carrefour de départ à la moto
+    leg.sArcStart = s;
+    leg.uturnStraight = 0;
+    leg.sEnd = s + Math.PI * UTURN_RADIUS;
+    legs.push(createLeg(leg.to, (leg.d + 2) % 4, leg.theta + uturnSide * Math.PI, leg.length - leg.uturnPivot, leg.sEnd));
+    return true;
+  }
+
+  // Rue où la moto roule ou va rouler : pendant un virage, c'est déjà la rue suivante (guidage)
+  function aheadLeg(s) {
+    const leg = legAt(s);
+    if (leg.turn !== undefined && s > leg.sArcStart) return legs[legs.indexOf(leg) + 1] ?? leg;
+    return leg;
+  }
+
+  return { update, reset, pose, legAt, choose, pendingLeg, uturnHere, aheadLeg };
 }

@@ -3,7 +3,8 @@ import { applyWorldBend } from './worldBend.js';
 import {
   CHUNK_LENGTH, ROAD_REPEAT, SIDEWALK_HEIGHT, createPavedMaterial, sidewalkMaterial,
 } from './road.js';
-import { SIDEWALK_WIDTH, ROAD_TYPES } from './deliveryMap.js';
+import { SIDEWALK_WIDTH, ROAD_TYPES, STATIONS } from './deliveryMap.js';
+import { stationLot } from './stations.js';
 import { NORTH, EAST, SOUTH, WEST, DIR_X, DIR_Y, halfWidth, medianWidth, isHorizontal } from './network.js';
 
 // Mode Livraison : la ville entière, construite une fois au démarrage (pas de recyclage : le réseau est fixe).
@@ -187,8 +188,16 @@ export function createDeliveryCity(parent, graph) {
     scale.set(Math.abs(x2 - x1), height, Math.abs(z2 - z1));
     list.push(matrix.compose(position, noRotation, scale).clone());
   }
-  const building = (x1, x2, z1, z2, height) =>
+  // Parcelles des stations essence : aucun bâtiment ne doit y empiéter
+  const lots = STATIONS.map(stationLot);
+  const onLot = (x1, x2, z1, z2) =>
+    lots.some((lot) =>
+      Math.max(x1, x2) > lot.x1 && Math.min(x1, x2) < lot.x2 && Math.max(z1, z2) > lot.y1 && Math.min(z1, z2) < lot.y2
+    );
+  const building = (x1, x2, z1, z2, height) => {
+    if (onLot(x1, x2, z1, z2)) return;
     box(buildings[Math.floor(Math.random() * buildings.length)], x1, x2, z1, z2, height);
+  };
 
   // Remplit [from, to] de bâtiments de LENGTH_MIN à LENGTH_MAX, avec des ruelles éventuelles ;
   // piece(début, longueur, premier, dernier) place chaque bâtiment

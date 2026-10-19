@@ -15,6 +15,9 @@ import { createMinimap } from './minimap.js';
 import { createFuelCans } from './fuelCans.js';
 import { MISSION_COUNT, unlockedMission, completeMission, missionData } from './missions.js';
 import { createDeliveryPoints } from './deliveryPoints.js';
+import { placeStations } from './stations.js';
+import { createGuide } from './guide.js';
+import { STATIONS } from './deliveryMap.js';
 import { atlas } from './atlas.js';
 
 const canvas = document.getElementById('game');
@@ -47,10 +50,12 @@ const missionSummary = document.getElementById('mission-summary');
 
 // Indication « Appuie sur ← pour partir » : side = côté du trottoir où attend la moto (+1 droite, -1 gauche),
 // la flèche à presser est celle qui ramène vers la route
-function showStartHint(side, verb) {
+// uturn : ajoute « ↓ demi-tour » (demi-tour possible depuis le trottoir)
+function showStartHint(side, verb, uturn = false) {
   const left = side > 0;
   startHint.innerHTML = `Appuie sur <span class="key-keyboard">${left ? '←' : '→'}</span><span class="key-touch">${
-    left ? '◀' : '▶'}</span> pour ${verb}`;
+    left ? '◀' : '▶'}</span> pour ${verb}${
+    uturn ? ' · <span class="key-keyboard">↓</span><span class="key-touch">▼</span> demi-tour' : ''}`;
   startHint.hidden = false;
 }
 const menuButton = document.getElementById('to-menu');
@@ -173,6 +178,29 @@ const network = createNetworkTrack(graph);
 let deliveryCity = null;
 let fuelCans = null; // bidons d'essence (Livraison), créés avec la ville
 let deliveryPoints = null; // flèches de livraison de la mission (Livraison), créées avec la ville
+let stationPoints = null; // points d'arrêt bleus devant les stations essence (Livraison)
+let guide = null; // ligne de guidage vers l'objectif (premières missions de Livraison)
+const GUIDE_MISSIONS = 2; // missions avec ligne de guidage
+let loaded = true; // produits chargés (false tant que le point de chargement de la mission n'est pas atteint)
+
+// Objectifs de la ligne de guidage : le point de chargement, puis les livraisons restantes
+function refreshGuide() {
+  if (!guide) return;
+  const { pickup, deliveries } = missionData(currentMission);
+  if (currentMission > GUIDE_MISSIONS) guide.setObjectives([]);
+  else if (!loaded) guide.setObjectives([pickup]);
+  else guide.setObjectives(deliveries.filter((_, i) => deliveryPoints.isActive(i)));
+}
+let stationTemplate = null; // modèle StationEssence (models.glb), une fois chargé
+let stationsPlaced = false;
+
+// Pose les bâtiments des stations dès que la ville et le modèle sont prêts (l'un ou l'autre peut arriver en
+// premier : chargement du GLB / premier lancement du mode Livraison)
+function placeStationsIfReady() {
+  if (stationsPlaced || !deliveryCity || !stationTemplate) return;
+  placeStations(deliveryWorld, stationTemplate);
+  stationsPlaced = true;
+}
 
 // Parcours du mode en cours : track (Défis) ou network (Livraison)
 let activeTrack = track;
@@ -224,7 +252,8 @@ function updateArrows() {
   if (arrowRight.hidden === right) arrowRight.hidden = !right;
   const uturn = canUturn(leg);
   if (arrowUturn.hidden === uturn) arrowUturn.hidden = !uturn;
-  if (downButton.hidden === uturn) downButton.hidden = !uturn;
+  const down = uturn || (!gameOver && !inMenu && canParkedUturn());
+  if (downButton.hidden === down) downButton.hidden = !down;
 }
 
 // Distance parcourue tout droit dans le carrefour avant que l'avant de la moto touche le mur
@@ -298,6 +327,21 @@ new GLTFLoader().load(
     const carTemplate = moto.getObjectByName('car_1');
     if (carTemplate) carTemplate.removeFromParent();
 
+    // Station essence : retirée de la scène du joueur, elle sert de gabarit aux stations de la ville
+    // (texture : atlas bikeTXT). Le château d'eau et le cylindre du GLB ne sont pas encore utilisés : retirés
+    // eux aussi, sinon ils suivraient la moto.
+    const station = moto.getObjectByName('StationEssence');
+    if (station) {
+      station.removeFromParent();
+      station.position.set(0, 0, 0); // placée à l'écart dans Blender
+      station.traverse((child) => {
+        if (child.isMesh) child.material = atlasMaterial;
+      });
+      stationTemplate = station;
+      placeStationsIfReady();
+    }
+    for (const unused of ['ChateauEau_Vedoko', 'Cylinder']) moto.getObjectByName(unused)?.removeFromParent();
+
     const rider = moto.getObjectByName('Character_Rig');
     const mixer = new THREE.AnimationMixer(moto);
 
@@ -331,14 +375,10 @@ new GLTFLoader().load(
       if (child.isMesh) meshes.push(child);
     });
     for (const child of meshes) {
-      if (child.name.startsWith('MotoCub')) {
-        // MotoCub : ses propres matériaux (exportés de Blender), convertis en cartoon
-        child.material = Array.isArray(child.material)
-          ? child.material.map(toToon)
-          : toToon(child.material);
-        addOutline(child);
-      } else if (child.name.startsWith('Moto_')) {
-        child.material = toonAtlasMaterial; // ancienne moto : atlas bikeTXT, en cartoon
+      if (child.name.startsWith('MotoCub') || child.name.startsWith('Moto_')) {
+        // Motos : atlas bikeTXT (le GLB est exporté sans matériaux), en cartoon. La MotoCub a sa palette dans
+        // l'atlas : ses pièces doivent avoir des UV dessus (sinon elles prennent la couleur du coin de l'atlas)
+        child.material = toonAtlasMaterial;
         addOutline(child);
       } else {
         child.material = atlasMaterial; // pilote : atlas bikeTXT
@@ -421,6 +461,7 @@ function restart() {
     fuelCans.reset(minimapPoint.x, minimapPoint.z);
     const { deliveries } = missionData(currentMission);
     const { pickup } = missionData(currentMission);
+    loaded = !pickup;
     if (pickup) {
       // Il faut d'abord charger les produits : seul le point de chargement est affiché
       deliveryPoints.reset([pickup], 'pickup');
@@ -430,6 +471,9 @@ function restart() {
       deliveryPoints.reset(deliveries);
       setCargo(deliveries.length);
     }
+    stationPoints.reset(STATIONS, 'fuel');
+    refreshGuide();
+    ignoredStation = -1;
   }
   updateArrows();
   gameOverPanel.hidden = true;
@@ -451,6 +495,9 @@ function startGame(mode) {
     deliveryCity = createDeliveryCity(deliveryWorld, graph);
     fuelCans = createFuelCans(deliveryWorld, graph);
     deliveryPoints = createDeliveryPoints(deliveryWorld);
+    stationPoints = createDeliveryPoints(deliveryWorld);
+    guide = createGuide(deliveryWorld);
+    placeStationsIfReady();
   }
   activeTrack = delivery ? network : track;
   challengeWorld.visible = !delivery;
@@ -468,6 +515,7 @@ function startGame(mode) {
 // Tous les produits livrés : mission réussie, la suivante est débloquée
 function finishMission() {
   gameOver = true; // fige la partie (Entrée relance la mission, comme après un Game Over)
+  guide?.setObjectives([]); // plus d'objectif : la ligne disparaît
   completeMission(currentMission);
   const total = missionData(currentMission).deliveries.length;
   missionSummary.textContent = `${total} produits livrés en ${Math.floor(distance)} m.`;
@@ -633,8 +681,31 @@ function canUturn(leg) {
   return currentLane !== (laneCount() - 1) / 2; // pas le couloir du milieu
 }
 
+// Moto garée sur le trottoir (après une livraison, un chargement ou un plein) : demi-tour possible sur une rue
+// pavée (pas sur une grande route, à cause du terre-plein, ni dans une ruelle), pas pendant l'arrêt lui-même
+function canParkedUturn() {
+  if (started || deliveryState || !activeTrack.uturnHere) return false;
+  const leg = activeTrack.legAt(playerS);
+  return leg.road?.type === 'small' && playerS <= leg.sArcStart;
+}
+
+// Demi-tour depuis le trottoir : la moto fait demi-tour vers l'intérieur de la rue et repart dans le couloir
+// du même côté (couloir de droite du nouveau sens si elle était garée à droite)
+function parkedUturn() {
+  if (paused || gameOver || inMenu || !canParkedUturn()) return;
+  if (!activeTrack.uturnHere(playerS, parkedSide)) return;
+  started = true;
+  startHint.hidden = true;
+  currentLane = parkedSide > 0 ? laneCount() - 1 : firstLane();
+  startLaneChange();
+}
+
 function uTurn() {
-  if (paused || gameOver || inMenu || !started) return;
+  if (!started) {
+    parkedUturn();
+    return;
+  }
+  if (paused || gameOver || inMenu) return;
   const turnLeg = turnWindowLeg();
   if (canUturn(turnLeg)) {
     // Vers la gauche depuis un couloir de droite, vers la droite depuis un couloir de gauche
@@ -712,8 +783,14 @@ let parkedSide = 1; // trottoir où la moto est garée : +1 droite, -1 gauche
 // points de livraison apparaissent.
 const DELIVERY_BRAKE = 10; // m/s² : arrêt en un peu plus d'1 s
 const UNLOAD_TIME = 2; // secondes
+const REFUEL_TIME = 3; // plein à la station essence (secondes)
+const STATION_REARM_DISTANCE = 20; // m : la flèche réapparaît (et le plein redevient possible) à cette distance
+let stopDuration = UNLOAD_TIME; // durée de l'arrêt en cours
+let stationIndex = -1; // station où l'on fait le plein
+let ignoredStation = -1; // station qu'on vient de quitter (pas de nouveau plein tant qu'on est dessus)
+let fuelAtStop = 0; // essence à l'arrivée à la station (la jauge monte jusqu'à 100 pendant le plein)
 let deliveryState = null; // null, 'braking' ou 'unloading'
-let stopKind = 'delivery'; // arrêt en cours : 'delivery' (livraison) ou 'pickup' (chargement)
+let stopKind = 'delivery'; // arrêt en cours : 'delivery' (livraison), 'pickup' (chargement) ou 'fuel' (plein)
 let unloadTimer = 0;
 let cargo = 0; // produits encore à livrer
 
@@ -813,26 +890,35 @@ function animate(timestamp) {
       speed = Math.max(0, speed - DELIVERY_BRAKE * delta);
       if (speed === 0) {
         deliveryState = 'unloading';
-        unloadTimer = UNLOAD_TIME;
+        stopDuration = stopKind === 'fuel' ? REFUEL_TIME : UNLOAD_TIME;
+        unloadTimer = stopDuration;
+        fuelAtStop = fuel;
         unloadingLevel.style.transform = 'scaleX(1)';
         unloadingPanel.hidden = false;
       }
     } else if (deliveryState === 'unloading') {
       unloadTimer = Math.max(0, unloadTimer - delta);
-      unloadingLevel.style.transform = `scaleX(${unloadTimer / UNLOAD_TIME})`;
+      unloadingLevel.style.transform = `scaleX(${unloadTimer / stopDuration})`;
+      // Station essence : la jauge se remplit pendant le plein
+      if (stopKind === 'fuel') setFuel(fuelAtStop + (FUEL_MAX - fuelAtStop) * (1 - unloadTimer / stopDuration));
       if (unloadTimer === 0) {
         deliveryState = null;
         unloadingPanel.hidden = true;
-        if (stopKind === 'pickup') {
+        if (stopKind === 'fuel') {
+          setFuel(FUEL_MAX);
+          showStartHint(parkedSide, 'repartir', canParkedUturn());
+        } else if (stopKind === 'pickup') {
           // Produits chargés : les points de livraison apparaissent (route et mini-carte)
           const { deliveries } = missionData(currentMission);
           setCargo(deliveries.length);
           deliveryPoints.reset(deliveries);
-          showStartHint(parkedSide, 'repartir');
+          loaded = true;
+          refreshGuide();
+          showStartHint(parkedSide, 'repartir', canParkedUturn());
         } else {
           setCargo(cargo - 1);
           if (cargo === 0) finishMission();
-          else showStartHint(parkedSide, 'repartir');
+          else showStartHint(parkedSide, 'repartir', canParkedUturn());
         }
       }
     } else if (delivery && fuel <= 0) {
@@ -963,6 +1049,25 @@ function animate(timestamp) {
         stopKind = deliveryPoints.kindOf(hit);
         unloadingLabel.textContent = stopKind === 'pickup' ? 'Chargement en cours' : 'Livraison en cours';
         deliveryPoints.remove(hit);
+        refreshGuide(); // vers l'objectif suivant
+        deliveryState = 'braking';
+        started = false;
+        parkedSide = player.position.x >= 0 ? 1 : -1;
+        currentLane = parkedSide > 0 ? laneCount() : -1;
+        startLaneChange();
+      }
+
+      // Station essence : arrêt sur le point bleu, plein en REFUEL_TIME s. La station qu'on vient de quitter
+      // est ignorée jusqu'à ce qu'on s'en soit éloigné (la moto repart en passant sur le point)
+      if (ignoredStation >= 0 && stationPoints.distanceTo(ignoredStation, minimapPoint.x, minimapPoint.z) > STATION_REARM_DISTANCE) {
+        ignoredStation = -1;
+      }
+      const station = stationPoints.update(gameTime, minimapPoint.x, minimapPoint.z, ignoredStation);
+      if (station >= 0 && started && !deliveryState) {
+        stopKind = 'fuel';
+        stationIndex = station;
+        ignoredStation = station; // flèche cachée pendant le plein : la caméra passerait dedans
+        unloadingLabel.textContent = 'Plein en cours';
         deliveryState = 'braking';
         started = false;
         parkedSide = player.position.x >= 0 ? 1 : -1;
@@ -982,10 +1087,14 @@ function animate(timestamp) {
     }
   }
 
-  // Mini-carte (Livraison) : position de la moto, couloir compris (x → x de la carte, z → y)
-  if (gameMode === 'delivery' && !inMenu) {
+  // Ligne de guidage (premières missions de Livraison)
+  if (gameMode === 'delivery' && !inMenu && !gameOver && guide) guide.update(activeTrack, playerS, player.position.x);
+
+  // Carte (Livraison), affichée seulement dans le panneau Pause : position de la moto, couloir compris
+  // (x → x de la carte, z → y)
+  if (gameMode === 'delivery' && !inMenu && paused) {
     const theta = activeTrack.pose(playerS, player.position.x, minimapPoint);
-    minimap.update(minimapPoint.x, minimapPoint.z, theta, deliveryPoints.active());
+    minimap.update(minimapPoint.x, minimapPoint.z, theta, deliveryPoints.active(), stationPoints.active());
   }
 
   if (controls) controls.update();

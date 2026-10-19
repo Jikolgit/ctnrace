@@ -43,7 +43,6 @@
       <button id="missions-back" type="button">Retour</button>
     </div>
     <div id="hud"><span id="distance">0 m</span></div>
-    <canvas id="minimap" aria-label="Mini-carte"></canvas>
     <div id="cargo" aria-label="Produits à livrer">
       <svg viewBox="0 0 64 64" aria-hidden="true">
           <path d="M32 6 56 18v28L32 58 8 46V18Z" fill="#f2b45a" />
@@ -91,6 +90,7 @@
     <div id="pause-menu" hidden>
       <div class="panel">
         <h1>Pause</h1>
+        <canvas id="minimap" aria-label="Carte du quartier"></canvas>
         <div class="actions">
           <button id="resume" type="button">Reprendre</button>
           <button id="pause-to-menu" type="button">Menu principal</button>

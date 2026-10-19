@@ -343,29 +343,19 @@ body.in-menu #touch-controls {
   background: rgba(255, 255, 255, 0.28);
 }
 
-/* Mini-carte du mode Livraison : coin inférieur gauche, seulement pendant une partie de Livraison */
+/* Carte du quartier (Livraison) : seulement dans le panneau Pause, au-dessus des boutons */
 #minimap {
-  position: fixed;
-  left: 16px;
-  bottom: calc(16px + env(safe-area-inset-bottom));
-  width: min(40vw, 220px);
-  height: auto;
   display: none;
-  border: 2px solid rgba(0, 0, 0, 0.6);
+  width: min(80vw, 420px, calc((100vh - 240px) / 0.83));
+  height: auto;
+  margin: 0 auto 18px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
   border-radius: 10px;
-  background: rgba(20, 26, 32, 0.6);
-  pointer-events: none;
+  background: rgba(20, 26, 32, 0.85);
 }
 
-body.delivery:not(.in-menu) #minimap {
+body.delivery #minimap {
   display: block;
-}
-
-/* Écrans tactiles : au-dessus du bouton ◀ (84 px, à 24 px du bas) */
-@media (hover: none) and (pointer: coarse) {
-  #minimap {
-    bottom: calc(24px + 84px + 12px + env(safe-area-inset-bottom));
-  }
 }
 
 /* Jauge d'essence du mode Livraison : verticale, sous le compteur de distance (coin supérieur gauche) */
@@ -803,6 +793,6 @@ body.in-menu #unloading {
 /* Écrans tactiles : l'indication de départ passe au-dessus de la mini-carte (elle-même au-dessus des boutons) */
 @media (hover: none) and (pointer: coarse) {
   #start-hint {
-    bottom: calc(24px + 84px + 12px + min(40vw, 220px) * 0.82 + 20px + env(safe-area-inset-bottom));
+    bottom: calc(24px + 84px + 20px + env(safe-area-inset-bottom)); /* au-dessus des boutons tactiles */
   }
 }

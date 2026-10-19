@@ -71,19 +71,25 @@ export function createMinimap(canvas) {
   const plan = drawPlan();
 
   // x, y : position du joueur sur la carte (mètres) ; theta : direction (repère de track.js / network.js) ;
-  // points : points d'arrêt restants { x, y, kind } (deliveryPoints.js) : livraison orange, chargement vert
-  function update(x, y, theta, points) {
+  // points, stations : points d'arrêt { x, y, kind } (deliveryPoints.js) : livraison orange, chargement vert,
+  // station essence bleue
+  function update(x, y, theta, points, stations) {
     ctx.clearRect(0, 0, WIDTH, HEIGHT);
     ctx.drawImage(plan, 0, 0);
+    drawPoints(stations);
+    drawPoints(points);
+    drawPlayer(x, y, theta);
+  }
 
-    // Points de livraison : pastille orange avec une flèche vers le bas, comme sur la route
+  // Pastilles avec une flèche vers le bas, comme sur la route
+  function drawPoints(list) {
     ctx.lineJoin = 'round';
-    for (const point of points) {
+    for (const point of list) {
       const cx = px(point.x);
       const cy = py(point.y);
       ctx.beginPath();
       ctx.arc(cx, cy, 11, 0, Math.PI * 2);
-      ctx.fillStyle = point.kind === 'pickup' ? '#2e9e4f' : '#e8642a';
+      ctx.fillStyle = { pickup: '#2e9e4f', fuel: '#2f7de1' }[point.kind] ?? '#e8642a';
       ctx.fill();
       ctx.lineWidth = 3;
       ctx.strokeStyle = '#1b1b1b';
@@ -100,7 +106,9 @@ export function createMinimap(canvas) {
       ctx.fillStyle = '#fff';
       ctx.fill();
     }
+  }
 
+  function drawPlayer(x, y, theta) {
     // Flèche du joueur : pointe dans le sens de la marche (theta = 0 : vers le nord, en haut)
     ctx.save();
     ctx.translate(px(x), py(y));

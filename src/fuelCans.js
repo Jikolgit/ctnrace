@@ -6,7 +6,7 @@ import { EAST, SOUTH, isHorizontal, medianWidth, laneWidthOf } from './network.j
 // un bidon ramassé réapparaît aussitôt ailleurs, loin du joueur. Nombre fixe de bidons (pool, aucune
 // création en cours de partie). Image public/jerrycan.png affichée en sprite (toujours face à la caméra).
 
-const CAN_COUNT = 14; // bidons présents en même temps sur la carte
+const CAN_COUNT = 5; // bidons présents en même temps sur la carte (les stations essence font le plein)
 const CAN_SIZE = 1.1; // taille du sprite (m)
 const CAN_HEIGHT = 0.8; // hauteur du centre du sprite au-dessus de la route
 const BOB_AMPLITUDE = 0.12; // léger flottement vertical

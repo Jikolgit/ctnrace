@@ -48,7 +48,11 @@ export function createDeliveryPoints(parent) {
   ringGeometry.rotateX(-Math.PI / 2);
   // Matériaux de la flèche et du cercle pour chaque sorte de point
   const looks = {};
-  for (const [kind, color, emissive] of [['delivery', 0xe8642a, 0x7a2a08], ['pickup', 0x2e9e4f, 0x0f4a1f]]) {
+  for (const [kind, color, emissive] of [
+    ['delivery', 0xe8642a, 0x7a2a08],
+    ['pickup', 0x2e9e4f, 0x0f4a1f],
+    ['fuel', 0x2f7de1, 0x0c2d5c], // station essence
+  ]) {
     looks[kind] = {
       arrow: applyWorldBend(new THREE.MeshStandardMaterial({ color, emissive, roughness: 0.5, metalness: 0 })),
       ring: applyWorldBend(
@@ -68,7 +72,7 @@ export function createDeliveryPoints(parent) {
   }
   let count = 0;
 
-  // Affiche une flèche par point de la liste (et retire les autres) ; kind : 'delivery' ou 'pickup'
+  // Affiche une flèche par point de la liste (et retire les autres) ; kind : 'delivery', 'pickup' ou 'fuel'
   function reset(deliveries, kind = 'delivery') {
     count = deliveries.length;
     points.forEach((point, i) => {
@@ -86,18 +90,25 @@ export function createDeliveryPoints(parent) {
     });
   }
 
-  // Animation des flèches ; renvoie l'indice du point sur lequel roule la moto (px, pz), ou -1
-  function update(time, px, pz) {
+  // Animation des flèches ; renvoie l'indice du point sur lequel roule la moto (px, pz), ou -1.
+  // ignore : indice d'un point à ne pas déclencher (station qu'on vient de quitter)
+  function update(time, px, pz, ignore = -1) {
     let hit = -1;
     for (let i = 0; i < count; i++) {
       const point = points[i];
       if (!point.active) continue;
+      const shown = i !== ignore; // la station qu'on vient d'utiliser est cachée (la caméra passe dessus)
+      if (point.arrow.visible !== shown) point.arrow.visible = point.ring.visible = shown;
+      if (!shown) continue;
       point.arrow.position.y = ARROW_HEIGHT + BOB_AMPLITUDE * Math.sin(time * BOB_SPEED + point.phase);
       point.arrow.rotation.y = time * SPIN_SPEED + point.phase;
       if (hit < 0 && Math.hypot(point.x - px, point.y - pz) < TRIGGER_RADIUS) hit = i;
     }
     return hit;
   }
+
+  // Le point i est-il encore à atteindre ?
+  const isActive = (i) => i < count && points[i].active;
 
   // Produit livré : la flèche disparaît
   function remove(i) {
@@ -113,8 +124,10 @@ export function createDeliveryPoints(parent) {
     return remaining;
   }
 
-  // Sorte du point i : 'delivery' ou 'pickup'
+  // Sorte du point i : 'delivery', 'pickup' ou 'fuel'
   const kindOf = (i) => points[i].kind;
+  // Distance (carte) de (px, pz) au point i
+  const distanceTo = (i, px, pz) => Math.hypot(points[i].x - px, points[i].y - pz);
 
-  return { reset, update, remove, active, kindOf };
+  return { reset, update, remove, active, kindOf, distanceTo, isActive };
 }
