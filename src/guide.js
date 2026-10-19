@@ -9,14 +9,16 @@ import { deliveryPosition } from './deliveryPoints.js';
 // couloir de droite de chaque rue et respecte les règles de conduite : pas de demi-tour en pleine rue,
 // demi-tour aux carrefours seulement là où il est permis (grandes routes et rues pavées, pas les ruelles).
 //
-// La ligne est fixe sur la route, comme un marquage au sol : elle ne suit pas la moto. Elle part de l'entrée
-// de la rue (couloir de droite) et n'est redessinée que lorsque le chemin change : quand la moto change de rue
-// ou quand les objectifs changent (géométrie créée une fois, aucune allocation dans la boucle de jeu).
+// La ligne est fixe sur la route, comme un marquage au sol : elle ne suit pas les changements de couloir de la
+// moto. Elle commence juste devant la roue avant et raccourcit à mesure que la moto avance, jusqu'à
+// l'objectif. Le chemin n'est recalculé que lorsque la moto change de rue ou que les objectifs changent
+// (géométrie créée une fois, aucune allocation dans la boucle de jeu).
 
 const LINE_WIDTH = 0.5; // m
 const LINE_HEIGHT = 0.05; // juste au-dessus de la chaussée
 const MAX_POINTS = 64;
 const COLOR = 0x29c5ff;
+const START_AHEAD = 1.3; // m : la ligne commence à cette distance devant le centre de la moto (juste devant la roue avant)
 
 // Décalage du couloir de droite par rapport à l'axe de la rue
 const laneOffset = (road) => halfWidth(road) - laneWidthOf(road) / 2;
@@ -136,21 +138,28 @@ export function createGuide(parent) {
     pointCount++;
   }
 
-  // À chaque image : track = parcours du réseau, s = position de la moto. Ne fait rien tant que la moto reste
-  // dans la même rue et que les objectifs ne changent pas : la ligne déjà tracée reste en place.
+  // À chaque image : track = parcours du réseau, s = position de la moto. Le chemin (ligne brisée) n'est
+  // recalculé que lorsque la moto change de rue ou que les objectifs changent ; le ruban, lui, est recoupé à
+  // chaque image pour commencer juste devant la roue avant : il raccourcit à mesure que la moto avance.
   function update(track, s) {
     if (!objectives.length) return;
     const leg = track.aheadLeg(s);
-    if (!dirty && leg === routeLeg) return;
-    route = computeRoute(leg, s);
-    routeLeg = leg;
-    dirty = false;
+    if (dirty || leg !== routeLeg) {
+      route = computeRoute(leg, s);
+      routeLeg = leg;
+      dirty = false;
+      if (route) buildPath(leg);
+    }
     if (!route) {
       mesh.visible = false;
       return;
     }
+    // Distance déjà parcourue depuis l'entrée de la rue (début de la ligne), plus l'avance devant la roue
+    buildRibbon(s - leg.sStart + START_AHEAD);
+  }
 
-    // Ligne brisée : entrée de la rue (couloir de droite), coins des carrefours, objectif
+  // Ligne brisée : entrée de la rue (couloir de droite), coins des carrefours, objectif
+  function buildPath(leg) {
     pointCount = 0;
     let road = leg.road;
     const entry = laneOffset(road);
@@ -174,28 +183,47 @@ export function createGuide(parent) {
       road = outRoad;
     }
     addPoint(route.target.pos.x, route.target.pos.y);
+  }
 
-    // Ruban : un quadrilatère par segment, prolongé d'une demi-largeur aux deux bouts (raccords sans trou)
+  // Ruban : un quadrilatère par segment de la ligne brisée, sans les trim premiers mètres (déjà dépassés).
+  // Les segments sont prolongés d'une demi-largeur aux raccords (pas de trou dans les virages), mais pas au
+  // début : la ligne commence pile à l'endroit voulu.
+  function buildRibbon(trim) {
     const half = LINE_WIDTH / 2;
     let segments = 0;
+    let skipped = 0; // longueur des segments entièrement dépassés
     for (let i = 0; i < pointCount - 1; i++) {
-      const x1 = points[2 * i];
-      const y1 = points[2 * i + 1];
+      let x1 = points[2 * i];
+      let y1 = points[2 * i + 1];
       const x2 = points[2 * i + 2];
       const y2 = points[2 * i + 3];
       const length = Math.hypot(x2 - x1, y2 - y1);
       if (length < 0.01) continue;
       const dx = (x2 - x1) / length;
       const dy = (y2 - y1) / length;
+      let back = half; // prolongement vers l'arrière (raccord avec le segment précédent)
+      if (skipped + length <= trim) {
+        skipped += length;
+        continue;
+      }
+      if (trim > skipped) {
+        // Segment coupé : il commence devant la roue avant
+        x1 += dx * (trim - skipped);
+        y1 += dy * (trim - skipped);
+        skipped = trim;
+        back = 0;
+      } else if (segments === 0) {
+        back = 0;
+      }
       const nx = -dy * half;
       const ny = dx * half;
       const o = segments * 12;
-      positions[o] = x1 - dx * half + nx;
+      positions[o] = x1 - dx * back + nx;
       positions[o + 1] = LINE_HEIGHT;
-      positions[o + 2] = y1 - dy * half + ny;
-      positions[o + 3] = x1 - dx * half - nx;
+      positions[o + 2] = y1 - dy * back + ny;
+      positions[o + 3] = x1 - dx * back - nx;
       positions[o + 4] = LINE_HEIGHT;
-      positions[o + 5] = y1 - dy * half - ny;
+      positions[o + 5] = y1 - dy * back - ny;
       positions[o + 6] = x2 + dx * half + nx;
       positions[o + 7] = LINE_HEIGHT;
       positions[o + 8] = y2 + dy * half + ny;
