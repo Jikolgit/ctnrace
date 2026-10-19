@@ -841,7 +841,7 @@ let distance = 0;
 // Essence (Livraison) : réservoir de FUEL_MAX points, consommé en roulant. Un bidon ramassé en donne
 // CAN_FUEL. À 0, la moto ralentit (BRAKE) jusqu'à l'arrêt : Game Over.
 const FUEL_MAX = 100;
-const FUEL_PER_METER = FUEL_MAX / 600; // réservoir plein : environ 600 m (50 s)
+const FUEL_PER_METER = FUEL_MAX / 1000; // réservoir plein : environ 1000 m (83 s)
 const CAN_FUEL = 30;
 const BRAKE = 6; // décélération (m/s²) en panne : arrêt en 2 s
 const ACCELERATION = 6; // m/s² : au départ (SPEED atteinte en 2 s), après un freinage ou un bidon en roue libre
