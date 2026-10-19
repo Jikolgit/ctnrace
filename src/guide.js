@@ -9,14 +9,14 @@ import { deliveryPosition } from './deliveryPoints.js';
 // couloir de droite de chaque rue et respecte les règles de conduite : pas de demi-tour en pleine rue,
 // demi-tour aux carrefours seulement là où il est permis (grandes routes et rues pavées, pas les ruelles).
 //
-// Le chemin est recalculé quand la moto change de rue ou quand les objectifs changent ; à chaque image, seul
-// le tracé est remis à jour (géométrie créée une fois, aucune allocation dans la boucle de jeu).
+// La ligne est fixe sur la route, comme un marquage au sol : elle ne suit pas la moto. Elle part de l'entrée
+// de la rue (couloir de droite) et n'est redessinée que lorsque le chemin change : quand la moto change de rue
+// ou quand les objectifs changent (géométrie créée une fois, aucune allocation dans la boucle de jeu).
 
 const LINE_WIDTH = 0.5; // m
 const LINE_HEIGHT = 0.05; // juste au-dessus de la chaussée
 const MAX_POINTS = 64;
 const COLOR = 0x29c5ff;
-const LEAD_IN = 8; // m : la ligne rejoint le couloir de droite à cette distance devant la moto
 
 // Décalage du couloir de droite par rapport à l'axe de la rue
 const laneOffset = (road) => halfWidth(road) - laneWidthOf(road) / 2;
@@ -50,7 +50,6 @@ export function createGuide(parent) {
   let dirty = true;
   const points = new Float32Array(MAX_POINTS * 2); // ligne brisée (x, y de la carte)
   let pointCount = 0;
-  const playerPoint = new THREE.Vector3();
 
   // Objectifs : liste de points { road, at, side } (missions.js) ; liste vide = pas de ligne
   function setObjectives(list) {
@@ -137,37 +136,28 @@ export function createGuide(parent) {
     pointCount++;
   }
 
-  // À chaque image : track = parcours du réseau, s = position de la moto, lateral = son décalage latéral
-  function update(track, s, lateral) {
+  // À chaque image : track = parcours du réseau, s = position de la moto. Ne fait rien tant que la moto reste
+  // dans la même rue et que les objectifs ne changent pas : la ligne déjà tracée reste en place.
+  function update(track, s) {
     if (!objectives.length) return;
     const leg = track.aheadLeg(s);
-    if (dirty || leg !== routeLeg) {
-      route = computeRoute(leg, s);
-      routeLeg = leg;
-      dirty = false;
-    }
+    if (!dirty && leg === routeLeg) return;
+    route = computeRoute(leg, s);
+    routeLeg = leg;
+    dirty = false;
     if (!route) {
       mesh.visible = false;
       return;
     }
 
-    // Ligne brisée : moto, coins des carrefours (couloir de droite), objectif
+    // Ligne brisée : entrée de la rue (couloir de droite), coins des carrefours, objectif
     pointCount = 0;
-    track.pose(s, lateral, playerPoint);
-    addPoint(playerPoint.x, playerPoint.z);
     let road = leg.road;
-    // La ligne rejoint d'abord le couloir de droite, au lieu de couper en biais vers le carrefour suivant :
-    // à l'entrée de la rue si la moto est encore dans le carrefour (virage ou traversée), sinon LEAD_IN mètres
-    // devant elle (sans dépasser l'entrée du carrefour suivant ni l'objectif s'il est sur cette rue)
-    const travelled = leg.startOffset + (s - leg.sStart);
-    const limit = route.chain.length
-      ? leg.length - leg.radius
-      : targetOnArm(route.target, leg.from, leg.d, leg.from.arms[leg.d]);
-    const lead = travelled < 0 ? leg.startOffset : travelled + LEAD_IN;
-    if (lead < limit) {
-      const a = laneOffset(road);
-      addPoint(leg.from.x + lead * DIR_X[leg.d] + a * rightX(leg.d), leg.from.y + lead * DIR_Y[leg.d] + a * rightY(leg.d));
-    }
+    const entry = laneOffset(road);
+    addPoint(
+      leg.from.x + leg.startOffset * DIR_X[leg.d] + entry * rightX(leg.d),
+      leg.from.y + leg.startOffset * DIR_Y[leg.d] + entry * rightY(leg.d)
+    );
     for (let i = 0; i < route.chain.length; i++) {
       const { node, inDir, outDir } = route.chain[i];
       const outRoad = node.arms[outDir].road;

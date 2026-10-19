@@ -1088,7 +1088,7 @@ function animate(timestamp) {
   }
 
   // Ligne de guidage (premières missions de Livraison)
-  if (gameMode === 'delivery' && !inMenu && !gameOver && guide) guide.update(activeTrack, playerS, player.position.x);
+  if (gameMode === 'delivery' && !inMenu && !gameOver && guide) guide.update(activeTrack, playerS);
 
   // Carte (Livraison), affichée seulement dans le panneau Pause : position de la moto, couloir compris
   // (x → x de la carte, z → y)
