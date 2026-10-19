@@ -17,11 +17,15 @@ import { MISSION_COUNT, unlockedMission, completeMission, missionData } from './
 import { createDeliveryPoints } from './deliveryPoints.js';
 import { placeStations } from './stations.js';
 import { createGuide } from './guide.js';
+import { DELIVERY_REWARD, FUEL_PRICE, getMoney, addMoney } from './wallet.js';
 import { STATIONS } from './deliveryMap.js';
 import { atlas } from './atlas.js';
 
 const canvas = document.getElementById('game');
 const distanceDisplay = document.getElementById('distance');
+const moneyDisplay = document.getElementById('money');
+const pauseDistance = document.getElementById('pause-distance');
+const notice = document.getElementById('notice');
 const pauseButton = document.getElementById('pause');
 const pausePanel = document.getElementById('pause-menu');
 const resumeButton = document.getElementById('resume');
@@ -405,6 +409,8 @@ let paused = false;
 
 function setPaused(value) {
   paused = value;
+  // Livraison : la distance parcourue n'est plus dans le HUD (remplacée par l'argent), elle est ici
+  pauseDistance.textContent = `Distance parcourue : ${Math.floor(distance)} m`;
   pausePanel.hidden = !paused;
   pauseButton.hidden = paused;
   if (paused) resumeButton.focus();
@@ -518,7 +524,7 @@ function finishMission() {
   guide?.setObjectives([]); // plus d'objectif : la ligne disparaît
   completeMission(currentMission);
   const total = missionData(currentMission).deliveries.length;
-  missionSummary.textContent = `${total} produits livrés en ${Math.floor(distance)} m.`;
+  missionSummary.textContent = `${total} produits livrés en ${Math.floor(distance)} m : +${total * DELIVERY_REWARD} $.`;
   missionPanel.hidden = false;
   startHint.hidden = true;
   updateArrows();
@@ -794,6 +800,27 @@ let stopKind = 'delivery'; // arrêt en cours : 'delivery' (livraison), 'pickup'
 let unloadTimer = 0;
 let cargo = 0; // produits encore à livrer
 
+// Argent (Livraison) : affiché à la place du compteur de distance ; petit grossissement à chaque changement
+function showMoney(pop = false) {
+  moneyDisplay.textContent = `${getMoney()} $`;
+  if (!pop) return;
+  moneyDisplay.classList.remove('pop');
+  void moneyDisplay.offsetWidth; // relance l'animation CSS
+  moneyDisplay.classList.add('pop');
+}
+showMoney();
+
+// Message bref au centre de l'écran (ex. pas assez d'argent pour le plein)
+let noticeTimeout = 0;
+function showNotice(text) {
+  notice.textContent = text;
+  notice.hidden = false;
+  clearTimeout(noticeTimeout);
+  noticeTimeout = setTimeout(() => {
+    notice.hidden = true;
+  }, 2500);
+}
+
 function setCargo(value) {
   cargo = value;
   cargoCount.textContent = cargo;
@@ -916,6 +943,9 @@ function animate(timestamp) {
           refreshGuide();
           showStartHint(parkedSide, 'repartir', canParkedUturn());
         } else {
+          // Produit livré : DELIVERY_REWARD $
+          addMoney(DELIVERY_REWARD);
+          showMoney(true);
           setCargo(cargo - 1);
           if (cargo === 0) finishMission();
           else showStartHint(parkedSide, 'repartir', canParkedUturn());
@@ -1063,7 +1093,14 @@ function animate(timestamp) {
         ignoredStation = -1;
       }
       const station = stationPoints.update(gameTime, minimapPoint.x, minimapPoint.z, ignoredStation);
-      if (station >= 0 && started && !deliveryState) {
+      if (station >= 0 && started && !deliveryState && getMoney() < FUEL_PRICE) {
+        // Pas assez d'argent : pas de plein (la moto continue) ; message une seule fois par passage
+        ignoredStation = station;
+        showNotice(`Pas assez d'argent pour le plein (${FUEL_PRICE} $)`);
+      } else if (station >= 0 && started && !deliveryState) {
+        // Plein payé à l'arrivée sur le point
+        addMoney(-FUEL_PRICE);
+        showMoney(true);
         stopKind = 'fuel';
         stationIndex = station;
         ignoredStation = station; // flèche cachée pendant le plein : la caméra passerait dedans
