@@ -17,6 +17,7 @@ import { MISSION_COUNT, BIKE_CAPACITY, unlockedMission, completeMission, mission
 import { createDeliveryPoints } from './deliveryPoints.js';
 import { placeStations } from './stations.js';
 import { createGuide } from './guide.js';
+import { createTraffic } from './traffic.js';
 import { DELIVERY_REWARD, FUEL_PRICE, getMoney, addMoney } from './wallet.js';
 import { STATIONS } from './deliveryMap.js';
 import { atlas } from './atlas.js';
@@ -182,6 +183,8 @@ track.update(playerS);
 const graph = buildGraph();
 const network = createNetworkTrack(graph);
 let deliveryCity = null;
+let traffic = null; // circulation (Livraison), créée quand la ville et le modèle de voiture sont prêts
+let carModel = null; // modèle car_1 (models.glb), une fois chargé
 let fuelCans = null; // bidons d'essence (Livraison), créés avec la ville
 let deliveryPoints = null; // flèches de livraison de la mission (Livraison), créées avec la ville
 let stationPoints = null; // points d'arrêt bleus devant les stations essence (Livraison)
@@ -404,6 +407,7 @@ new GLTFLoader().load(
       });
       carTemplate.position.set(0, 0, 0); // placée à côté de la moto dans Blender
       obstacles = createObstacles(challengeWorld, carTemplate, track);
+      carModel = carTemplate;
     }
   },
   undefined,
@@ -489,6 +493,8 @@ function restart() {
     setTimeLeft(timeLimit ?? null);
     timerStarted = false;
     stationPoints.reset(STATIONS, 'fuel');
+    if (!traffic && carModel) traffic = createTraffic(deliveryWorld, carModel, graph);
+    traffic?.reset(minimapPoint.x, minimapPoint.z);
     refreshGuide();
     ignoredStation = -1;
   }
@@ -1158,6 +1164,18 @@ function animate(timestamp) {
         parkedSide = player.position.x >= 0 ? 1 : -1;
         currentLane = parkedSide > 0 ? laneCount() : -1;
         startLaneChange();
+      }
+    }
+
+    // Circulation (Livraison) : les voitures roulent dans le réseau ; percuter une voiture = Game Over
+    if (delivery) {
+      if (!traffic && carModel && deliveryCity) {
+        traffic = createTraffic(deliveryWorld, carModel, graph);
+        traffic.reset(minimapPoint.x, minimapPoint.z);
+      }
+      if (traffic) {
+        traffic.update(delta, minimapPoint.x, minimapPoint.z);
+        if (traffic.hits(minimapPoint.x, minimapPoint.z)) endGame('Accident !');
       }
     }
 
