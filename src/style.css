@@ -843,3 +843,28 @@ body.delivery #hud #money {
 body.in-menu #notice {
   display: none;
 }
+
+/* Délai de la mission (Livraison) : en haut au centre */
+#timer {
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 8px 16px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  font: bold 26px/1 system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+#timer.urgent {
+  color: #ff5a4a;
+}
+
+#timer[hidden],
+body.in-menu #timer {
+  display: none;
+}
+body:not(.delivery) #timer { display: none; }

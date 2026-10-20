@@ -13,7 +13,7 @@ import { buildGraph, createNetworkTrack, UTURN } from './network.js';
 import { createDeliveryCity } from './deliveryCity.js';
 import { createMinimap } from './minimap.js';
 import { createFuelCans } from './fuelCans.js';
-import { MISSION_COUNT, unlockedMission, completeMission, missionData } from './missions.js';
+import { MISSION_COUNT, BIKE_CAPACITY, unlockedMission, completeMission, missionData } from './missions.js';
 import { createDeliveryPoints } from './deliveryPoints.js';
 import { placeStations } from './stations.js';
 import { createGuide } from './guide.js';
@@ -26,6 +26,8 @@ const distanceDisplay = document.getElementById('distance');
 const moneyDisplay = document.getElementById('money');
 const pauseDistance = document.getElementById('pause-distance');
 const notice = document.getElementById('notice');
+const timerDisplay = document.getElementById('timer');
+let timerStarted = false;
 const pauseButton = document.getElementById('pause');
 const pausePanel = document.getElementById('pause-menu');
 const resumeButton = document.getElementById('resume');
@@ -186,6 +188,10 @@ let stationPoints = null; // points d'arrêt bleus devant les stations essence (
 let guide = null; // ligne de guidage vers l'objectif (premières missions de Livraison)
 const GUIDE_MISSIONS = 2; // missions avec ligne de guidage
 let loaded = true; // produits chargés (false tant que le point de chargement de la mission n'est pas atteint)
+// Capacité de la moto (BIKE_CAPACITY) : onBoard = produits transportés (leurs points de livraison sont affichés),
+// toLoad = produits encore au point de chargement. Moto vide et produits restants : retour au chargement.
+let onBoard = [];
+let toLoad = [];
 
 // Objectifs de la ligne de guidage : le point de chargement, puis les livraisons restantes
 function refreshGuide() {
@@ -193,7 +199,7 @@ function refreshGuide() {
   const { pickup, deliveries } = missionData(currentMission);
   if (currentMission > GUIDE_MISSIONS) guide.setObjectives([]);
   else if (!loaded) guide.setObjectives([pickup]);
-  else guide.setObjectives(deliveries.filter((_, i) => deliveryPoints.isActive(i)));
+  else guide.setObjectives(onBoard.filter((_, i) => deliveryPoints.isActive(i)));
 }
 let stationTemplate = null; // modèle StationEssence (models.glb), une fois chargé
 let stationsPlaced = false;
@@ -465,18 +471,23 @@ function restart() {
   if (gameMode === 'delivery') {
     activeTrack.pose(playerS, player.position.x, minimapPoint);
     fuelCans.reset(minimapPoint.x, minimapPoint.z);
-    const { deliveries } = missionData(currentMission);
-    const { pickup } = missionData(currentMission);
+    const { deliveries, pickup, timeLimit } = missionData(currentMission);
     loaded = !pickup;
     if (pickup) {
       // Il faut d'abord charger les produits : seul le point de chargement est affiché
+      toLoad = deliveries.slice();
+      onBoard = [];
       deliveryPoints.reset([pickup], 'pickup');
       setCargo(0);
     } else {
-      // Produits déjà chargés : les points de livraison sont affichés tout de suite
-      deliveryPoints.reset(deliveries);
-      setCargo(deliveries.length);
+      // Produits déjà chargés (mission 1) : les points de livraison sont affichés tout de suite
+      onBoard = deliveries.slice(0, BIKE_CAPACITY);
+      toLoad = deliveries.slice(BIKE_CAPACITY);
+      deliveryPoints.reset(onBoard);
+      setCargo(onBoard.length);
     }
+    setTimeLeft(timeLimit ?? null);
+    timerStarted = false;
     stationPoints.reset(STATIONS, 'fuel');
     refreshGuide();
     ignoredStation = -1;
@@ -821,6 +832,24 @@ function showNotice(text) {
   }, 2500);
 }
 
+// Délai de la mission (Livraison, timeLimit dans missions.js) : chronomètre en haut au centre ; à 0, Game Over.
+// Il démarre quand la moto quitte le trottoir pour la première fois.
+let timeLeft = null; // secondes restantes, ou null si la mission n'a pas de délai
+let shownSeconds = -1;
+function setTimeLeft(value) {
+  timeLeft = value;
+  timerDisplay.hidden = value === null;
+  shownSeconds = -1;
+  if (value !== null) updateTimer();
+}
+function updateTimer() {
+  const seconds = Math.ceil(timeLeft);
+  if (seconds === shownSeconds) return;
+  shownSeconds = seconds;
+  timerDisplay.textContent = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+  timerDisplay.classList.toggle('urgent', seconds <= 20);
+}
+
 function setCargo(value) {
   cargo = value;
   cargoCount.textContent = cargo;
@@ -935,10 +964,10 @@ function animate(timestamp) {
           setFuel(FUEL_MAX);
           showStartHint(parkedSide, 'repartir', canParkedUturn());
         } else if (stopKind === 'pickup') {
-          // Produits chargés : les points de livraison apparaissent (route et mini-carte)
-          const { deliveries } = missionData(currentMission);
-          setCargo(deliveries.length);
-          deliveryPoints.reset(deliveries);
+          // Produits chargés (BIKE_CAPACITY au plus) : leurs points de livraison apparaissent
+          onBoard = toLoad.splice(0, BIKE_CAPACITY);
+          setCargo(onBoard.length);
+          deliveryPoints.reset(onBoard);
           loaded = true;
           refreshGuide();
           showStartHint(parkedSide, 'repartir', canParkedUturn());
@@ -947,8 +976,17 @@ function animate(timestamp) {
           addMoney(DELIVERY_REWARD);
           showMoney(true);
           setCargo(cargo - 1);
-          if (cargo === 0) finishMission();
-          else showStartHint(parkedSide, 'repartir', canParkedUturn());
+          if (cargo === 0 && toLoad.length === 0) finishMission();
+          else {
+            if (cargo === 0) {
+              // Moto vide mais il reste des produits : retour au point de chargement
+              loaded = false;
+              deliveryPoints.reset([missionData(currentMission).pickup], 'pickup');
+              refreshGuide();
+              showNotice(`Retourne au chargement : encore ${toLoad.length} produit${toLoad.length > 1 ? 's' : ''}`);
+            }
+            showStartHint(parkedSide, 'repartir', canParkedUturn());
+          }
         }
       }
     } else if (delivery && fuel <= 0) {
@@ -971,6 +1009,16 @@ function animate(timestamp) {
     placeWorld();
     distance += step;
     if (delivery) setFuel(fuel - step * FUEL_PER_METER);
+
+    // Délai de la mission : le chronomètre tourne dès le premier départ (arrêts compris)
+    if (delivery && timeLeft !== null) {
+      if (started) timerStarted = true;
+      if (timerStarted) {
+        timeLeft = Math.max(0, timeLeft - delta);
+        updateTimer();
+        if (timeLeft === 0 && !gameOver) endGame('Temps écoulé !');
+      }
+    }
     updateArrows();
 
     // Pas de virage choisi et tout droit impossible : la moto traverse le carrefour jusqu'au mur
