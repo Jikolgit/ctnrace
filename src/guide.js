@@ -14,10 +14,17 @@ import { deliveryPosition } from './deliveryPoints.js';
 // l'objectif. Le chemin n'est recalculé que lorsque la moto change de rue ou que les objectifs changent
 // (géométrie créée une fois, aucune allocation dans la boucle de jeu).
 
-const LINE_WIDTH = 0.5; // m
+const LINE_WIDTH = 0.9; // m (à peu près la largeur de la moto)
 const LINE_HEIGHT = 0.05; // juste au-dessus de la chaussée
 const MAX_POINTS = 64;
-const COLOR = 0x29c5ff;
+// Chevrons (comme une bande de flèches au sol) qui défilent vers l'objectif
+const COLOR = 0x29c5ff; // bleu cyan
+const EDGE_COLOR = 0xe8fbff; // liseré presque blanc
+const CHEVRON_SPACING = 1.1; // m entre deux chevrons
+const CHEVRON_THICKNESS = 0.42; // part de l'intervalle occupée par un chevron (0..1)
+const CHEVRON_ANGLE = 0.45; // recul des bords du chevron par rapport à sa pointe (en intervalles)
+const SCROLL_SPEED = 1.6; // m/s : défilement des chevrons vers l'objectif
+const OPACITY = 0.9;
 const START_AHEAD = 1.3; // m : la ligne commence à cette distance devant le centre de la moto (juste devant la roue avant)
 
 // Décalage du couloir de droite par rapport à l'axe de la rue
@@ -36,11 +43,53 @@ export function createGuide(parent) {
   const geometry = new THREE.BufferGeometry();
   const positionAttribute = new THREE.BufferAttribute(positions, 3).setUsage(THREE.DynamicDrawUsage);
   geometry.setAttribute('position', positionAttribute);
+  // Coordonnées du ruban pour le shader : x = position en travers (-1 à +1), y = distance le long du chemin (m)
+  const lineCoords = new Float32Array(segmentsMax * 4 * 2);
+  const lineAttribute = new THREE.BufferAttribute(lineCoords, 2).setUsage(THREE.DynamicDrawUsage);
+  geometry.setAttribute('lineCoord', lineAttribute);
   geometry.setIndex(new THREE.BufferAttribute(indices, 1));
   geometry.setDrawRange(0, 0);
   const material = applyWorldBend(
-    new THREE.MeshBasicMaterial({ color: COLOR, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2 })
+    new THREE.MeshBasicMaterial({
+      color: COLOR,
+      transparent: true,
+      opacity: OPACITY,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+      polygonOffset: true,
+      polygonOffsetFactor: -2,
+    })
   );
+  // Chevrons dessinés dans le shader : bandes en V (pointe vers l'objectif) répétées le long du chemin, qui
+  // glissent avec le temps (uScroll) ; entre deux chevrons, le ruban est transparent
+  const uScroll = { value: 0 };
+  const bend = material.onBeforeCompile;
+  material.onBeforeCompile = (shader, renderer) => {
+    bend(shader, renderer);
+    shader.uniforms.uScroll = uScroll;
+    shader.uniforms.uEdgeColor = { value: new THREE.Color(EDGE_COLOR) };
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nattribute vec2 lineCoord;\nvarying vec2 vLineCoord;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvLineCoord = lineCoord;');
+    shader.fragmentShader = shader.fragmentShader
+      .replace(
+        '#include <common>',
+        `#include <common>
+        varying vec2 vLineCoord;
+        uniform float uScroll;
+        uniform vec3 uEdgeColor;`
+      )
+      .replace(
+        '#include <color_fragment>',
+        `#include <color_fragment>
+        // Position dans l'intervalle courant : les bords (|x| = 1) sont en retrait de la pointe (x = 0)
+        float q = fract((vLineCoord.y - uScroll) / ${CHEVRON_SPACING.toFixed(3)} + abs(vLineCoord.x) * ${CHEVRON_ANGLE.toFixed(3)});
+        if (q > ${CHEVRON_THICKNESS.toFixed(3)}) discard;
+        // Liseré clair à l'avant et à l'arrière du chevron
+        float edge = min(q, ${CHEVRON_THICKNESS.toFixed(3)} - q);
+        diffuseColor.rgb = mix(uEdgeColor, diffuseColor.rgb, smoothstep(0.02, 0.07, edge));`
+      );
+  };
   const mesh = new THREE.Mesh(geometry, material);
   mesh.frustumCulled = false;
   mesh.visible = false;
@@ -141,8 +190,9 @@ export function createGuide(parent) {
   // À chaque image : track = parcours du réseau, s = position de la moto. Le chemin (ligne brisée) n'est
   // recalculé que lorsque la moto change de rue ou que les objectifs changent ; le ruban, lui, est recoupé à
   // chaque image pour commencer juste devant la roue avant : il raccourcit à mesure que la moto avance.
-  function update(track, s) {
+  function update(track, s, time = 0) {
     if (!objectives.length) return;
+    uScroll.value = time * SCROLL_SPEED;
     const leg = track.aheadLeg(s);
     if (dirty || leg !== routeLeg) {
       route = computeRoute(leg, s);
@@ -192,6 +242,7 @@ export function createGuide(parent) {
     const half = LINE_WIDTH / 2;
     let segments = 0;
     let skipped = 0; // longueur des segments entièrement dépassés
+    let along = 0; // distance le long du chemin au début du segment (les chevrons restent liés à la route)
     for (let i = 0; i < pointCount - 1; i++) {
       let x1 = points[2 * i];
       let y1 = points[2 * i + 1];
@@ -202,19 +253,32 @@ export function createGuide(parent) {
       const dx = (x2 - x1) / length;
       const dy = (y2 - y1) / length;
       let back = half; // prolongement vers l'arrière (raccord avec le segment précédent)
+      const segmentStart = along;
+      along += length;
       if (skipped + length <= trim) {
         skipped += length;
         continue;
       }
+      let startAt = segmentStart; // distance le long du chemin du premier point dessiné
       if (trim > skipped) {
         // Segment coupé : il commence devant la roue avant
         x1 += dx * (trim - skipped);
         y1 += dy * (trim - skipped);
+        startAt += trim - skipped;
         skipped = trim;
         back = 0;
       } else if (segments === 0) {
         back = 0;
       }
+      const c = segments * 8;
+      lineCoords[c] = 1;
+      lineCoords[c + 1] = startAt - back;
+      lineCoords[c + 2] = -1;
+      lineCoords[c + 3] = startAt - back;
+      lineCoords[c + 4] = 1;
+      lineCoords[c + 5] = along + half;
+      lineCoords[c + 6] = -1;
+      lineCoords[c + 7] = along + half;
       const nx = -dy * half;
       const ny = dx * half;
       const o = segments * 12;
@@ -233,6 +297,7 @@ export function createGuide(parent) {
       segments++;
     }
     positionAttribute.needsUpdate = true;
+    lineAttribute.needsUpdate = true;
     geometry.setDrawRange(0, segments * 6);
     mesh.visible = segments > 0;
   }
