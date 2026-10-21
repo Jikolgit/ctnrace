@@ -110,7 +110,35 @@ let cameraAngle = 0;
 let cameraHeading = 0;
 const CAMERA_TURN_DAMPING = 5;
 
+// Vue d'hélicoptère (choix de l'utilisateur) : caméra haute, un peu en arrière de la moto, qui regarde vers le
+// bas, devant la moto (on voit la rue et les carrefours qui arrivent). HELICOPTER_VIEW = false : vue d'origine,
+// derrière la moto, à 3 m de haut.
+const HELICOPTER_VIEW = true;
+const HELI_HEIGHT = 16; // m au-dessus de la route
+const HELI_BACK = 7; // m en arrière de la moto
+const HELI_LOOK_AHEAD = 7; // m : point visé devant la moto (la moto est dans la moitié basse de l'écran)
+const HELI_FOLLOW = 0.7; // suit les changements de couloir (1 = à la verticale du couloir de la moto)
+let heliX = 0; // décalage latéral de la caméra d'hélicoptère (amorti)
+
 function updateCamera(delta) {
+  if (HELICOPTER_VIEW) {
+    heliX = THREE.MathUtils.damp(heliX, player.position.x * HELI_FOLLOW, 6, delta);
+    camera.position.set(heliX, HELI_HEIGHT, HELI_BACK);
+    cameraLookAt.set(heliX, 0, -HELI_LOOK_AHEAD);
+  } else {
+    placeChaseCamera(delta);
+  }
+
+  // Retard dans les virages : tout le placement de la caméra pivote autour du joueur
+  cameraHeading = THREE.MathUtils.damp(cameraHeading, playerHeading, CAMERA_TURN_DAMPING, delta);
+  const lag = cameraHeading - playerHeading;
+  camera.position.applyAxisAngle(Y_AXIS, lag);
+  cameraLookAt.applyAxisAngle(Y_AXIS, lag);
+  camera.lookAt(cameraLookAt);
+}
+
+// Vue d'origine : caméra derrière la moto, sur un arc centré sur le milieu de la route
+function placeChaseCamera(delta) {
   // Angle sur l'arc qui amène la caméra au-dessus du couloir de la moto
   const portrait = camera.aspect < 1;
   const follow = portrait ? CAMERA_FOLLOW_PORTRAIT : CAMERA_FOLLOW;
@@ -123,13 +151,6 @@ function updateCamera(delta) {
     CAMERA_PIVOT_Z + CAMERA_RADIUS * Math.cos(cameraAngle)
   );
   cameraLookAt.set(portrait ? player.position.x * CAMERA_LOOK_FOLLOW_PORTRAIT : 0, CAMERA_LOOK_Y, CAMERA_PIVOT_Z);
-
-  // Retard dans les virages : tout le placement de la caméra pivote autour du joueur
-  cameraHeading = THREE.MathUtils.damp(cameraHeading, playerHeading, CAMERA_TURN_DAMPING, delta);
-  const lag = cameraHeading - playerHeading;
-  camera.position.applyAxisAngle(Y_AXIS, lag);
-  cameraLookAt.applyAxisAngle(Y_AXIS, lag);
-  camera.lookAt(cameraLookAt);
 }
 
 // Caméra libre à la souris (développement) : mettre à true. Désactive la caméra sur l'arc.
