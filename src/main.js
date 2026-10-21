@@ -18,6 +18,7 @@ import { createDeliveryPoints } from './deliveryPoints.js';
 import { placeStations } from './stations.js';
 import { createGuide } from './guide.js';
 import { createTraffic } from './traffic.js';
+import { createCameraTuner } from './cameraTuner.js';
 import { DELIVERY_REWARD, FUEL_PRICE, getMoney, addMoney } from './wallet.js';
 import { STATIONS } from './deliveryMap.js';
 import { atlas } from './atlas.js';
@@ -119,12 +120,15 @@ const HELI_BACK = 7; // m en arrière de la moto
 const HELI_LOOK_AHEAD = 7; // m : point visé devant la moto (la moto est dans la moitié basse de l'écran)
 const HELI_FOLLOW = 0.7; // suit les changements de couloir (1 = à la verticale du couloir de la moto)
 let heliX = 0; // décalage latéral de la caméra d'hélicoptère (amorti)
+// Placement de la caméra d'hélicoptère, relatif à la moto ; réglable en jeu avec « ?camera » dans l'adresse
+const heliCamera = { x: 0, y: HELI_HEIGHT, z: HELI_BACK, lookY: 0, lookZ: -HELI_LOOK_AHEAD };
+createCameraTuner(heliCamera);
 
 function updateCamera(delta) {
   if (HELICOPTER_VIEW) {
     heliX = THREE.MathUtils.damp(heliX, player.position.x * HELI_FOLLOW, 6, delta);
-    camera.position.set(heliX, HELI_HEIGHT, HELI_BACK);
-    cameraLookAt.set(heliX, 0, -HELI_LOOK_AHEAD);
+    camera.position.set(heliX + heliCamera.x, heliCamera.y, heliCamera.z);
+    cameraLookAt.set(heliX + heliCamera.x, heliCamera.lookY, heliCamera.lookZ);
   } else {
     placeChaseCamera(delta);
   }
@@ -660,6 +664,7 @@ const easeInOut = (t) => 0.5 - 0.5 * Math.cos(Math.PI * t);
 
 window.addEventListener('keydown', (event) => {
   if (event.repeat) return;
+  if (event.target.closest?.('#camera-tuner')) return; // flèches sur un curseur de réglage de la caméra
   if (inMenu) return; // le menu se pilote avec ses boutons (Tab / Entrée au clavier)
 
   if (gameOver) {

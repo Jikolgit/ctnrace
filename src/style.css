@@ -868,3 +868,52 @@ body.in-menu #timer {
   display: none;
 }
 body:not(.delivery) #timer { display: none; }
+
+/* Réglage de la caméra (développement, adresse avec ?camera) */
+#camera-tuner {
+  position: fixed;
+  top: 64px;
+  right: 8px;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: min(260px, 60vw);
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.7);
+  color: #fff;
+  font: 12px/1.2 system-ui, sans-serif;
+}
+
+#camera-tuner pre {
+  margin: 0 0 4px;
+  font: bold 12px/1.4 ui-monospace, monospace;
+  color: #ffd84a;
+  white-space: pre-wrap;
+  user-select: text;
+}
+
+#camera-tuner label {
+  display: flex;
+  flex-direction: column;
+}
+
+#camera-tuner input {
+  width: 100%;
+}
+
+#camera-tuner button {
+  margin-top: 4px;
+  padding: 6px;
+  border: 0;
+  border-radius: 6px;
+  background: #e8642a;
+  color: #fff;
+  font: bold 12px system-ui, sans-serif;
+}
+
+#camera-tuner.collapsed label,
+#camera-tuner.collapsed button:last-child {
+  display: none;
+}
