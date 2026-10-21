@@ -114,7 +114,7 @@ const CAMERA_TURN_DAMPING = 5;
 // Vue d'hélicoptère (choix de l'utilisateur) : caméra haute, un peu en arrière de la moto, qui regarde vers le
 // bas, devant la moto (on voit la rue et les carrefours qui arrivent). HELICOPTER_VIEW = false : vue d'origine,
 // derrière la moto, à 3 m de haut.
-const HELICOPTER_VIEW = true;
+const HELICOPTER_VIEW = false;
 // Valeurs choisies par l'utilisateur avec l'outil ?camera
 const HELI_X = -0.5; // m : décalage latéral (< 0 : à gauche de la moto)
 const HELI_HEIGHT = 6; // m au-dessus de la route
