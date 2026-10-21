@@ -115,13 +115,16 @@ const CAMERA_TURN_DAMPING = 5;
 // bas, devant la moto (on voit la rue et les carrefours qui arrivent). HELICOPTER_VIEW = false : vue d'origine,
 // derrière la moto, à 3 m de haut.
 const HELICOPTER_VIEW = true;
-const HELI_HEIGHT = 16; // m au-dessus de la route
+// Valeurs choisies par l'utilisateur avec l'outil ?camera
+const HELI_X = -0.5; // m : décalage latéral (< 0 : à gauche de la moto)
+const HELI_HEIGHT = 6; // m au-dessus de la route
 const HELI_BACK = 7; // m en arrière de la moto
-const HELI_LOOK_AHEAD = 7; // m : point visé devant la moto (la moto est dans la moitié basse de l'écran)
+const HELI_LOOK_Y = -2.5; // m : hauteur du point visé (sous la route : regard plus plongeant)
+const HELI_LOOK_AHEAD = 7; // m : point visé devant la moto
 const HELI_FOLLOW = 0.7; // suit les changements de couloir (1 = à la verticale du couloir de la moto)
 let heliX = 0; // décalage latéral de la caméra d'hélicoptère (amorti)
 // Placement de la caméra d'hélicoptère, relatif à la moto ; réglable en jeu avec « ?camera » dans l'adresse
-const heliCamera = { x: 0, y: HELI_HEIGHT, z: HELI_BACK, lookY: 0, lookZ: -HELI_LOOK_AHEAD };
+const heliCamera = { x: HELI_X, y: HELI_HEIGHT, z: HELI_BACK, lookY: HELI_LOOK_Y, lookZ: -HELI_LOOK_AHEAD };
 createCameraTuner(heliCamera);
 
 function updateCamera(delta) {
