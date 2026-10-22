@@ -790,6 +790,22 @@ body.in-menu #unloading {
   display: none;
 }
 
+/* Regarder derrière (maintenu) : au-dessus du bouton droit, seulement quand la moto est garée sur le trottoir */
+#touch-controls #look-back {
+  position: absolute;
+  right: 24px;
+  bottom: calc(84px + 80px); /* au-dessus de l'indication de départ */
+  width: 84px;
+  height: 52px;
+  border-radius: 26px;
+  font-size: 14px;
+  letter-spacing: 0.04em;
+}
+
+#touch-controls #look-back[hidden] {
+  display: none;
+}
+
 /* Écrans tactiles : l'indication de départ passe au-dessus de la mini-carte (elle-même au-dessus des boutons) */
 @media (hover: none) and (pointer: coarse) {
   #start-hint {

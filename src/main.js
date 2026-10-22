@@ -41,6 +41,7 @@ const arrowLeft = document.getElementById('arrow-left');
 const arrowRight = document.getElementById('arrow-right');
 const arrowUturn = document.getElementById('arrow-uturn');
 const downButton = document.getElementById('down');
+const lookBackButton = document.getElementById('look-back');
 const challengeButton = document.getElementById('mode-challenge');
 const deliveryButton = document.getElementById('mode-delivery');
 const minimap = createMinimap(document.getElementById('minimap'));
@@ -63,7 +64,7 @@ function showStartHint(side, verb, uturn = false) {
   const left = side > 0;
   startHint.innerHTML = `Appuie sur <span class="key-keyboard">${left ? '←' : '→'}</span><span class="key-touch">${
     left ? '◀' : '▶'}</span> pour ${verb}${
-    uturn ? ' · <span class="key-keyboard">↓</span><span class="key-touch">▼</span> demi-tour' : ''}`;
+    uturn ? ' · <span class="key-keyboard">↓</span><span class="key-touch">▼</span> demi-tour' : ''}<span class="key-keyboard"> · R regarder derrière</span>`;
   startHint.hidden = false;
 }
 const menuButton = document.getElementById('to-menu');
@@ -111,6 +112,21 @@ let cameraAngle = 0;
 let cameraHeading = 0;
 const CAMERA_TURN_DAMPING = 5;
 
+// Regard en arrière (touche R maintenue, ou bouton tactile maintenu) : seulement quand la moto est garée sur le
+// trottoir, pour voir si une voiture arrive avant de repartir. La caméra passe devant la moto et regarde
+// derrière elle ; au relâchement (ou au départ de la moto), elle revient en douceur derrière la moto.
+const LOOK_BACK_HEIGHT = 3.2;
+const LOOK_BACK_Z = -4; // m devant la moto
+const LOOK_BACK_FOLLOW = 0.6; // décalée vers le milieu de la route (la moto est sur le trottoir)
+const LOOK_BACK_DISTANCE = 30; // point regardé, m derrière la moto, au milieu de la route
+const LOOK_BACK_DAMPING = 8; // vitesse de la bascule
+let lookingBack = false; // touche ou bouton maintenu
+let lookBackBlend = 0; // 0 = vue normale, 1 = vue arrière
+const normalCameraPosition = new THREE.Vector3();
+const normalLookAt = new THREE.Vector3();
+const lookBackPosition = new THREE.Vector3();
+const lookBackTarget = new THREE.Vector3();
+
 // Vue d'hélicoptère (choix de l'utilisateur) : caméra haute, un peu en arrière de la moto, qui regarde vers le
 // bas, devant la moto (on voit la rue et les carrefours qui arrivent). HELICOPTER_VIEW = false : vue d'origine,
 // derrière la moto, à 3 m de haut.
@@ -134,6 +150,18 @@ function updateCamera(delta) {
     cameraLookAt.set(heliX + heliCamera.x, heliCamera.lookY, heliCamera.lookZ);
   } else {
     placeChaseCamera(delta);
+  }
+
+  // Bascule vers la vue arrière (moto garée seulement)
+  const back = lookingBack && !started && !gameOver && !inMenu ? 1 : 0;
+  lookBackBlend = THREE.MathUtils.damp(lookBackBlend, back, LOOK_BACK_DAMPING, delta);
+  if (lookBackBlend > 0.001) {
+    normalCameraPosition.copy(camera.position);
+    normalLookAt.copy(cameraLookAt);
+    lookBackPosition.set(player.position.x * LOOK_BACK_FOLLOW, LOOK_BACK_HEIGHT, LOOK_BACK_Z);
+    lookBackTarget.set(0, 0.5, LOOK_BACK_DISTANCE);
+    camera.position.lerpVectors(normalCameraPosition, lookBackPosition, lookBackBlend);
+    cameraLookAt.lerpVectors(normalLookAt, lookBackTarget, lookBackBlend);
   }
 
   // Retard dans les virages : tout le placement de la caméra pivote autour du joueur
@@ -295,6 +323,9 @@ function updateArrows() {
   if (arrowUturn.hidden === uturn) arrowUturn.hidden = !uturn;
   const down = uturn || (!gameOver && !inMenu && canParkedUturn());
   if (downButton.hidden === down) downButton.hidden = !down;
+  const look = !started && !gameOver && !inMenu;
+  if (lookBackButton.hidden === look) lookBackButton.hidden = !look;
+  if (!look) lookingBack = false;
 }
 
 // Distance parcourue tout droit dans le carrefour avant que l'avant de la moto touche le mur
@@ -692,7 +723,8 @@ window.addEventListener('keydown', (event) => {
     return;
   }
 
-  if (event.key === 'ArrowLeft') steer(-1);
+  if (event.key === 'r' || event.key === 'R') lookingBack = true;
+  else if (event.key === 'ArrowLeft') steer(-1);
   else if (event.key === 'ArrowRight') steer(1);
   else if (event.key === 'ArrowDown') {
     event.preventDefault(); // pas de défilement de la page
@@ -705,10 +737,12 @@ window.addEventListener('keydown', (event) => {
 
 window.addEventListener('keyup', (event) => {
   if (event.key === ' ') braking = false;
+  if (event.key === 'r' || event.key === 'R') lookingBack = false;
 });
 // Fenêtre qui perd le focus : on ne recevra pas le relâchement de la touche
 window.addEventListener('blur', () => {
   braking = false;
+  lookingBack = false;
 });
 
 // Frein (Espace, ou bouton tactile STOP au milieu) : tant qu'il est maintenu, la moto ralentit jusqu'à
@@ -796,7 +830,15 @@ function steer(direction) {
 // Boutons tactiles (mobile) : pointerdown réagit dès le contact, sans attendre le relâchement.
 // Légère vibration à chaque appui (API Vibration : Android ; ignorée là où elle n'existe pas, ex. iPhone)
 const BUTTON_VIBRATION = 15; // millisecondes
-const TOUCH_ACTIONS = { left: () => steer(-1), right: () => steer(1), down: uTurn, brake: startBraking };
+const TOUCH_ACTIONS = {
+  left: () => steer(-1),
+  right: () => steer(1),
+  down: uTurn,
+  brake: startBraking,
+  'look-back': () => {
+    if (!paused) lookingBack = true;
+  },
+};
 for (const [id, action] of Object.entries(TOUCH_ACTIONS)) {
   document.getElementById(id).addEventListener('pointerdown', (event) => {
     event.preventDefault(); // pas de zoom / sélection / clic fantôme
@@ -808,6 +850,10 @@ for (const [id, action] of Object.entries(TOUCH_ACTIONS)) {
 for (const type of ['pointerup', 'pointercancel', 'pointerleave']) {
   document.getElementById('brake').addEventListener(type, () => {
     braking = false;
+  });
+  // Bouton « regarder derrière » relâché : la caméra revient derrière la moto
+  document.getElementById('look-back').addEventListener(type, () => {
+    lookingBack = false;
   });
 }
 
