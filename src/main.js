@@ -22,6 +22,7 @@ import { createCameraTuner } from './cameraTuner.js';
 import { DELIVERY_REWARD, FUEL_PRICE, getMoney, addMoney } from './wallet.js';
 import { STATIONS } from './deliveryMap.js';
 import { atlas } from './atlas.js';
+import { createGarage, savedBike, saveBike } from './garage.js';
 
 const canvas = document.getElementById('game');
 const distanceDisplay = document.getElementById('distance');
@@ -384,7 +385,12 @@ const BIKES = {
   },
 };
 const DEFAULT_BIKE = 'MotoCub';
-let bikeName = DEFAULT_BIKE;
+// Écran « Moto » du menu : nom affiché et description de chaque moto
+const BIKE_CARDS = [
+  { name: 'MotoCub', label: 'MotoCub', desc: 'Petite moto rouge, maniable en ville.' },
+  { name: 'Moto', label: 'Moto classique', desc: 'La première moto du jeu.' },
+];
+let bikeName = savedBike(Object.keys(BIKES)) ?? DEFAULT_BIKE;
 let bike = BIKES[bikeName];
 let selectBike = null; // défini une fois le modèle chargé
 
@@ -457,8 +463,13 @@ new GLTFLoader().load(
       }
     }
 
-    selectBike(DEFAULT_BIKE);
+    selectBike(bikeName);
     player.add(moto);
+    // Copies des motos pour l'aperçu de l'écran « Moto »
+    for (const [key, config] of Object.entries(BIKES)) {
+      const object = moto.getObjectByName(key);
+      if (object) garage.addModel(key, object, config.rotationY);
+    }
 
     if (carTemplate) {
       carTemplate.traverse((child) => {
@@ -659,6 +670,29 @@ document.getElementById('missions-back').addEventListener('click', () => {
   deliveryButton.focus();
 });
 
+// Écran « Moto » : choix de la moto (appliqué tout de suite, gardé pour les parties suivantes)
+const garage = createGarage(
+  document.getElementById('garage-preview'),
+  document.querySelector('#garage .bikes'),
+  BIKE_CARDS,
+  (name) => {
+    selectBike?.(name);
+    bikeName = name; // si le modèle n'est pas encore chargé, selectBike(bikeName) l'appliquera
+    saveBike(name);
+  }
+);
+garage.select(bikeName);
+
+document.getElementById('mode-bike').addEventListener('click', () => {
+  document.body.classList.add('in-garage');
+  garage.show();
+});
+document.getElementById('garage-back').addEventListener('click', () => {
+  document.body.classList.remove('in-garage');
+  garage.hide();
+  document.getElementById('mode-bike').focus();
+});
+
 challengeButton.addEventListener('click', () => startGame('challenge'));
 deliveryButton.addEventListener('click', showMissions);
 menuButton.addEventListener('click', showMenu);
@@ -720,6 +754,8 @@ window.addEventListener('keydown', (event) => {
   if ((event.key === 'm' || event.key === 'M') && selectBike) {
     const names = Object.keys(BIKES);
     selectBike(names[(names.indexOf(bikeName) + 1) % names.length]);
+    saveBike(bikeName);
+    garage.select(bikeName);
     return;
   }
 

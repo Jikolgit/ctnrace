@@ -933,3 +933,167 @@ body:not(.delivery) #timer { display: none; }
 #camera-tuner.collapsed button:last-child {
   display: none;
 }
+
+/* Bouton « Moto » du menu principal (sous les cartes des modes) */
+#mode-bike {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 24px;
+  padding: 10px 26px;
+  border: 3px solid #1b1b1b;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 5px 0 #1b1b1b;
+  color: #1b1b1b;
+  font: 900 italic 22px/1 system-ui, sans-serif;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#mode-bike svg {
+  width: 44px;
+  height: 28px;
+}
+
+#mode-bike:hover,
+#mode-bike:focus-visible {
+  background: #fff3e8;
+  outline: none;
+}
+
+#mode-bike:active {
+  transform: translateY(4px);
+  box-shadow: 0 1px 0 #1b1b1b;
+}
+
+/* Écran « Moto » : même fond que les missions ; aperçu 3D puis cartes de choix */
+#garage {
+  position: fixed;
+  inset: 0;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px 16px;
+  box-sizing: border-box;
+  overflow-y: auto;
+  background: linear-gradient(rgba(10, 30, 50, 0.35), rgba(10, 20, 35, 0.75));
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  font-family: system-ui, sans-serif;
+  color: #fff;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+body.in-garage #garage {
+  display: flex;
+}
+
+body.in-garage #menu {
+  display: none;
+}
+
+#garage .title {
+  margin: 0;
+  font-size: clamp(40px, 10vw, 72px);
+  font-weight: 900;
+  font-style: italic;
+  line-height: 1;
+  color: #fff;
+  -webkit-text-stroke: 3px #1b1b1b;
+  paint-order: stroke fill;
+  text-shadow: 0 6px 0 #1b1b1b;
+}
+
+#garage .subtitle {
+  margin: 4px 0 8px;
+  font-size: 18px;
+  opacity: 0.85;
+}
+
+#garage-preview {
+  width: min(100%, 420px);
+  height: min(36vh, 300px);
+  flex-shrink: 0;
+}
+
+#garage .bikes {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 16px;
+  width: 100%;
+  max-width: 560px;
+}
+
+.bike-card {
+  flex: 1 1 200px;
+  max-width: 260px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 16px 16px 14px;
+  border: 3px solid #1b1b1b;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 6px 0 #1b1b1b;
+  color: #1b1b1b;
+  font: inherit;
+  cursor: pointer;
+  transition: transform 0.12s, box-shadow 0.12s, background 0.12s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.bike-card .name {
+  font-size: 24px;
+  font-weight: 900;
+  font-style: italic;
+}
+
+.bike-card .desc {
+  font-size: 14px;
+  line-height: 1.35;
+  opacity: 0.75;
+}
+
+.bike-card:hover,
+.bike-card:focus-visible {
+  transform: translateY(-3px);
+  box-shadow: 0 9px 0 #1b1b1b;
+  outline: none;
+}
+
+/* Moto choisie : carte orange */
+.bike-card.selected {
+  background: #e8642a;
+  color: #fff;
+}
+
+.bike-card.selected .desc {
+  opacity: 0.9;
+}
+
+#garage-back {
+  margin-top: 20px;
+  padding: 10px 28px;
+  border: 3px solid #1b1b1b;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 4px 0 #1b1b1b;
+  color: #1b1b1b;
+  font: bold 18px/1 system-ui, sans-serif;
+  cursor: pointer;
+}
+
+#garage-back:hover {
+  background: #fff3e8;
+}
+
+#garage-back:active {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 #1b1b1b;
+}
