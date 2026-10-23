@@ -10,10 +10,17 @@ import GUI from 'lil-gui';
 //  - brouillard noir.
 // Les shaders sont ajoutés par applyWorldBend (worldBend.js), par lequel passent tous les matériaux du décor,
 // et par psxMaterial() pour les sprites (fumée, bidons). Tout est piloté par des uniforms partagés : le panneau
-// de réglages (adresse avec « ?psx ») change toute la scène sans recompiler.
+// de réglages change toute la scène sans recompiler. Le curseur « Intensité » dose tous les effets à la fois
+// (0 = rendu d'origine, 1 = réglages ci-dessous). Les réglages sont gardés dans le navigateur (localStorage).
+
+// Panneau de réglages affiché pour tout le monde (replié au départ) ; false : seulement avec « ?psx » dans l'adresse
+const SHOW_PANEL = true;
+const STORAGE_KEY = 'ctnrace-psx';
 
 const PSX_DEFAULTS = {
   enabled: true, // coupe tout l'effet d'un coup (retour au rendu d'origine)
+  // Dosage de tous les effets : 0 = rendu d'origine, 1 = réglages ci-dessous
+  intensity: 1,
   // Hauteur de l'image en pixels (la PS1 affichait environ 240 lignes)
   resolutionHeight: 240,
   // Taille de la grille d'accroche des sommets, en pixels : plus c'est grand, plus ça tremble
@@ -34,7 +41,40 @@ const PSX_DEFAULTS = {
   fogFar: 55,
 };
 
-export const PSX = { ...PSX_DEFAULTS };
+export const PSX = { ...PSX_DEFAULTS, ...loadSettings() };
+
+function loadSettings() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    if (!saved || typeof saved !== 'object') return {};
+    // Seulement les réglages connus, du même type que par défaut
+    return Object.fromEntries(
+      Object.entries(saved).filter(([key, value]) => typeof value === typeof PSX_DEFAULTS[key])
+    );
+  } catch {
+    return {};
+  }
+}
+
+function saveSettings() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(PSX));
+  } catch {
+    // navigation privée : les réglages ne seront pas gardés
+  }
+}
+
+// L'effet a-t-il une action ? (sinon : rendu d'origine, anticrénelage compris)
+export function psxActive() {
+  return PSX.enabled && PSX.intensity > 0;
+}
+
+// Dosage de l'effet, de 0 (coupé) à 1
+const strength = () => (PSX.enabled ? PSX.intensity : 0);
+
+// De a (rendu d'origine) à b (effet complet) en proportions : pour la résolution et le nombre de couleurs,
+// une progression géométrique donne un changement plus régulier à l'œil
+const towards = (a, b, t) => a * Math.pow(b / a, t);
 
 // Partagés par tous les matériaux : modifier une valeur change toute la scène
 export const psxUniforms = {
@@ -96,7 +136,7 @@ export function registerTexture(material) {
 }
 
 function applyFilter(map) {
-  const nearest = PSX.enabled && PSX.nearestTextures;
+  const nearest = PSX.nearestTextures && strength() >= 0.5; // pas de demi-mesure : à partir de la moitié
   const original = textures.get(map);
   const mag = nearest ? THREE.NearestFilter : original.mag;
   const min = nearest ? THREE.NearestFilter : original.min;
@@ -141,9 +181,12 @@ export function psxMaterial(material) {
   return material;
 }
 
-// Nombre de pixels de l'image par pixel CSS : ~resolutionHeight lignes pour une fenêtre de hauteur height
+// Nombre de pixels de l'image par pixel CSS : ~resolutionHeight lignes (à pleine intensité) pour une fenêtre
+// de hauteur height
 export function psxPixelRatio(height) {
-  return PSX.enabled ? PSX.resolutionHeight / height : Math.min(window.devicePixelRatio, 2);
+  const full = Math.min(window.devicePixelRatio, 2);
+  const lines = towards(height * full, Math.min(PSX.resolutionHeight, height * full), strength());
+  return lines / height;
 }
 
 // renderer : celui du jeu ; scene : sa scène, dont le brouillard (et le ciel, même couleur) suit les réglages
@@ -160,43 +203,61 @@ export function createPsx(renderer, scene) {
     psxUniforms.uPsxResolution.value.copy(size);
   }
 
+  const psxFogColor = new THREE.Color();
+
   function apply() {
-    const on = PSX.enabled;
-    renderer.domElement.style.imageRendering = on ? 'pixelated' : '';
-    psxUniforms.uPsxJitter.value = on ? PSX.vertexJitter : 0;
-    psxUniforms.uPsxAffine.value = on && PSX.affineTextures ? 1 : 0;
-    psxUniforms.uPsxColorLevels.value = on ? PSX.colorLevels : 255;
-    psxUniforms.uPsxDither.value = on && PSX.dithering ? 1 : 0;
+    const t = strength();
+    renderer.domElement.style.imageRendering = t > 0 ? 'pixelated' : '';
+    psxUniforms.uPsxJitter.value = PSX.vertexJitter * t;
+    psxUniforms.uPsxAffine.value = PSX.affineTextures ? t : 0;
+    psxUniforms.uPsxColorLevels.value = t > 0 ? towards(255, PSX.colorLevels, t) : 255;
+    psxUniforms.uPsxDither.value = PSX.dithering ? t : 0;
     for (const map of textures.keys()) applyFilter(map);
-    // Pas de bascule de scene.fog (elle recompilerait tous les matériaux) : on change ses valeurs.
-    // Le ciel prend la couleur du brouillard (sinon les bâtiments lointains se découpent en noir sur le bleu).
-    const psxFog = on && PSX.fog;
-    scene.fog.color.set(psxFog ? PSX.fogColor : skyColor);
+    // Pas de bascule de scene.fog (elle recompilerait tous les matériaux) : on change ses valeurs, du brouillard
+    // d'origine (bleu ciel, loin) au brouillard PSX selon l'intensité. Le ciel prend la couleur du brouillard
+    // (sinon les bâtiments lointains se découpent en noir sur le bleu).
+    const f = PSX.fog ? t : 0;
+    psxFogColor.set(PSX.fogColor);
+    scene.fog.color.copy(skyColor).lerp(psxFogColor, f);
     scene.background.copy(scene.fog.color);
-    scene.fog.near = psxFog ? PSX.fogNear : fogNear;
-    scene.fog.far = psxFog ? Math.max(PSX.fogFar, PSX.fogNear + 0.1) : fogFar;
+    scene.fog.near = THREE.MathUtils.lerp(fogNear, PSX.fogNear, f);
+    scene.fog.far = Math.max(THREE.MathUtils.lerp(fogFar, PSX.fogFar, f), scene.fog.near + 0.1);
     resize();
   }
 
-  // Panneau de réglages : seulement avec « ?psx » dans l'adresse (comme « ?camera »)
-  if (new URLSearchParams(window.location.search).has('psx')) {
-    const gui = new GUI({ title: 'Réglages PSX' });
+  // Panneau de réglages (replié au départ : on l'ouvre en touchant son titre)
+  if (SHOW_PANEL || new URLSearchParams(window.location.search).has('psx')) {
+    const gui = new GUI({ title: 'Effet PSX' });
     gui.domElement.classList.add('psx-gui');
-    if (window.innerWidth < 600) gui.close();
-    gui.add(PSX, 'enabled').name('Effet PSX');
-    gui.add(PSX, 'resolutionHeight', 60, 720, 1).name('Résolution (lignes)');
-    gui.add(PSX, 'vertexJitter', 0, 8, 0.5).name('Tremblement (px)');
-    gui.add(PSX, 'affineTextures').name('Textures tordues');
-    gui.add(PSX, 'nearestTextures').name('Textures pixelisées');
-    gui.add(PSX, 'colorLevels', 2, 255, 1).name('Couleurs par canal');
-    gui.add(PSX, 'dithering').name('Tramage');
+    gui.close();
+    gui.add(PSX, 'enabled').name('Activé');
+    gui.add(PSX, 'intensity', 0, 1, 0.01).name('Intensité');
+    const details = gui.addFolder('Détails (intensité 1)');
+    details.close();
+    details.add(PSX, 'resolutionHeight', 60, 720, 1).name('Résolution (lignes)');
+    details.add(PSX, 'vertexJitter', 0, 8, 0.5).name('Tremblement (px)');
+    details.add(PSX, 'affineTextures').name('Textures tordues');
+    details.add(PSX, 'nearestTextures').name('Textures pixelisées');
+    details.add(PSX, 'colorLevels', 2, 255, 1).name('Couleurs par canal');
+    details.add(PSX, 'dithering').name('Tramage');
     const fogFolder = gui.addFolder('Brouillard');
+    fogFolder.close();
     fogFolder.add(PSX, 'fog').name('Activé');
     fogFolder.addColor(PSX, 'fogColor').name('Couleur');
     fogFolder.add(PSX, 'fogNear', 0, 80, 0.5).name('Début');
     fogFolder.add(PSX, 'fogFar', 1, 120, 0.5).name('Fin');
-    gui.add({ reset: () => gui.reset() }, 'reset').name('Réinitialiser');
-    gui.onChange(apply);
+    // Retour aux valeurs par défaut (gui.reset() reviendrait aux valeurs gardées au chargement)
+    const reset = () => {
+      Object.assign(PSX, PSX_DEFAULTS);
+      for (const controller of gui.controllersRecursive()) controller.updateDisplay();
+      apply();
+      saveSettings();
+    };
+    gui.add({ reset }, 'reset').name('Réinitialiser');
+    gui.onChange(() => {
+      apply();
+      saveSettings();
+    });
   }
 
   apply();

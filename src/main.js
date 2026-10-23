@@ -23,7 +23,7 @@ import { DELIVERY_REWARD, FUEL_PRICE, getMoney, addMoney } from './wallet.js';
 import { STATIONS } from './deliveryMap.js';
 import { atlas } from './atlas.js';
 import { createGarage, savedBike, saveBike } from './garage.js';
-import { PSX, createPsx } from './psx.js';
+import { psxActive, createPsx } from './psx.js';
 
 const canvas = document.getElementById('game');
 const distanceDisplay = document.getElementById('distance');
@@ -73,8 +73,9 @@ const menuButton = document.getElementById('to-menu');
 
 // Renderer
 // Effet PSX : pas d'anticrénelage (l'image basse résolution est agrandie sans lissage). Il ne peut pas changer
-// après la création du renderer : si l'effet est coupé dans le panneau, les bords restent crénelés.
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: !PSX.enabled });
+// après la création du renderer : si l'effet est coupé dans le panneau, les bords restent crénelés jusqu'au
+// rechargement de la page (les réglages sont gardés : au rechargement, l'anticrénelage revient).
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: !psxActive() });
 
 // Scène
 const scene = new THREE.Scene();
@@ -86,7 +87,7 @@ const FOG_NEAR = 30;
 const FOG_FAR = 85;
 scene.fog = new THREE.Fog(scene.background, FOG_NEAR, FOG_FAR);
 
-// Effet PlayStation 1 (psx.js) : résolution du renderer, brouillard noir ; réglages en direct avec « ?psx »
+// Effet PlayStation 1 (psx.js) : résolution du renderer, brouillard noir ; panneau de réglages « Effet PSX »
 const psx = createPsx(renderer, scene);
 
 // Caméra

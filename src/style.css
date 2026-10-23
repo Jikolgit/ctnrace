@@ -1098,7 +1098,7 @@ body.in-garage #menu {
   box-shadow: 0 1px 0 #1b1b1b;
 }
 
-/* Panneau de réglages PSX (adresse avec « ?psx ») : sous le bouton Pause */
+/* Panneau de réglages « Effet PSX » : sous le bouton Pause */
 .lil-gui.autoPlace.psx-gui {
   top: 64px;
   max-height: calc(100% - 64px);
