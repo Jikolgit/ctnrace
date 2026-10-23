@@ -1,5 +1,8 @@
 // World bending : courbe visuellement le monde dans le vertex shader.
 // La logique du jeu reste sur une route droite.
+// Ajoute aussi l'effet PlayStation 1 (psx.js) : tous les matériaux du décor passent par ici.
+
+import { psxShader, psxVertexGLSL, registerTexture } from './psx.js';
 
 // Uniforms partagés par tous les matériaux : modifier .value les met à jour
 export const bendUniforms = {
@@ -8,6 +11,7 @@ export const bendUniforms = {
 };
 
 export function applyWorldBend(material) {
+  registerTexture(material);
   material.onBeforeCompile = (shader) => {
     shader.uniforms.uBend = bendUniforms.uBend;
     shader.uniforms.uBendStart = bendUniforms.uBendStart;
@@ -33,8 +37,10 @@ export function applyWorldBend(material) {
         float bendDist = max( 0.0, -mvPosition.z - uBendStart );
         mvPosition.x += uBend * bendDist * bendDist;
 
-        gl_Position = projectionMatrix * mvPosition;`
+        gl_Position = projectionMatrix * mvPosition;
+        ${psxVertexGLSL}`
       );
+    psxShader(shader);
   };
 
   return material;

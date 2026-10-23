@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { psxMaterial } from './psx.js';
 import { ROAD_TYPES } from './deliveryMap.js';
 import { EAST, SOUTH, isHorizontal, medianWidth, laneWidthOf } from './network.js';
 
@@ -21,7 +22,7 @@ texture.colorSpace = THREE.SRGBColorSpace;
 
 // parent : groupe de la ville de Livraison (repère de la carte : x → X, y → Z) ; graph : network.js
 export function createFuelCans(parent, graph) {
-  const material = new THREE.SpriteMaterial({ map: texture, transparent: true });
+  const material = psxMaterial(new THREE.SpriteMaterial({ map: texture, transparent: true }));
 
   // Rues où poser des bidons : chaque bras du graphe (une seule fois), sauf ceux qui mènent à une impasse
   // et ceux trop courts pour garder la marge autour des carrefours

@@ -23,6 +23,7 @@ import { DELIVERY_REWARD, FUEL_PRICE, getMoney, addMoney } from './wallet.js';
 import { STATIONS } from './deliveryMap.js';
 import { atlas } from './atlas.js';
 import { createGarage, savedBike, saveBike } from './garage.js';
+import { PSX, createPsx } from './psx.js';
 
 const canvas = document.getElementById('game');
 const distanceDisplay = document.getElementById('distance');
@@ -71,9 +72,9 @@ function showStartHint(side, verb, uturn = false) {
 const menuButton = document.getElementById('to-menu');
 
 // Renderer
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-renderer.setSize(window.innerWidth, window.innerHeight);
+// Effet PSX : pas d'anticrénelage (l'image basse résolution est agrandie sans lissage). Il ne peut pas changer
+// après la création du renderer : si l'effet est coupé dans le panneau, les bords restent crénelés.
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: !PSX.enabled });
 
 // Scène
 const scene = new THREE.Scene();
@@ -84,6 +85,9 @@ scene.background = new THREE.Color(0x87ceeb);
 const FOG_NEAR = 30;
 const FOG_FAR = 85;
 scene.fog = new THREE.Fog(scene.background, FOG_NEAR, FOG_FAR);
+
+// Effet PlayStation 1 (psx.js) : résolution du renderer, brouillard noir ; réglages en direct avec « ?psx »
+const psx = createPsx(renderer, scene);
 
 // Caméra
 const camera = new THREE.PerspectiveCamera(
@@ -732,7 +736,7 @@ const easeInOut = (t) => 0.5 - 0.5 * Math.cos(Math.PI * t);
 
 window.addEventListener('keydown', (event) => {
   if (event.repeat) return;
-  if (event.target.closest?.('#camera-tuner')) return; // flèches sur un curseur de réglage de la caméra
+  if (event.target.closest?.('#camera-tuner, .lil-gui')) return; // flèches sur un curseur de réglage de la caméra
   if (inMenu) return; // le menu se pilote avec ses boutons (Tab / Entrée au clavier)
 
   if (gameOver) {
@@ -897,7 +901,7 @@ for (const type of ['pointerup', 'pointercancel', 'pointerleave']) {
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
+  psx.resize(); // taille et résolution (basse avec l'effet PSX)
 });
 
 // Boîte de collision de la moto (un peu plus petite que le modèle, pour éviter les chocs injustes)
