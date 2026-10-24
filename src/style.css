@@ -152,9 +152,13 @@ body {
   pointer-events: none;
 }
 
+/* Invisibles tant qu'on ne maintient pas un bouton de virage ; pendant l'appui, la flèche se remplit de sa couleur
+   de la queue vers la pointe (--hold : 0 → 1, mis à jour par main.js à chaque image). Le masque suit la flèche
+   retournée (gauche) ou tournée (demi-tour). */
 #turn-arrows img {
   width: min(22vw, 140px);
-  animation: blink 0.35s steps(2, jump-none) infinite alternate;
+  -webkit-mask-image: linear-gradient(to right, #000 calc(var(--hold, 0) * 100%), transparent calc(var(--hold, 0) * 100%));
+  mask-image: linear-gradient(to right, #000 calc(var(--hold, 0) * 100%), transparent calc(var(--hold, 0) * 100%));
 }
 
 #turn-arrows img[hidden] {
@@ -163,22 +167,6 @@ body {
 
 #arrow-left {
   transform: scaleX(-1);
-}
-
-/* Appui maintenu en cours sur ce virage : la flèche cesse de clignoter et grossit jusqu'à la confirmation */
-#turn-arrows img.holding {
-  animation: none;
-  opacity: 1;
-  scale: calc(1 + 0.35 * var(--hold, 0));
-}
-
-@keyframes blink {
-  from {
-    opacity: 1;
-  }
-  to {
-    opacity: 0.15;
-  }
 }
 
 /* Menu principal : par-dessus la scène 3D (figée derrière, légèrement floutée) */
@@ -1105,21 +1093,3 @@ body.in-garage #menu {
   box-shadow: 0 1px 0 #1b1b1b;
 }
 
-/* Appui maintenu pour un virage : un cercle se forme autour du bouton tactile appuyé (◀ ▶ ▼), dans le sens
-   des aiguilles d'une montre ; il est complet quand le virage est confirmé (--hold : 0 → 1, mis à jour par
-   main.js à chaque image) */
-#touch-controls button.holding::before {
-  content: '';
-  position: absolute;
-  inset: -8px;
-  border-radius: 50%;
-  background: conic-gradient(#ffc21a calc(var(--hold, 0) * 360deg), rgba(255, 255, 255, 0.25) 0);
-  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 6px), #000 calc(100% - 5px));
-  mask: radial-gradient(farthest-side, transparent calc(100% - 6px), #000 calc(100% - 5px));
-  pointer-events: none;
-}
-
-#touch-controls #left,
-#touch-controls #right {
-  position: relative; /* repère du cercle */
-}

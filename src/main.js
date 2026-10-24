@@ -324,18 +324,12 @@ function updateArrows() {
   if (arrowRight.hidden === right) arrowRight.hidden = !right;
   const uturn = canUturn(leg);
   if (arrowUturn.hidden === uturn) arrowUturn.hidden = !uturn;
-  // Virage en cours de confirmation : la flèche cesse de clignoter et grossit, et un cercle se forme autour du
-  // bouton tactile appuyé ; il est complet au bout de TURN_HOLD s, quand le virage est pris
+  // Les flèches sont invisibles ; pendant l'appui qui confirme un virage, celle du virage se remplit de sa
+  // couleur, de la queue vers la pointe (--hold : 0 → 1, plein au bout de TURN_HOLD s, quand le virage est pris)
   const holdArrow = turnHold.dir === null ? null : HOLD_ARROWS[turnHold.dir];
-  const holdButton = turnHold.dir === null ? null : HOLD_BUTTONS[turnHold.dir];
-  for (const element of HOLD_ELEMENTS) {
-    const holding = element === holdArrow || element === holdButton;
-    if (element.classList.contains('holding') !== holding) element.classList.toggle('holding', holding);
-  }
-  if (holdArrow) {
-    const progress = Math.min(1, turnHold.time / TURN_HOLD).toFixed(3);
-    holdArrow.style.setProperty('--hold', progress);
-    holdButton.style.setProperty('--hold', progress);
+  for (const arrow of HOLD_ARROWS_LIST) {
+    const progress = arrow === holdArrow ? Math.min(1, turnHold.time / TURN_HOLD).toFixed(3) : '0';
+    if (arrow.style.getPropertyValue('--hold') !== progress) arrow.style.setProperty('--hold', progress);
   }
   const down = uturn || (!gameOver && !inMenu && canParkedUturn());
   if (downButton.hidden === down) downButton.hidden = !down;
@@ -846,12 +840,7 @@ function parkedUturn() {
 // de l'appui (s). dir = null : aucun.
 const turnHold = { dir: null, time: 0 };
 const HOLD_ARROWS = { [-1]: arrowLeft, 1: arrowRight, [UTURN]: arrowUturn };
-const HOLD_BUTTONS = {
-  [-1]: document.getElementById('left'),
-  1: document.getElementById('right'),
-  [UTURN]: downButton,
-};
-const HOLD_ELEMENTS = [...Object.values(HOLD_ARROWS), ...Object.values(HOLD_BUTTONS)];
+const HOLD_ARROWS_LIST = Object.values(HOLD_ARROWS);
 
 // Le virage dir est-il possible au carrefour de leg ?
 function canTurn(leg, dir) {
