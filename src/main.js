@@ -324,13 +324,19 @@ function updateArrows() {
   if (arrowRight.hidden === right) arrowRight.hidden = !right;
   const uturn = canUturn(leg);
   if (arrowUturn.hidden === uturn) arrowUturn.hidden = !uturn;
-  // Flèche du virage en cours de confirmation : elle cesse de clignoter et grossit
+  // Virage en cours de confirmation : la flèche cesse de clignoter et grossit, et un cercle se forme autour du
+  // bouton tactile appuyé ; il est complet au bout de TURN_HOLD s, quand le virage est pris
   const holdArrow = turnHold.dir === null ? null : HOLD_ARROWS[turnHold.dir];
-  for (const arrow of [arrowLeft, arrowRight, arrowUturn]) {
-    const holding = arrow === holdArrow;
-    if (arrow.classList.contains('holding') !== holding) arrow.classList.toggle('holding', holding);
+  const holdButton = turnHold.dir === null ? null : HOLD_BUTTONS[turnHold.dir];
+  for (const element of HOLD_ELEMENTS) {
+    const holding = element === holdArrow || element === holdButton;
+    if (element.classList.contains('holding') !== holding) element.classList.toggle('holding', holding);
   }
-  if (holdArrow) holdArrow.style.setProperty('--hold', Math.min(1, turnHold.time / TURN_HOLD).toFixed(2));
+  if (holdArrow) {
+    const progress = Math.min(1, turnHold.time / TURN_HOLD).toFixed(3);
+    holdArrow.style.setProperty('--hold', progress);
+    holdButton.style.setProperty('--hold', progress);
+  }
   const down = uturn || (!gameOver && !inMenu && canParkedUturn());
   if (downButton.hidden === down) downButton.hidden = !down;
   const look = !started && !gameOver && !inMenu;
@@ -840,6 +846,12 @@ function parkedUturn() {
 // de l'appui (s). dir = null : aucun.
 const turnHold = { dir: null, time: 0 };
 const HOLD_ARROWS = { [-1]: arrowLeft, 1: arrowRight, [UTURN]: arrowUturn };
+const HOLD_BUTTONS = {
+  [-1]: document.getElementById('left'),
+  1: document.getElementById('right'),
+  [UTURN]: downButton,
+};
+const HOLD_ELEMENTS = [...Object.values(HOLD_ARROWS), ...Object.values(HOLD_BUTTONS)];
 
 // Le virage dir est-il possible au carrefour de leg ?
 function canTurn(leg, dir) {
