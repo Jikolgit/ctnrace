@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import { psxMaterial } from './psx.js';
 
 // Fumée d'échappement : un pool de sprites recyclés (aucune création en cours de jeu)
 const COUNT = 24; // sprites du pool
@@ -19,13 +18,13 @@ export function createSmoke(scene) {
   const particles = [];
   for (let i = 0; i < COUNT; i++) {
     // Un matériau par sprite : l'opacité change d'une particule à l'autre
-    const material = psxMaterial(new THREE.SpriteMaterial({
+    const material = new THREE.SpriteMaterial({
       map: texture,
       color: 0xcccccc,
       transparent: true,
       opacity: 0,
       depthWrite: false, // les volutes ne se masquent pas entre elles
-    }));
+    });
     const sprite = new THREE.Sprite(material);
     sprite.visible = false;
     scene.add(sprite);

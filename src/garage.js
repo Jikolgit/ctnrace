@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import { psxActive, psxPixelRatio } from './psx.js';
 
 // Écran « Moto » du menu principal : aperçu 3D de la moto choisie, qui tourne lentement sur elle-même,
 // et une carte par moto pour la choisir. Le choix est gardé dans le navigateur (localStorage).
@@ -101,11 +100,9 @@ export function createGarage(canvas, list, bikes, onSelect) {
 
   function show() {
     if (!renderer) {
-      renderer = new THREE.WebGLRenderer({ canvas, antialias: !psxActive(), alpha: true });
+      renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     }
-    // Effet PSX : même taille de pixel que l'image du jeu, agrandie sans lissage
-    renderer.setPixelRatio(psxPixelRatio(window.innerHeight));
-    canvas.style.imageRendering = psxActive() ? 'pixelated' : '';
     open = true;
     last = 0;
     requestAnimationFrame(frame);
