@@ -764,6 +764,12 @@ body.in-menu #unloading {
   width: min(18vw, 110px);
 }
 
+/* Demi-tour vers la gauche : flèche retournée (le remplissage part alors de la droite, toujours dans le sens du
+   demi-tour) */
+#turn-arrows #arrow-uturn.to-left {
+  transform: scaleX(-1);
+}
+
 
 /* Bouton tactile STOP (frein, à maintenir) entre ◀ et ▶ ; bouton ▼ (demi-tour) juste au-dessus, affiché
    seulement quand le demi-tour est possible */

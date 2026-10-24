@@ -324,6 +324,10 @@ function updateArrows() {
   if (arrowRight.hidden === right) arrowRight.hidden = !right;
   const uturn = canUturn(leg);
   if (arrowUturn.hidden === uturn) arrowUturn.hidden = !uturn;
+  // Flèche en U dessinée vers la droite : retournée pour un demi-tour vers la gauche (depuis un couloir de droite,
+  // même règle que dans updateTurnHold)
+  const uturnLeft = uturn && player.position.x >= 0;
+  if (arrowUturn.classList.contains('to-left') !== uturnLeft) arrowUturn.classList.toggle('to-left', uturnLeft);
   // Les flèches sont invisibles ; pendant l'appui qui confirme un virage, celle du virage se remplit de sa
   // couleur, de la queue vers la pointe (--hold : 0 → 1, plein au bout de TURN_HOLD s, quand le virage est pris)
   const holdArrow = turnHold.dir === null ? null : HOLD_ARROWS[turnHold.dir];
