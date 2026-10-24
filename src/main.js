@@ -303,10 +303,12 @@ function placeWorld() {
 }
 placeWorld();
 
-// Virages : dans les TURN_WINDOW derniers mètres avant un carrefour, gauche / droite choisissent le
-// virage (au lieu de changer de couloir) et les flèches possibles clignotent. Sans choix, la moto
-// continue tout droit et percute le mur au bout de la rue.
+// Virages : dans les TURN_WINDOW derniers mètres avant un carrefour, les flèches possibles clignotent.
+// Gauche / droite (ou bas pour le demi-tour) maintenus TURN_HOLD s choisissent le virage ; un appui bref
+// change de couloir, comme ailleurs. Sans choix, la moto continue tout droit et percute le mur au bout de la rue.
 const TURN_WINDOW = 15;
+const TURN_HOLD = 0.5; // s : durée d'appui qui confirme un virage ou un demi-tour
+const TURN_CONFIRM_VIBRATION = 40; // ms : vibration quand le virage est confirmé (mobile)
 
 // Rue dont le joueur est dans la fenêtre de virage (choix pas encore fait), sinon null
 function turnWindowLeg() {
@@ -322,6 +324,13 @@ function updateArrows() {
   if (arrowRight.hidden === right) arrowRight.hidden = !right;
   const uturn = canUturn(leg);
   if (arrowUturn.hidden === uturn) arrowUturn.hidden = !uturn;
+  // Flèche du virage en cours de confirmation : elle cesse de clignoter et grossit
+  const holdArrow = turnHold.dir === null ? null : HOLD_ARROWS[turnHold.dir];
+  for (const arrow of [arrowLeft, arrowRight, arrowUturn]) {
+    const holding = arrow === holdArrow;
+    if (arrow.classList.contains('holding') !== holding) arrow.classList.toggle('holding', holding);
+  }
+  if (holdArrow) holdArrow.style.setProperty('--hold', Math.min(1, turnHold.time / TURN_HOLD).toFixed(2));
   const down = uturn || (!gameOver && !inMenu && canParkedUturn());
   if (downButton.hidden === down) downButton.hidden = !down;
   const look = !started && !gameOver && !inMenu;
@@ -527,6 +536,7 @@ function restart() {
   currentLeg = activeTrack.legAt(playerS);
   started = false;
   parkedSide = 1;
+  turnHold.dir = null;
   deliveryState = null;
   unloadingPanel.hidden = true;
   missionPanel.hidden = true;
@@ -760,11 +770,11 @@ window.addEventListener('keydown', (event) => {
   }
 
   if (event.key === 'r' || event.key === 'R') lookingBack = true;
-  else if (event.key === 'ArrowLeft') steer(-1);
-  else if (event.key === 'ArrowRight') steer(1);
+  else if (event.key === 'ArrowLeft') pressDirection(-1);
+  else if (event.key === 'ArrowRight') pressDirection(1);
   else if (event.key === 'ArrowDown') {
     event.preventDefault(); // pas de défilement de la page
-    uTurn();
+    pressDirection(UTURN);
   } else if (event.key === ' ') {
     event.preventDefault(); // pas de clic sur un bouton qui aurait le focus
     startBraking();
@@ -772,12 +782,16 @@ window.addEventListener('keydown', (event) => {
 });
 
 window.addEventListener('keyup', (event) => {
+  if (event.key === 'ArrowLeft') releaseDirection(-1);
+  else if (event.key === 'ArrowRight') releaseDirection(1);
+  else if (event.key === 'ArrowDown') releaseDirection(UTURN);
   if (event.key === ' ') braking = false;
   if (event.key === 'r' || event.key === 'R') lookingBack = false;
 });
 // Fenêtre qui perd le focus : on ne recevra pas le relâchement de la touche
 window.addEventListener('blur', () => {
   braking = false;
+  turnHold.dir = null; // appui abandonné : ni virage ni changement de couloir
   lookingBack = false;
 });
 
@@ -822,23 +836,68 @@ function parkedUturn() {
   startLaneChange();
 }
 
-function uTurn() {
+// Appui en cours qui peut confirmer un virage : dir = -1 / +1 (gauche / droite) ou UTURN (bas), time = durée
+// de l'appui (s). dir = null : aucun.
+const turnHold = { dir: null, time: 0 };
+const HOLD_ARROWS = { [-1]: arrowLeft, 1: arrowRight, [UTURN]: arrowUturn };
+
+// Le virage dir est-il possible au carrefour de leg ?
+function canTurn(leg, dir) {
+  if (!leg) return false;
+  return dir === UTURN ? canUturn(leg) : leg.options.includes(dir);
+}
+
+// Appui sur gauche / droite / bas (clavier et boutons tactiles)
+function pressDirection(dir) {
+  if (paused || gameOver || inMenu) return;
+  // Sur le trottoir : départ (gauche / droite) ou demi-tour (bas), tout de suite
   if (!started) {
-    parkedUturn();
+    if (dir === UTURN) parkedUturn();
+    else steer(dir);
     return;
   }
+  // Dans la fenêtre de virage, vers un virage possible : on attend de savoir si l'appui est bref ou maintenu
+  if (canTurn(turnWindowLeg(), dir)) {
+    turnHold.dir = dir;
+    turnHold.time = 0;
+    return;
+  }
+  if (dir !== UTURN) steer(dir); // ailleurs : changement de couloir immédiat
+}
+
+// Relâchement : un appui bref dans la fenêtre de virage change de couloir (le bas ne fait rien)
+function releaseDirection(dir) {
+  if (turnHold.dir !== dir) return; // virage déjà confirmé, ou appui commencé hors de la fenêtre
+  turnHold.dir = null;
   if (paused || gameOver || inMenu) return;
-  const turnLeg = turnWindowLeg();
-  if (canUturn(turnLeg)) {
-    // Vers la gauche depuis un couloir de droite, vers la droite depuis un couloir de gauche
-    activeTrack.choose(UTURN, player.position.x >= 0 ? 1 : -1);
+  if (dir !== UTURN) steer(dir);
+}
+
+// Appelé à chaque image avant d'avancer de step : l'appui maintenu TURN_HOLD s confirme le virage. S'il est
+// encore maintenu quand la moto entre dans le carrefour, le virage est pris aussi (sinon un appui commencé
+// dans les 6 derniers mètres enverrait dans le mur).
+function updateTurnHold(delta, step) {
+  if (turnHold.dir === null) return;
+  const leg = turnWindowLeg();
+  if (!canTurn(leg, turnHold.dir)) {
+    turnHold.dir = null;
+    return;
+  }
+  turnHold.time += delta;
+  if (turnHold.time >= TURN_HOLD || playerS + step >= leg.sArcStart) {
+    if (turnHold.dir === UTURN) {
+      // Vers la gauche depuis un couloir de droite, vers la droite depuis un couloir de gauche
+      activeTrack.choose(UTURN, player.position.x >= 0 ? 1 : -1);
+    } else {
+      activeTrack.choose(turnHold.dir);
+    }
+    turnHold.dir = null;
+    navigator.vibrate?.(TURN_CONFIRM_VIBRATION);
     updateArrows();
   }
 }
 
-// Gauche / droite (clavier et boutons tactiles) : -1 = gauche, +1 = droite.
-// Près d'un carrefour : choisit le virage (une direction impossible est ignorée) ;
-// sinon : change de couloir.
+// Gauche / droite : -1 = gauche, +1 = droite. Sur le trottoir : départ ; sinon : change de couloir.
 function steer(direction) {
   if (paused || gameOver || inMenu) return;
   // Départ : la flèche gauche fait descendre la moto du trottoir vers le couloir de droite, et elle démarre
@@ -850,14 +909,6 @@ function steer(direction) {
     startLaneChange();
     return;
   }
-  const turnLeg = turnWindowLeg();
-  if (turnLeg) {
-    if (turnLeg.options.includes(direction)) {
-      activeTrack.choose(direction);
-      updateArrows();
-    }
-    return;
-  }
   const lane = currentLane;
   currentLane = Math.min(laneCount() - 1, Math.max(firstLane(), currentLane + direction));
   if (currentLane !== lane) startLaneChange();
@@ -867,9 +918,9 @@ function steer(direction) {
 // Légère vibration à chaque appui (API Vibration : Android ; ignorée là où elle n'existe pas, ex. iPhone)
 const BUTTON_VIBRATION = 15; // millisecondes
 const TOUCH_ACTIONS = {
-  left: () => steer(-1),
-  right: () => steer(1),
-  down: uTurn,
+  left: () => pressDirection(-1),
+  right: () => pressDirection(1),
+  down: () => pressDirection(UTURN),
   brake: startBraking,
   'look-back': () => {
     if (!paused) lookingBack = true;
@@ -884,6 +935,10 @@ for (const [id, action] of Object.entries(TOUCH_ACTIONS)) {
 }
 // STOP relâché (ou doigt qui glisse hors du bouton) : fin du freinage
 for (const type of ['pointerup', 'pointercancel', 'pointerleave']) {
+  // ◀ ▶ ▼ relâchés : appui bref = changement de couloir, dans la fenêtre de virage (voir releaseDirection)
+  for (const [id, dir] of [['left', -1], ['right', 1], ['down', UTURN]]) {
+    document.getElementById(id).addEventListener(type, () => releaseDirection(dir));
+  }
   document.getElementById('brake').addEventListener(type, () => {
     braking = false;
   });
@@ -1117,6 +1172,7 @@ function animate(timestamp) {
       speed = Math.min(SPEED, speed + ACCELERATION * delta);
     }
     const step = speed * delta; // distance parcourue pendant cette image
+    updateTurnHold(delta, step); // virage confirmé par un appui maintenu
 
     if (!delivery) updateRoadWave(step);
 
