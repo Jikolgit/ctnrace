@@ -758,13 +758,10 @@ body.in-menu #unloading {
   background: rgba(255, 255, 255, 0.28);
 }
 
-/* Demi-tour : flèche vers le bas entre les flèches de virage */
-#arrow-uturn {
-  transform: rotate(90deg);
-}
-
+/* Demi-tour : flèche en U (public/arrow-uturn.svg) entre les flèches de virage ; elle se remplit de gauche à
+   droite, comme le chemin de la moto (montée, arc, descente) */
 #turn-arrows #arrow-uturn {
-  width: min(16vw, 100px);
+  width: min(18vw, 110px);
 }
 
 

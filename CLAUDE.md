@@ -32,6 +32,7 @@ src/track.js        parcours : rues droites reliées par des carrefours en L ou 
 src/road.js         tronçons de route (3 couloirs + trottoirs) et carrefours posés le long du parcours, shader des pavés
 src/city.js         bâtiments (boîtes) le long des rues, angles de rue et « mur » au bout de chaque rue ; sol uni
 public/arrow.png    flèche de virage (pointe à droite ; retournée en CSS pour la gauche), fond rendu transparent
+public/arrow-uturn.svg  flèche de demi-tour en U (même style : jaune, contour noir, épaisseur orange ; modèle donné par l'utilisateur), toujours dessinée vers la droite
 src/obstacles.js    voitures obstacles : pool de clones de car_1, repérées sur le parcours (s, couloir), collision
 src/toon.js         effet cartoon des motos : toToon(material) (MeshToonMaterial, 3 paliers) et addOutline(mesh)
                     (contour noir « inverted hull », normales lissées) ; le pilote n'est pas concerné
