@@ -152,18 +152,30 @@ body {
   pointer-events: none;
 }
 
-/* Silhouette pâle (--ghost : opacité) tant qu'on ne maintient pas un bouton de virage ; pendant l'appui, la flèche se
-   remplit de sa couleur de la queue vers la pointe (--hold : 0 → 1, mis à jour par main.js à chaque image). Le masque
-   suit la flèche retournée (gauche) ou tournée (demi-tour). */
-#turn-arrows img {
+/* Flèche grise tant qu'on ne maintient pas un bouton de virage ; pendant l'appui, la flèche en couleur (posée
+   par-dessus) se découvre de la queue vers la pointe (--hold : 0 → 1, mis à jour par main.js à chaque image).
+   Le masque suit la flèche retournée (gauche) ou tournée (demi-tour). */
+.turn-arrow {
+  display: grid;
   width: min(22vw, 140px);
-  --ghost: 0.3;
-  -webkit-mask-image: linear-gradient(to right, #000 calc(var(--hold, 0) * 100%), rgba(0, 0, 0, var(--ghost)) calc(var(--hold, 0) * 100%));
-  mask-image: linear-gradient(to right, #000 calc(var(--hold, 0) * 100%), rgba(0, 0, 0, var(--ghost)) calc(var(--hold, 0) * 100%));
 }
 
-#turn-arrows img[hidden] {
+.turn-arrow[hidden] {
   display: none;
+}
+
+.turn-arrow img {
+  grid-area: 1 / 1; /* les deux images l'une sur l'autre */
+  width: 100%;
+}
+
+.turn-arrow .base {
+  filter: grayscale(1) brightness(0.9);
+}
+
+.turn-arrow .fill {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(var(--hold, 0) * 100%), transparent calc(var(--hold, 0) * 100%));
+  mask-image: linear-gradient(to right, #000 calc(var(--hold, 0) * 100%), transparent calc(var(--hold, 0) * 100%));
 }
 
 #arrow-left {

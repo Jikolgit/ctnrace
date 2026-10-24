@@ -80,9 +80,15 @@
       Appuie sur <span class="key-keyboard">←</span><span class="key-touch">◀</span> pour partir
     </div>
     <div id="turn-arrows">
-      <img id="arrow-left" src="/arrow.png" alt="Tourne à gauche" hidden />
-      <img id="arrow-uturn" src="/arrow.png" alt="Demi-tour possible (flèche du bas)" hidden />
-      <img id="arrow-right" src="/arrow.png" alt="Tourne à droite" hidden />
+      <span id="arrow-left" class="turn-arrow" role="img" aria-label="Tourne à gauche" hidden>
+        <img class="base" src="/arrow.png" alt="" /><img class="fill" src="/arrow.png" alt="" />
+      </span>
+      <span id="arrow-uturn" class="turn-arrow" role="img" aria-label="Demi-tour possible (flèche du bas)" hidden>
+        <img class="base" src="/arrow.png" alt="" /><img class="fill" src="/arrow.png" alt="" />
+      </span>
+      <span id="arrow-right" class="turn-arrow" role="img" aria-label="Tourne à droite" hidden>
+        <img class="base" src="/arrow.png" alt="" /><img class="fill" src="/arrow.png" alt="" />
+      </span>
     </div>
     <div id="touch-controls">
       <button id="left" type="button" aria-label="Gauche">&#9664;</button>
