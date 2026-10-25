@@ -8,26 +8,37 @@
   <body class="in-menu">
     <canvas id="game"></canvas>
     <div id="menu">
-      <h1 class="title">ctn<span>Racer</span></h1>
-      <p class="subtitle">Choisis ton mode de jeu</p>
-      <div class="modes">
-        <button id="mode-delivery" class="mode-button delivery" type="button">
-          <img class="icon" src="/delivery-box.webp" alt="" />
-          <span class="label">Livraison</span>
-        </button>
-        <button id="mode-challenge" class="mode-button challenge" type="button">
-          <img class="icon" src="/helmet.webp" alt="" />
-          <span class="label">Défis</span>
-        </button>
-      </div>
-      <button id="mode-bike" type="button">
-        <svg viewBox="0 0 64 40" aria-hidden="true">
-          <circle cx="14" cy="28" r="9" fill="none" stroke="#1b1b1b" stroke-width="4" />
-          <circle cx="50" cy="28" r="9" fill="none" stroke="#1b1b1b" stroke-width="4" />
-          <path d="M14 28 26 14h14l10 14M30 14l-4-6h-6M40 14l4-8h6" fill="none" stroke="#e8642a" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />
-        </svg>
-        Moto
-      </button>
+      <!-- Côté gauche : les motos s'y afficheront (vide pour l'instant, la scène 3D reste visible derrière) -->
+      <aside class="menu-side" aria-label="Motos"></aside>
+      <section class="menu-main">
+        <header class="menu-top">
+          <h1 class="title">ctn<span>Racer</span></h1>
+          <div class="menu-actions">
+            <button id="mode-bike" class="top-button" type="button">
+              <svg viewBox="0 0 64 40" aria-hidden="true">
+                <circle cx="14" cy="28" r="9" fill="none" stroke="currentColor" stroke-width="5" />
+                <circle cx="50" cy="28" r="9" fill="none" stroke="currentColor" stroke-width="5" />
+                <path d="M14 28 26 14h14l10 14M30 14l-4-6h-6M40 14l4-8h6" fill="none" stroke="#ff8a3d" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+              Moto
+            </button>
+          </div>
+        </header>
+        <div class="modes">
+          <button id="mode-delivery" class="mode-tile delivery" type="button">
+            <span class="art"><img src="/delivery-box.webp" alt="" /></span>
+            <span class="label">Livraison</span>
+          </button>
+          <button id="mode-challenge" class="mode-tile challenge" type="button">
+            <span class="art"><img src="/helmet.webp" alt="" /></span>
+            <span class="label">Défis</span>
+          </button>
+          <div class="mode-tile soon" aria-disabled="true">
+            <span class="art"></span>
+            <span class="label">Bientôt</span>
+          </div>
+        </div>
+      </section>
     </div>
     <div id="garage">
       <h1 class="title">Moto</h1>

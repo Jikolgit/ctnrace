@@ -182,25 +182,182 @@ body {
   transform: scaleX(-1);
 }
 
-/* Menu principal : par-dessus la scène 3D (figée derrière, légèrement floutée) */
+/* Menu principal (inspiré de MineFun.io) : à gauche, la scène 3D visible (les motos s'y afficheront) ; à droite,
+   un panneau vert foncé avec le logo, le bouton Moto en haut à droite et une grille de vignettes de modes */
 #menu {
   position: fixed;
   inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 24px 16px;
+  display: grid;
+  grid-template-columns: minmax(0, 32%) minmax(0, 1fr);
+  gap: 12px;
+  padding: 12px;
   box-sizing: border-box;
-  overflow-y: auto;
-  background: linear-gradient(rgba(10, 30, 50, 0.35), rgba(10, 20, 35, 0.75));
-  backdrop-filter: blur(3px);
-  -webkit-backdrop-filter: blur(3px);
   font-family: system-ui, sans-serif;
   color: #fff;
   user-select: none;
   -webkit-user-select: none;
+  pointer-events: none; /* le côté gauche laisse passer : seuls les panneaux captent les clics */
+}
+
+#menu .menu-side {
+  min-height: 0;
+}
+
+#menu .menu-main {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 12px 16px 16px;
+  box-sizing: border-box;
+  overflow-y: auto;
+  border: 3px solid #0f241d;
+  border-radius: 8px;
+  background: #1f3d34;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
+  pointer-events: auto;
+}
+
+/* Barre du haut : logo au centre, boutons à droite */
+#menu .menu-top {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+}
+
+#menu .menu-actions {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: flex;
+  gap: 8px;
+}
+
+#menu .top-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  border: 0;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  font: 400 18px/1 'Anton', Impact, sans-serif;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#menu .top-button svg {
+  width: 32px;
+  height: 20px;
+}
+
+#menu .top-button:hover,
+#menu .top-button:focus-visible {
+  background: rgba(0, 0, 0, 0.7);
+  outline: 2px solid #fff;
+}
+
+#menu .top-button:active {
+  transform: translateY(2px);
+}
+
+/* Grille des modes : vignettes carrées, nom en bas */
+#menu .modes {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+
+#menu .mode-tile {
+  position: relative;
+  aspect-ratio: 1;
+  padding: 0;
+  overflow: hidden;
+  border: 3px solid #0f241d;
+  border-radius: 4px;
+  font: inherit;
+  color: #fff;
+  cursor: pointer;
+  transition: transform 0.12s, border-color 0.12s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#menu .mode-tile.delivery {
+  background: radial-gradient(circle at 50% 35%, #7ef0ae 0%, #35d575 40%, #1c7f45 100%);
+}
+
+#menu .mode-tile.challenge {
+  background: radial-gradient(circle at 50% 35%, #ffe07a 0%, #dea700 45%, #8e6a0c 100%);
+}
+
+#menu .mode-tile.soon {
+  background: radial-gradient(circle at 50% 35%, #e2e2e2 0%, #b4b4b4 50%, #7d7d7d 100%);
+  cursor: default;
+}
+
+#menu .mode-tile .art {
+  position: absolute;
+  inset: 0 0 18% 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#menu .mode-tile .art img {
+  width: 72%;
+  filter: drop-shadow(0 6px 4px rgba(0, 0, 0, 0.35));
+  transition: transform 0.15s;
+}
+
+#menu .mode-tile .label {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 22px 4px 7px;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.6));
+  font: 400 clamp(15px, 2.2vw, 20px)/1 'Anton', Impact, sans-serif;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-align: center;
+  text-shadow: 0 2px 0 #000;
+}
+
+#menu .mode-tile:not(.soon):hover,
+#menu .mode-tile:not(.soon):focus-visible {
+  transform: translateY(-3px);
+  border-color: #fff;
+  outline: none;
+}
+
+#menu .mode-tile:not(.soon):hover .art img,
+#menu .mode-tile:not(.soon):focus-visible .art img {
+  transform: scale(1.08);
+}
+
+#menu .mode-tile:not(.soon):active {
+  transform: translateY(1px);
+}
+
+/* Téléphone en portrait : la scène (motos) en haut, le panneau en dessous */
+@media (max-aspect-ratio: 1/1) {
+  #menu {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 34%) minmax(0, 1fr);
+  }
+
+  #menu .menu-top {
+    justify-content: flex-start;
+  }
+
+  #menu .modes {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 body:not(.in-menu) #menu {
@@ -220,113 +377,19 @@ body.in-menu #touch-controls {
   display: none;
 }
 
+/* Logo : blanc à contour foncé, « Racer » orange */
 #menu .title {
   margin: 0;
-  font-size: clamp(48px, 12vw, 96px);
-  font-weight: 900;
-  font-style: italic;
-  letter-spacing: -0.02em;
-  line-height: 1;
+  font: 400 clamp(30px, 5vw, 52px)/1 'Anton', Impact, sans-serif;
+  letter-spacing: 0.02em;
   color: #fff;
-  -webkit-text-stroke: 3px #1b1b1b;
+  -webkit-text-stroke: 3px #10241d;
   paint-order: stroke fill;
-  text-shadow: 0 6px 0 #1b1b1b;
+  text-shadow: 0 4px 0 #10241d;
 }
 
 #menu .title span {
-  color: #e8642a;
-}
-
-#menu .subtitle {
-  margin: 4px 0 24px;
-  font-size: 18px;
-  opacity: 0.85;
-}
-
-#menu .modes {
-  display: flex;
-  flex-direction: column; /* boutons-images empilés, sur ordinateur comme sur téléphone */
-  align-items: center;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 20px;
-  width: 100%;
-  max-width: 640px;
-}
-
-#menu .mode {
-  position: relative;
-  flex: 1 1 240px;
-  max-width: 300px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  padding: 24px 20px 22px;
-  border: 3px solid #1b1b1b;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.95);
-  box-shadow: 0 6px 0 #1b1b1b;
-  color: #1b1b1b;
-  font: inherit;
-  text-align: center;
-  cursor: pointer;
-  transition: transform 0.12s, box-shadow 0.12s, background 0.12s;
-  -webkit-tap-highlight-color: transparent;
-}
-
-#menu .mode svg {
-  width: 72px;
-  height: 72px;
-}
-
-#menu .mode .name {
-  font-size: 28px;
-  font-weight: 900;
-}
-
-#menu .mode .desc {
-  font-size: 15px;
-  line-height: 1.35;
-  opacity: 0.75;
-}
-
-#menu .mode:not(:disabled):hover,
-#menu .mode:not(:disabled):focus-visible {
-  transform: translateY(-3px);
-  box-shadow: 0 9px 0 #1b1b1b;
-  background: #fff3e8;
-  outline: none;
-}
-
-#menu .mode:not(:disabled):active {
-  transform: translateY(4px);
-  box-shadow: 0 2px 0 #1b1b1b;
-}
-
-/* Mode pas encore disponible */
-#menu .mode:disabled {
-  cursor: not-allowed;
-  background: rgba(255, 255, 255, 0.7);
-}
-
-#menu .mode:disabled svg,
-#menu .mode:disabled .name,
-#menu .mode:disabled .desc {
-  opacity: 0.45;
-}
-
-#menu .badge {
-  position: absolute;
-  top: -12px;
-  right: -8px;
-  padding: 5px 10px;
-  border: 2px solid #1b1b1b;
-  border-radius: 999px;
-  background: #ffd23f;
-  font-size: 13px;
-  font-weight: 800;
-  transform: rotate(6deg);
+  color: #ff8a3d;
 }
 
 /* Écran Game Over : Rejouer et Menu côte à côte */
@@ -927,39 +990,6 @@ body:not(.delivery) #timer { display: none; }
   display: none;
 }
 
-/* Bouton « Moto » du menu principal (sous les cartes des modes) */
-#mode-bike {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: 24px;
-  padding: 10px 26px;
-  border: 3px solid #1b1b1b;
-  border-radius: 12px;
-  background: #fff;
-  box-shadow: 0 5px 0 #1b1b1b;
-  color: #1b1b1b;
-  font: 900 italic 22px/1 system-ui, sans-serif;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-
-#mode-bike svg {
-  width: 44px;
-  height: 28px;
-}
-
-#mode-bike:hover,
-#mode-bike:focus-visible {
-  background: #fff3e8;
-  outline: none;
-}
-
-#mode-bike:active {
-  transform: translateY(4px);
-  box-shadow: 0 1px 0 #1b1b1b;
-}
-
 /* Écran « Moto » : même fond que les missions ; aperçu 3D puis cartes de choix */
 #garage {
   position: fixed;
@@ -1071,74 +1101,6 @@ body.in-garage #menu {
 }
 
 
-
-/* Boutons des modes, recopiés des modèles de l'utilisateur (public/delivery button.png, challenge button.png) :
-   fond en dégradé vertical qui fonce vers le bas, liseré gris, grande icône à gauche coupée par les bords du
-   bouton (public/delivery-box.webp, helmet.webp), texte blanc en police étroite (Anton) à droite */
-#menu .mode-button {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: min(80vw, 320px);
-  aspect-ratio: 152 / 45;
-  padding: 0 2% 0 36%; /* le texte est centré à droite de l'icône */
-  box-sizing: border-box;
-  overflow: hidden; /* l'icône dépasse : elle est coupée par les bords */
-  border: 3px solid #6f6f6f;
-  border-radius: 0;
-  cursor: pointer;
-  transition: transform 0.12s, filter 0.12s;
-  -webkit-tap-highlight-color: transparent;
-}
-
-#menu .mode-button.delivery {
-  background: linear-gradient(#35d575 0%, #33cf72 45%, #218e4a 100%);
-}
-
-#menu .mode-button.challenge {
-  background: linear-gradient(#dea700 0%, #d9a302 45%, #8e7219 100%);
-}
-
-#menu .mode-button .icon {
-  position: absolute;
-  pointer-events: none;
-}
-
-/* Carton : à gauche, coupé en bas et à gauche */
-#menu .mode-button.delivery .icon {
-  height: 118%;
-  left: -3%;
-  top: 10%;
-}
-
-/* Casque : coupé en haut, en bas et à gauche ; la visière s'arrête vers 40 % de la largeur */
-#menu .mode-button.challenge .icon {
-  height: 150%;
-  left: -5%;
-  top: -18%;
-}
-
-#menu .mode-button .label {
-  position: relative; /* au-dessus de l'icône */
-  font-family: 'Anton', Impact, 'Arial Narrow', sans-serif;
-  font-size: calc(min(80vw, 320px) * 0.135);
-  line-height: 1;
-  color: #fff;
-  letter-spacing: 0.01em;
-}
-
-#menu .mode-button:hover,
-#menu .mode-button:focus-visible {
-  transform: translateY(-3px) scale(1.03);
-  filter: brightness(1.08) drop-shadow(0 6px 0 rgba(0, 0, 0, 0.35));
-  outline: none;
-}
-
-#menu .mode-button:active {
-  transform: translateY(2px) scale(0.98);
-  filter: brightness(0.95);
-}
 
 /* Bouton Retour des écrans Missions et Moto : icône de fermeture (public/close icon.webp). La croix y est
    découpée (transparente) : un disque blanc derrière la fait apparaître en blanc, sans laisser voir le décor */
