@@ -152,26 +152,34 @@ body {
   pointer-events: none;
 }
 
-#turn-arrows img {
+/* Flèche grise tant qu'on ne maintient pas un bouton de virage ; pendant l'appui, la flèche en couleur (posée
+   par-dessus) se découvre de la queue vers la pointe (--hold : 0 → 1, mis à jour par main.js à chaque image).
+   Le masque suit la flèche retournée (gauche) ou tournée (demi-tour). */
+.turn-arrow {
+  display: grid;
   width: min(22vw, 140px);
-  animation: blink 0.35s steps(2, jump-none) infinite alternate;
 }
 
-#turn-arrows img[hidden] {
+.turn-arrow[hidden] {
   display: none;
+}
+
+.turn-arrow img {
+  grid-area: 1 / 1; /* les deux images l'une sur l'autre */
+  width: 100%;
+}
+
+.turn-arrow .base {
+  filter: grayscale(1) brightness(0.9);
+}
+
+.turn-arrow .fill {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(var(--hold, 0) * 100%), transparent calc(var(--hold, 0) * 100%));
+  mask-image: linear-gradient(to right, #000 calc(var(--hold, 0) * 100%), transparent calc(var(--hold, 0) * 100%));
 }
 
 #arrow-left {
   transform: scaleX(-1);
-}
-
-@keyframes blink {
-  from {
-    opacity: 1;
-  }
-  to {
-    opacity: 0.15;
-  }
 }
 
 /* Menu principal : par-dessus la scène 3D (figée derrière, légèrement floutée) */
@@ -750,13 +758,16 @@ body.in-menu #unloading {
   background: rgba(255, 255, 255, 0.28);
 }
 
-/* Demi-tour : flèche vers le bas entre les flèches de virage */
-#arrow-uturn {
-  transform: rotate(90deg);
+/* Demi-tour : flèche en U (public/arrow-uturn.svg) entre les flèches de virage ; elle se remplit de gauche à
+   droite, comme le chemin de la moto (montée, arc, descente) */
+#turn-arrows #arrow-uturn {
+  width: min(18vw, 110px);
 }
 
-#turn-arrows #arrow-uturn {
-  width: min(16vw, 100px);
+/* Demi-tour vers la gauche : flèche retournée (le remplissage part alors de la droite, toujours dans le sens du
+   demi-tour) */
+#turn-arrows #arrow-uturn.to-left {
+  transform: scaleX(-1);
 }
 
 
@@ -790,9 +801,311 @@ body.in-menu #unloading {
   display: none;
 }
 
+/* Regarder derrière (maintenu) : au-dessus du bouton droit, seulement quand la moto est garée sur le trottoir */
+#touch-controls #look-back {
+  position: absolute;
+  right: 24px;
+  bottom: calc(84px + 80px); /* au-dessus de l'indication de départ */
+  width: 84px;
+  height: 52px;
+  border-radius: 26px;
+  font-size: 14px;
+  letter-spacing: 0.04em;
+}
+
+#touch-controls #look-back[hidden] {
+  display: none;
+}
+
 /* Écrans tactiles : l'indication de départ passe au-dessus de la mini-carte (elle-même au-dessus des boutons) */
 @media (hover: none) and (pointer: coarse) {
   #start-hint {
     bottom: calc(24px + 84px + 20px + env(safe-area-inset-bottom)); /* au-dessus des boutons tactiles */
   }
 }
+
+/* Argent (Livraison) : remplace le compteur de distance dans le HUD ; la distance est dans le panneau Pause */
+#money {
+  display: none;
+  color: #ffd84a;
+}
+
+body.delivery #hud #distance {
+  display: none;
+}
+
+body.delivery #hud #money {
+  display: inline-block;
+}
+
+#money.pop {
+  animation: fuel-pop 0.4s ease-out;
+}
+
+#pause-distance {
+  margin: 0 0 12px;
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.85;
+}
+
+/* Message bref (pas assez d'argent...) */
+#notice {
+  position: fixed;
+  left: 50%;
+  top: 24%;
+  transform: translateX(-50%);
+  padding: 10px 18px;
+  border: 3px solid #1b1b1b;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 4px 0 #1b1b1b;
+  color: #1b1b1b;
+  font: bold 18px/1.2 system-ui, sans-serif;
+  text-align: center;
+  pointer-events: none;
+}
+
+#notice[hidden],
+body.in-menu #notice {
+  display: none;
+}
+
+/* Délai de la mission (Livraison) : en haut au centre */
+#timer {
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 8px 16px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  font: bold 26px/1 system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+#timer.urgent {
+  color: #ff5a4a;
+}
+
+#timer[hidden],
+body.in-menu #timer {
+  display: none;
+}
+body:not(.delivery) #timer { display: none; }
+
+/* Réglage de la caméra (développement, adresse avec ?camera) */
+#camera-tuner {
+  position: fixed;
+  top: 64px;
+  right: 8px;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: min(260px, 60vw);
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.7);
+  color: #fff;
+  font: 12px/1.2 system-ui, sans-serif;
+}
+
+#camera-tuner pre {
+  margin: 0 0 4px;
+  font: bold 12px/1.4 ui-monospace, monospace;
+  color: #ffd84a;
+  white-space: pre-wrap;
+  user-select: text;
+}
+
+#camera-tuner label {
+  display: flex;
+  flex-direction: column;
+}
+
+#camera-tuner input {
+  width: 100%;
+}
+
+#camera-tuner button {
+  margin-top: 4px;
+  padding: 6px;
+  border: 0;
+  border-radius: 6px;
+  background: #e8642a;
+  color: #fff;
+  font: bold 12px system-ui, sans-serif;
+}
+
+#camera-tuner.collapsed label,
+#camera-tuner.collapsed button:last-child {
+  display: none;
+}
+
+/* Bouton « Moto » du menu principal (sous les cartes des modes) */
+#mode-bike {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 24px;
+  padding: 10px 26px;
+  border: 3px solid #1b1b1b;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 5px 0 #1b1b1b;
+  color: #1b1b1b;
+  font: 900 italic 22px/1 system-ui, sans-serif;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#mode-bike svg {
+  width: 44px;
+  height: 28px;
+}
+
+#mode-bike:hover,
+#mode-bike:focus-visible {
+  background: #fff3e8;
+  outline: none;
+}
+
+#mode-bike:active {
+  transform: translateY(4px);
+  box-shadow: 0 1px 0 #1b1b1b;
+}
+
+/* Écran « Moto » : même fond que les missions ; aperçu 3D puis cartes de choix */
+#garage {
+  position: fixed;
+  inset: 0;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px 16px;
+  box-sizing: border-box;
+  overflow-y: auto;
+  background: linear-gradient(rgba(10, 30, 50, 0.35), rgba(10, 20, 35, 0.75));
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  font-family: system-ui, sans-serif;
+  color: #fff;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+body.in-garage #garage {
+  display: flex;
+}
+
+body.in-garage #menu {
+  display: none;
+}
+
+#garage .title {
+  margin: 0;
+  font-size: clamp(40px, 10vw, 72px);
+  font-weight: 900;
+  font-style: italic;
+  line-height: 1;
+  color: #fff;
+  -webkit-text-stroke: 3px #1b1b1b;
+  paint-order: stroke fill;
+  text-shadow: 0 6px 0 #1b1b1b;
+}
+
+#garage .subtitle {
+  margin: 4px 0 8px;
+  font-size: 18px;
+  opacity: 0.85;
+}
+
+#garage-preview {
+  width: min(100%, 420px);
+  height: min(36vh, 300px);
+  flex-shrink: 0;
+}
+
+#garage .bikes {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 16px;
+  width: 100%;
+  max-width: 560px;
+}
+
+.bike-card {
+  flex: 1 1 200px;
+  max-width: 260px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 16px 16px 14px;
+  border: 3px solid #1b1b1b;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 6px 0 #1b1b1b;
+  color: #1b1b1b;
+  font: inherit;
+  cursor: pointer;
+  transition: transform 0.12s, box-shadow 0.12s, background 0.12s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.bike-card .name {
+  font-size: 24px;
+  font-weight: 900;
+  font-style: italic;
+}
+
+.bike-card .desc {
+  font-size: 14px;
+  line-height: 1.35;
+  opacity: 0.75;
+}
+
+.bike-card:hover,
+.bike-card:focus-visible {
+  transform: translateY(-3px);
+  box-shadow: 0 9px 0 #1b1b1b;
+  outline: none;
+}
+
+/* Moto choisie : carte orange */
+.bike-card.selected {
+  background: #e8642a;
+  color: #fff;
+}
+
+.bike-card.selected .desc {
+  opacity: 0.9;
+}
+
+#garage-back {
+  margin-top: 20px;
+  padding: 10px 28px;
+  border: 3px solid #1b1b1b;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 4px 0 #1b1b1b;
+  color: #1b1b1b;
+  font: bold 18px/1 system-ui, sans-serif;
+  cursor: pointer;
+}
+
+#garage-back:hover {
+  background: #fff3e8;
+}
+
+#garage-back:active {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 #1b1b1b;
+}
+

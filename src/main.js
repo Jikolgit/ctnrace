@@ -13,15 +13,24 @@ import { buildGraph, createNetworkTrack, UTURN } from './network.js';
 import { createDeliveryCity } from './deliveryCity.js';
 import { createMinimap } from './minimap.js';
 import { createFuelCans } from './fuelCans.js';
-import { MISSION_COUNT, unlockedMission, completeMission, missionData } from './missions.js';
+import { MISSION_COUNT, BIKE_CAPACITY, unlockedMission, completeMission, missionData } from './missions.js';
 import { createDeliveryPoints } from './deliveryPoints.js';
 import { placeStations } from './stations.js';
 import { createGuide } from './guide.js';
+import { createTraffic } from './traffic.js';
+import { createCameraTuner } from './cameraTuner.js';
+import { DELIVERY_REWARD, FUEL_PRICE, getMoney, addMoney } from './wallet.js';
 import { STATIONS } from './deliveryMap.js';
 import { atlas } from './atlas.js';
+import { createGarage, savedBike, saveBike } from './garage.js';
 
 const canvas = document.getElementById('game');
 const distanceDisplay = document.getElementById('distance');
+const moneyDisplay = document.getElementById('money');
+const pauseDistance = document.getElementById('pause-distance');
+const notice = document.getElementById('notice');
+const timerDisplay = document.getElementById('timer');
+let timerStarted = false;
 const pauseButton = document.getElementById('pause');
 const pausePanel = document.getElementById('pause-menu');
 const resumeButton = document.getElementById('resume');
@@ -33,6 +42,7 @@ const arrowLeft = document.getElementById('arrow-left');
 const arrowRight = document.getElementById('arrow-right');
 const arrowUturn = document.getElementById('arrow-uturn');
 const downButton = document.getElementById('down');
+const lookBackButton = document.getElementById('look-back');
 const challengeButton = document.getElementById('mode-challenge');
 const deliveryButton = document.getElementById('mode-delivery');
 const minimap = createMinimap(document.getElementById('minimap'));
@@ -55,7 +65,7 @@ function showStartHint(side, verb, uturn = false) {
   const left = side > 0;
   startHint.innerHTML = `Appuie sur <span class="key-keyboard">${left ? '←' : '→'}</span><span class="key-touch">${
     left ? '◀' : '▶'}</span> pour ${verb}${
-    uturn ? ' · <span class="key-keyboard">↓</span><span class="key-touch">▼</span> demi-tour' : ''}`;
+    uturn ? ' · <span class="key-keyboard">↓</span><span class="key-touch">▼</span> demi-tour' : ''}<span class="key-keyboard"> · R regarder derrière</span>`;
   startHint.hidden = false;
 }
 const menuButton = document.getElementById('to-menu');
@@ -103,7 +113,68 @@ let cameraAngle = 0;
 let cameraHeading = 0;
 const CAMERA_TURN_DAMPING = 5;
 
+// Regard en arrière (touche R maintenue, ou bouton tactile maintenu) : seulement quand la moto est garée sur le
+// trottoir, pour voir si une voiture arrive avant de repartir. La caméra passe devant la moto et regarde
+// derrière elle ; au relâchement (ou au départ de la moto), elle revient en douceur derrière la moto.
+const LOOK_BACK_HEIGHT = 3.2;
+const LOOK_BACK_Z = -4; // m devant la moto
+const LOOK_BACK_FOLLOW = 0.6; // décalée vers le milieu de la route (la moto est sur le trottoir)
+const LOOK_BACK_DISTANCE = 30; // point regardé, m derrière la moto, au milieu de la route
+const LOOK_BACK_DAMPING = 8; // vitesse de la bascule
+let lookingBack = false; // touche ou bouton maintenu
+let lookBackBlend = 0; // 0 = vue normale, 1 = vue arrière
+const normalCameraPosition = new THREE.Vector3();
+const normalLookAt = new THREE.Vector3();
+const lookBackPosition = new THREE.Vector3();
+const lookBackTarget = new THREE.Vector3();
+
+// Vue d'hélicoptère (choix de l'utilisateur) : caméra haute, un peu en arrière de la moto, qui regarde vers le
+// bas, devant la moto (on voit la rue et les carrefours qui arrivent). HELICOPTER_VIEW = false : vue d'origine,
+// derrière la moto, à 3 m de haut.
+const HELICOPTER_VIEW = false;
+// Valeurs choisies par l'utilisateur avec l'outil ?camera
+const HELI_X = -0.5; // m : décalage latéral (< 0 : à gauche de la moto)
+const HELI_HEIGHT = 6; // m au-dessus de la route
+const HELI_BACK = 7; // m en arrière de la moto
+const HELI_LOOK_Y = -2.5; // m : hauteur du point visé (sous la route : regard plus plongeant)
+const HELI_LOOK_AHEAD = 7; // m : point visé devant la moto
+const HELI_FOLLOW = 0.7; // suit les changements de couloir (1 = à la verticale du couloir de la moto)
+let heliX = 0; // décalage latéral de la caméra d'hélicoptère (amorti)
+// Placement de la caméra d'hélicoptère, relatif à la moto ; réglable en jeu avec « ?camera » dans l'adresse
+const heliCamera = { x: HELI_X, y: HELI_HEIGHT, z: HELI_BACK, lookY: HELI_LOOK_Y, lookZ: -HELI_LOOK_AHEAD };
+createCameraTuner(heliCamera);
+
 function updateCamera(delta) {
+  if (HELICOPTER_VIEW) {
+    heliX = THREE.MathUtils.damp(heliX, player.position.x * HELI_FOLLOW, 6, delta);
+    camera.position.set(heliX + heliCamera.x, heliCamera.y, heliCamera.z);
+    cameraLookAt.set(heliX + heliCamera.x, heliCamera.lookY, heliCamera.lookZ);
+  } else {
+    placeChaseCamera(delta);
+  }
+
+  // Bascule vers la vue arrière (moto garée seulement)
+  const back = lookingBack && !started && !gameOver && !inMenu ? 1 : 0;
+  lookBackBlend = THREE.MathUtils.damp(lookBackBlend, back, LOOK_BACK_DAMPING, delta);
+  if (lookBackBlend > 0.001) {
+    normalCameraPosition.copy(camera.position);
+    normalLookAt.copy(cameraLookAt);
+    lookBackPosition.set(player.position.x * LOOK_BACK_FOLLOW, LOOK_BACK_HEIGHT, LOOK_BACK_Z);
+    lookBackTarget.set(0, 0.5, LOOK_BACK_DISTANCE);
+    camera.position.lerpVectors(normalCameraPosition, lookBackPosition, lookBackBlend);
+    cameraLookAt.lerpVectors(normalLookAt, lookBackTarget, lookBackBlend);
+  }
+
+  // Retard dans les virages : tout le placement de la caméra pivote autour du joueur
+  cameraHeading = THREE.MathUtils.damp(cameraHeading, playerHeading, CAMERA_TURN_DAMPING, delta);
+  const lag = cameraHeading - playerHeading;
+  camera.position.applyAxisAngle(Y_AXIS, lag);
+  cameraLookAt.applyAxisAngle(Y_AXIS, lag);
+  camera.lookAt(cameraLookAt);
+}
+
+// Vue d'origine : caméra derrière la moto, sur un arc centré sur le milieu de la route
+function placeChaseCamera(delta) {
   // Angle sur l'arc qui amène la caméra au-dessus du couloir de la moto
   const portrait = camera.aspect < 1;
   const follow = portrait ? CAMERA_FOLLOW_PORTRAIT : CAMERA_FOLLOW;
@@ -116,13 +187,6 @@ function updateCamera(delta) {
     CAMERA_PIVOT_Z + CAMERA_RADIUS * Math.cos(cameraAngle)
   );
   cameraLookAt.set(portrait ? player.position.x * CAMERA_LOOK_FOLLOW_PORTRAIT : 0, CAMERA_LOOK_Y, CAMERA_PIVOT_Z);
-
-  // Retard dans les virages : tout le placement de la caméra pivote autour du joueur
-  cameraHeading = THREE.MathUtils.damp(cameraHeading, playerHeading, CAMERA_TURN_DAMPING, delta);
-  const lag = cameraHeading - playerHeading;
-  camera.position.applyAxisAngle(Y_AXIS, lag);
-  cameraLookAt.applyAxisAngle(Y_AXIS, lag);
-  camera.lookAt(cameraLookAt);
 }
 
 // Caméra libre à la souris (développement) : mettre à true. Désactive la caméra sur l'arc.
@@ -176,12 +240,18 @@ track.update(playerS);
 const graph = buildGraph();
 const network = createNetworkTrack(graph);
 let deliveryCity = null;
+let traffic = null; // circulation (Livraison), créée quand la ville et le modèle de voiture sont prêts
+let carModel = null; // modèle car_1 (models.glb), une fois chargé
 let fuelCans = null; // bidons d'essence (Livraison), créés avec la ville
 let deliveryPoints = null; // flèches de livraison de la mission (Livraison), créées avec la ville
 let stationPoints = null; // points d'arrêt bleus devant les stations essence (Livraison)
 let guide = null; // ligne de guidage vers l'objectif (premières missions de Livraison)
 const GUIDE_MISSIONS = 2; // missions avec ligne de guidage
 let loaded = true; // produits chargés (false tant que le point de chargement de la mission n'est pas atteint)
+// Capacité de la moto (BIKE_CAPACITY) : onBoard = produits transportés (leurs points de livraison sont affichés),
+// toLoad = produits encore au point de chargement. Moto vide et produits restants : retour au chargement.
+let onBoard = [];
+let toLoad = [];
 
 // Objectifs de la ligne de guidage : le point de chargement, puis les livraisons restantes
 function refreshGuide() {
@@ -189,7 +259,7 @@ function refreshGuide() {
   const { pickup, deliveries } = missionData(currentMission);
   if (currentMission > GUIDE_MISSIONS) guide.setObjectives([]);
   else if (!loaded) guide.setObjectives([pickup]);
-  else guide.setObjectives(deliveries.filter((_, i) => deliveryPoints.isActive(i)));
+  else guide.setObjectives(onBoard.filter((_, i) => deliveryPoints.isActive(i)));
 }
 let stationTemplate = null; // modèle StationEssence (models.glb), une fois chargé
 let stationsPlaced = false;
@@ -233,10 +303,12 @@ function placeWorld() {
 }
 placeWorld();
 
-// Virages : dans les TURN_WINDOW derniers mètres avant un carrefour, gauche / droite choisissent le
-// virage (au lieu de changer de couloir) et les flèches possibles clignotent. Sans choix, la moto
-// continue tout droit et percute le mur au bout de la rue.
+// Virages : dans les TURN_WINDOW derniers mètres avant un carrefour, les flèches possibles clignotent.
+// Gauche / droite (ou bas pour le demi-tour) maintenus TURN_HOLD s choisissent le virage ; un appui bref
+// change de couloir, comme ailleurs. Sans choix, la moto continue tout droit et percute le mur au bout de la rue.
 const TURN_WINDOW = 15;
+const TURN_HOLD = 0.5; // s : durée d'appui qui confirme un virage ou un demi-tour
+const TURN_CONFIRM_VIBRATION = 40; // ms : vibration quand le virage est confirmé (mobile)
 
 // Rue dont le joueur est dans la fenêtre de virage (choix pas encore fait), sinon null
 function turnWindowLeg() {
@@ -252,8 +324,22 @@ function updateArrows() {
   if (arrowRight.hidden === right) arrowRight.hidden = !right;
   const uturn = canUturn(leg);
   if (arrowUturn.hidden === uturn) arrowUturn.hidden = !uturn;
+  // Flèche en U dessinée vers la droite : retournée pour un demi-tour vers la gauche (depuis un couloir de droite,
+  // même règle que dans updateTurnHold)
+  const uturnLeft = uturn && player.position.x >= 0;
+  if (arrowUturn.classList.contains('to-left') !== uturnLeft) arrowUturn.classList.toggle('to-left', uturnLeft);
+  // Les flèches sont invisibles ; pendant l'appui qui confirme un virage, celle du virage se remplit de sa
+  // couleur, de la queue vers la pointe (--hold : 0 → 1, plein au bout de TURN_HOLD s, quand le virage est pris)
+  const holdArrow = turnHold.dir === null ? null : HOLD_ARROWS[turnHold.dir];
+  for (const arrow of HOLD_ARROWS_LIST) {
+    const progress = arrow === holdArrow ? Math.min(1, turnHold.time / TURN_HOLD).toFixed(3) : '0';
+    if (arrow.style.getPropertyValue('--hold') !== progress) arrow.style.setProperty('--hold', progress);
+  }
   const down = uturn || (!gameOver && !inMenu && canParkedUturn());
   if (downButton.hidden === down) downButton.hidden = !down;
+  const look = !started && !gameOver && !inMenu;
+  if (lookBackButton.hidden === look) lookBackButton.hidden = !look;
+  if (!look) lookingBack = false;
 }
 
 // Distance parcourue tout droit dans le carrefour avant que l'avant de la moto touche le mur
@@ -312,7 +398,12 @@ const BIKES = {
   },
 };
 const DEFAULT_BIKE = 'MotoCub';
-let bikeName = DEFAULT_BIKE;
+// Écran « Moto » du menu : nom affiché et description de chaque moto
+const BIKE_CARDS = [
+  { name: 'MotoCub', label: 'MotoCub', desc: 'Petite moto rouge, maniable en ville.' },
+  { name: 'Moto', label: 'Moto classique', desc: 'La première moto du jeu.' },
+];
+let bikeName = savedBike(Object.keys(BIKES)) ?? DEFAULT_BIKE;
 let bike = BIKES[bikeName];
 let selectBike = null; // défini une fois le modèle chargé
 
@@ -385,8 +476,13 @@ new GLTFLoader().load(
       }
     }
 
-    selectBike(DEFAULT_BIKE);
+    selectBike(bikeName);
     player.add(moto);
+    // Copies des motos pour l'aperçu de l'écran « Moto »
+    for (const [key, config] of Object.entries(BIKES)) {
+      const object = moto.getObjectByName(key);
+      if (object) garage.addModel(key, object, config.rotationY);
+    }
 
     if (carTemplate) {
       carTemplate.traverse((child) => {
@@ -394,6 +490,7 @@ new GLTFLoader().load(
       });
       carTemplate.position.set(0, 0, 0); // placée à côté de la moto dans Blender
       obstacles = createObstacles(challengeWorld, carTemplate, track);
+      carModel = carTemplate;
     }
   },
   undefined,
@@ -405,6 +502,8 @@ let paused = false;
 
 function setPaused(value) {
   paused = value;
+  // Livraison : la distance parcourue n'est plus dans le HUD (remplacée par l'argent), elle est ici
+  pauseDistance.textContent = `Distance parcourue : ${Math.floor(distance)} m`;
   pausePanel.hidden = !paused;
   pauseButton.hidden = paused;
   if (paused) resumeButton.focus();
@@ -441,6 +540,7 @@ function restart() {
   currentLeg = activeTrack.legAt(playerS);
   started = false;
   parkedSide = 1;
+  turnHold.dir = null;
   deliveryState = null;
   unloadingPanel.hidden = true;
   missionPanel.hidden = true;
@@ -459,19 +559,26 @@ function restart() {
   if (gameMode === 'delivery') {
     activeTrack.pose(playerS, player.position.x, minimapPoint);
     fuelCans.reset(minimapPoint.x, minimapPoint.z);
-    const { deliveries } = missionData(currentMission);
-    const { pickup } = missionData(currentMission);
+    const { deliveries, pickup, timeLimit } = missionData(currentMission);
     loaded = !pickup;
     if (pickup) {
       // Il faut d'abord charger les produits : seul le point de chargement est affiché
+      toLoad = deliveries.slice();
+      onBoard = [];
       deliveryPoints.reset([pickup], 'pickup');
       setCargo(0);
     } else {
-      // Produits déjà chargés : les points de livraison sont affichés tout de suite
-      deliveryPoints.reset(deliveries);
-      setCargo(deliveries.length);
+      // Produits déjà chargés (mission 1) : les points de livraison sont affichés tout de suite
+      onBoard = deliveries.slice(0, BIKE_CAPACITY);
+      toLoad = deliveries.slice(BIKE_CAPACITY);
+      deliveryPoints.reset(onBoard);
+      setCargo(onBoard.length);
     }
+    setTimeLeft(timeLimit ?? null);
+    timerStarted = false;
     stationPoints.reset(STATIONS, 'fuel');
+    if (!traffic && carModel) traffic = createTraffic(deliveryWorld, carModel, graph);
+    traffic?.reset(minimapPoint.x, minimapPoint.z);
     refreshGuide();
     ignoredStation = -1;
   }
@@ -518,7 +625,7 @@ function finishMission() {
   guide?.setObjectives([]); // plus d'objectif : la ligne disparaît
   completeMission(currentMission);
   const total = missionData(currentMission).deliveries.length;
-  missionSummary.textContent = `${total} produits livrés en ${Math.floor(distance)} m.`;
+  missionSummary.textContent = `${total} produits livrés en ${Math.floor(distance)} m : +${total * DELIVERY_REWARD} $.`;
   missionPanel.hidden = false;
   startHint.hidden = true;
   updateArrows();
@@ -577,6 +684,29 @@ document.getElementById('missions-back').addEventListener('click', () => {
   deliveryButton.focus();
 });
 
+// Écran « Moto » : choix de la moto (appliqué tout de suite, gardé pour les parties suivantes)
+const garage = createGarage(
+  document.getElementById('garage-preview'),
+  document.querySelector('#garage .bikes'),
+  BIKE_CARDS,
+  (name) => {
+    selectBike?.(name);
+    bikeName = name; // si le modèle n'est pas encore chargé, selectBike(bikeName) l'appliquera
+    saveBike(name);
+  }
+);
+garage.select(bikeName);
+
+document.getElementById('mode-bike').addEventListener('click', () => {
+  document.body.classList.add('in-garage');
+  garage.show();
+});
+document.getElementById('garage-back').addEventListener('click', () => {
+  document.body.classList.remove('in-garage');
+  garage.hide();
+  document.getElementById('mode-bike').focus();
+});
+
 challengeButton.addEventListener('click', () => startGame('challenge'));
 deliveryButton.addEventListener('click', showMissions);
 menuButton.addEventListener('click', showMenu);
@@ -616,6 +746,7 @@ const easeInOut = (t) => 0.5 - 0.5 * Math.cos(Math.PI * t);
 
 window.addEventListener('keydown', (event) => {
   if (event.repeat) return;
+  if (event.target.closest?.('#camera-tuner')) return; // flèches sur un curseur de réglage de la caméra
   if (inMenu) return; // le menu se pilote avec ses boutons (Tab / Entrée au clavier)
 
   if (gameOver) {
@@ -637,14 +768,17 @@ window.addEventListener('keydown', (event) => {
   if ((event.key === 'm' || event.key === 'M') && selectBike) {
     const names = Object.keys(BIKES);
     selectBike(names[(names.indexOf(bikeName) + 1) % names.length]);
+    saveBike(bikeName);
+    garage.select(bikeName);
     return;
   }
 
-  if (event.key === 'ArrowLeft') steer(-1);
-  else if (event.key === 'ArrowRight') steer(1);
+  if (event.key === 'r' || event.key === 'R') lookingBack = true;
+  else if (event.key === 'ArrowLeft') pressDirection(-1);
+  else if (event.key === 'ArrowRight') pressDirection(1);
   else if (event.key === 'ArrowDown') {
     event.preventDefault(); // pas de défilement de la page
-    uTurn();
+    pressDirection(UTURN);
   } else if (event.key === ' ') {
     event.preventDefault(); // pas de clic sur un bouton qui aurait le focus
     startBraking();
@@ -652,11 +786,17 @@ window.addEventListener('keydown', (event) => {
 });
 
 window.addEventListener('keyup', (event) => {
+  if (event.key === 'ArrowLeft') releaseDirection(-1);
+  else if (event.key === 'ArrowRight') releaseDirection(1);
+  else if (event.key === 'ArrowDown') releaseDirection(UTURN);
   if (event.key === ' ') braking = false;
+  if (event.key === 'r' || event.key === 'R') lookingBack = false;
 });
 // Fenêtre qui perd le focus : on ne recevra pas le relâchement de la touche
 window.addEventListener('blur', () => {
   braking = false;
+  turnHold.dir = null; // appui abandonné : ni virage ni changement de couloir
+  lookingBack = false;
 });
 
 // Frein (Espace, ou bouton tactile STOP au milieu) : tant qu'il est maintenu, la moto ralentit jusqu'à
@@ -700,23 +840,69 @@ function parkedUturn() {
   startLaneChange();
 }
 
-function uTurn() {
+// Appui en cours qui peut confirmer un virage : dir = -1 / +1 (gauche / droite) ou UTURN (bas), time = durée
+// de l'appui (s). dir = null : aucun.
+const turnHold = { dir: null, time: 0 };
+const HOLD_ARROWS = { [-1]: arrowLeft, 1: arrowRight, [UTURN]: arrowUturn };
+const HOLD_ARROWS_LIST = Object.values(HOLD_ARROWS);
+
+// Le virage dir est-il possible au carrefour de leg ?
+function canTurn(leg, dir) {
+  if (!leg) return false;
+  return dir === UTURN ? canUturn(leg) : leg.options.includes(dir);
+}
+
+// Appui sur gauche / droite / bas (clavier et boutons tactiles)
+function pressDirection(dir) {
+  if (paused || gameOver || inMenu) return;
+  // Sur le trottoir : départ (gauche / droite) ou demi-tour (bas), tout de suite
   if (!started) {
-    parkedUturn();
+    if (dir === UTURN) parkedUturn();
+    else steer(dir);
     return;
   }
+  // Dans la fenêtre de virage, vers un virage possible : on attend de savoir si l'appui est bref ou maintenu
+  if (canTurn(turnWindowLeg(), dir)) {
+    turnHold.dir = dir;
+    turnHold.time = 0;
+    return;
+  }
+  if (dir !== UTURN) steer(dir); // ailleurs : changement de couloir immédiat
+}
+
+// Relâchement : un appui bref dans la fenêtre de virage change de couloir (le bas ne fait rien)
+function releaseDirection(dir) {
+  if (turnHold.dir !== dir) return; // virage déjà confirmé, ou appui commencé hors de la fenêtre
+  turnHold.dir = null;
   if (paused || gameOver || inMenu) return;
-  const turnLeg = turnWindowLeg();
-  if (canUturn(turnLeg)) {
-    // Vers la gauche depuis un couloir de droite, vers la droite depuis un couloir de gauche
-    activeTrack.choose(UTURN, player.position.x >= 0 ? 1 : -1);
+  if (dir !== UTURN) steer(dir);
+}
+
+// Appelé à chaque image avant d'avancer de step : l'appui maintenu TURN_HOLD s confirme le virage. S'il est
+// encore maintenu quand la moto entre dans le carrefour, le virage est pris aussi (sinon un appui commencé
+// dans les 6 derniers mètres enverrait dans le mur).
+function updateTurnHold(delta, step) {
+  if (turnHold.dir === null) return;
+  const leg = turnWindowLeg();
+  if (!canTurn(leg, turnHold.dir)) {
+    turnHold.dir = null;
+    return;
+  }
+  turnHold.time += delta;
+  if (turnHold.time >= TURN_HOLD || playerS + step >= leg.sArcStart) {
+    if (turnHold.dir === UTURN) {
+      // Vers la gauche depuis un couloir de droite, vers la droite depuis un couloir de gauche
+      activeTrack.choose(UTURN, player.position.x >= 0 ? 1 : -1);
+    } else {
+      activeTrack.choose(turnHold.dir);
+    }
+    turnHold.dir = null;
+    navigator.vibrate?.(TURN_CONFIRM_VIBRATION);
     updateArrows();
   }
 }
 
-// Gauche / droite (clavier et boutons tactiles) : -1 = gauche, +1 = droite.
-// Près d'un carrefour : choisit le virage (une direction impossible est ignorée) ;
-// sinon : change de couloir.
+// Gauche / droite : -1 = gauche, +1 = droite. Sur le trottoir : départ ; sinon : change de couloir.
 function steer(direction) {
   if (paused || gameOver || inMenu) return;
   // Départ : la flèche gauche fait descendre la moto du trottoir vers le couloir de droite, et elle démarre
@@ -728,14 +914,6 @@ function steer(direction) {
     startLaneChange();
     return;
   }
-  const turnLeg = turnWindowLeg();
-  if (turnLeg) {
-    if (turnLeg.options.includes(direction)) {
-      activeTrack.choose(direction);
-      updateArrows();
-    }
-    return;
-  }
   const lane = currentLane;
   currentLane = Math.min(laneCount() - 1, Math.max(firstLane(), currentLane + direction));
   if (currentLane !== lane) startLaneChange();
@@ -744,7 +922,15 @@ function steer(direction) {
 // Boutons tactiles (mobile) : pointerdown réagit dès le contact, sans attendre le relâchement.
 // Légère vibration à chaque appui (API Vibration : Android ; ignorée là où elle n'existe pas, ex. iPhone)
 const BUTTON_VIBRATION = 15; // millisecondes
-const TOUCH_ACTIONS = { left: () => steer(-1), right: () => steer(1), down: uTurn, brake: startBraking };
+const TOUCH_ACTIONS = {
+  left: () => pressDirection(-1),
+  right: () => pressDirection(1),
+  down: () => pressDirection(UTURN),
+  brake: startBraking,
+  'look-back': () => {
+    if (!paused) lookingBack = true;
+  },
+};
 for (const [id, action] of Object.entries(TOUCH_ACTIONS)) {
   document.getElementById(id).addEventListener('pointerdown', (event) => {
     event.preventDefault(); // pas de zoom / sélection / clic fantôme
@@ -754,8 +940,16 @@ for (const [id, action] of Object.entries(TOUCH_ACTIONS)) {
 }
 // STOP relâché (ou doigt qui glisse hors du bouton) : fin du freinage
 for (const type of ['pointerup', 'pointercancel', 'pointerleave']) {
+  // ◀ ▶ ▼ relâchés : appui bref = changement de couloir, dans la fenêtre de virage (voir releaseDirection)
+  for (const [id, dir] of [['left', -1], ['right', 1], ['down', UTURN]]) {
+    document.getElementById(id).addEventListener(type, () => releaseDirection(dir));
+  }
   document.getElementById('brake').addEventListener(type, () => {
     braking = false;
+  });
+  // Bouton « regarder derrière » relâché : la caméra revient derrière la moto
+  document.getElementById('look-back').addEventListener(type, () => {
+    lookingBack = false;
   });
 }
 
@@ -794,6 +988,45 @@ let stopKind = 'delivery'; // arrêt en cours : 'delivery' (livraison), 'pickup'
 let unloadTimer = 0;
 let cargo = 0; // produits encore à livrer
 
+// Argent (Livraison) : affiché à la place du compteur de distance ; petit grossissement à chaque changement
+function showMoney(pop = false) {
+  moneyDisplay.textContent = `${getMoney()} $`;
+  if (!pop) return;
+  moneyDisplay.classList.remove('pop');
+  void moneyDisplay.offsetWidth; // relance l'animation CSS
+  moneyDisplay.classList.add('pop');
+}
+showMoney();
+
+// Message bref au centre de l'écran (ex. pas assez d'argent pour le plein)
+let noticeTimeout = 0;
+function showNotice(text) {
+  notice.textContent = text;
+  notice.hidden = false;
+  clearTimeout(noticeTimeout);
+  noticeTimeout = setTimeout(() => {
+    notice.hidden = true;
+  }, 2500);
+}
+
+// Délai de la mission (Livraison, timeLimit dans missions.js) : chronomètre en haut au centre ; à 0, Game Over.
+// Il démarre quand la moto quitte le trottoir pour la première fois.
+let timeLeft = null; // secondes restantes, ou null si la mission n'a pas de délai
+let shownSeconds = -1;
+function setTimeLeft(value) {
+  timeLeft = value;
+  timerDisplay.hidden = value === null;
+  shownSeconds = -1;
+  if (value !== null) updateTimer();
+}
+function updateTimer() {
+  const seconds = Math.ceil(timeLeft);
+  if (seconds === shownSeconds) return;
+  shownSeconds = seconds;
+  timerDisplay.textContent = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+  timerDisplay.classList.toggle('urgent', seconds <= 20);
+}
+
 function setCargo(value) {
   cargo = value;
   cargoCount.textContent = cargo;
@@ -814,7 +1047,7 @@ let distance = 0;
 // Essence (Livraison) : réservoir de FUEL_MAX points, consommé en roulant. Un bidon ramassé en donne
 // CAN_FUEL. À 0, la moto ralentit (BRAKE) jusqu'à l'arrêt : Game Over.
 const FUEL_MAX = 100;
-const FUEL_PER_METER = FUEL_MAX / 600; // réservoir plein : environ 600 m (50 s)
+const FUEL_PER_METER = FUEL_MAX / 1000; // réservoir plein : environ 1000 m (83 s)
 const CAN_FUEL = 30;
 const BRAKE = 6; // décélération (m/s²) en panne : arrêt en 2 s
 const ACCELERATION = 6; // m/s² : au départ (SPEED atteinte en 2 s), après un freinage ou un bidon en roue libre
@@ -908,17 +1141,29 @@ function animate(timestamp) {
           setFuel(FUEL_MAX);
           showStartHint(parkedSide, 'repartir', canParkedUturn());
         } else if (stopKind === 'pickup') {
-          // Produits chargés : les points de livraison apparaissent (route et mini-carte)
-          const { deliveries } = missionData(currentMission);
-          setCargo(deliveries.length);
-          deliveryPoints.reset(deliveries);
+          // Produits chargés (BIKE_CAPACITY au plus) : leurs points de livraison apparaissent
+          onBoard = toLoad.splice(0, BIKE_CAPACITY);
+          setCargo(onBoard.length);
+          deliveryPoints.reset(onBoard);
           loaded = true;
           refreshGuide();
           showStartHint(parkedSide, 'repartir', canParkedUturn());
         } else {
+          // Produit livré : DELIVERY_REWARD $
+          addMoney(DELIVERY_REWARD);
+          showMoney(true);
           setCargo(cargo - 1);
-          if (cargo === 0) finishMission();
-          else showStartHint(parkedSide, 'repartir', canParkedUturn());
+          if (cargo === 0 && toLoad.length === 0) finishMission();
+          else {
+            if (cargo === 0) {
+              // Moto vide mais il reste des produits : retour au point de chargement
+              loaded = false;
+              deliveryPoints.reset([missionData(currentMission).pickup], 'pickup');
+              refreshGuide();
+              showNotice(`Retourne au chargement : encore ${toLoad.length} produit${toLoad.length > 1 ? 's' : ''}`);
+            }
+            showStartHint(parkedSide, 'repartir', canParkedUturn());
+          }
         }
       }
     } else if (delivery && fuel <= 0) {
@@ -932,6 +1177,7 @@ function animate(timestamp) {
       speed = Math.min(SPEED, speed + ACCELERATION * delta);
     }
     const step = speed * delta; // distance parcourue pendant cette image
+    updateTurnHold(delta, step); // virage confirmé par un appui maintenu
 
     if (!delivery) updateRoadWave(step);
 
@@ -941,6 +1187,16 @@ function animate(timestamp) {
     placeWorld();
     distance += step;
     if (delivery) setFuel(fuel - step * FUEL_PER_METER);
+
+    // Délai de la mission : le chronomètre tourne dès le premier départ (arrêts compris)
+    if (delivery && timeLeft !== null) {
+      if (started) timerStarted = true;
+      if (timerStarted) {
+        timeLeft = Math.max(0, timeLeft - delta);
+        updateTimer();
+        if (timeLeft === 0 && !gameOver) endGame('Temps écoulé !');
+      }
+    }
     updateArrows();
 
     // Pas de virage choisi et tout droit impossible : la moto traverse le carrefour jusqu'au mur
@@ -1063,7 +1319,14 @@ function animate(timestamp) {
         ignoredStation = -1;
       }
       const station = stationPoints.update(gameTime, minimapPoint.x, minimapPoint.z, ignoredStation);
-      if (station >= 0 && started && !deliveryState) {
+      if (station >= 0 && started && !deliveryState && getMoney() < FUEL_PRICE) {
+        // Pas assez d'argent : pas de plein (la moto continue) ; message une seule fois par passage
+        ignoredStation = station;
+        showNotice(`Pas assez d'argent pour le plein (${FUEL_PRICE} $)`);
+      } else if (station >= 0 && started && !deliveryState) {
+        // Plein payé à l'arrivée sur le point
+        addMoney(-FUEL_PRICE);
+        showMoney(true);
         stopKind = 'fuel';
         stationIndex = station;
         ignoredStation = station; // flèche cachée pendant le plein : la caméra passerait dedans
@@ -1073,6 +1336,18 @@ function animate(timestamp) {
         parkedSide = player.position.x >= 0 ? 1 : -1;
         currentLane = parkedSide > 0 ? laneCount() : -1;
         startLaneChange();
+      }
+    }
+
+    // Circulation (Livraison) : les voitures roulent dans le réseau ; percuter une voiture = Game Over
+    if (delivery) {
+      if (!traffic && carModel && deliveryCity) {
+        traffic = createTraffic(deliveryWorld, carModel, graph);
+        traffic.reset(minimapPoint.x, minimapPoint.z);
+      }
+      if (traffic) {
+        traffic.update(delta, minimapPoint.x, minimapPoint.z);
+        if (traffic.hits(minimapPoint.x, minimapPoint.z)) endGame('Accident !');
       }
     }
 
@@ -1088,7 +1363,7 @@ function animate(timestamp) {
   }
 
   // Ligne de guidage (premières missions de Livraison)
-  if (gameMode === 'delivery' && !inMenu && !gameOver && guide) guide.update(activeTrack, playerS);
+  if (gameMode === 'delivery' && !inMenu && !gameOver && guide) guide.update(activeTrack, playerS, gameTime);
 
   // Carte (Livraison), affichée seulement dans le panneau Pause : position de la moto, couloir compris
   // (x → x de la carte, z → y)

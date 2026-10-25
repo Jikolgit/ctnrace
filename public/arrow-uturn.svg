@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="40 10 405 390">
+  <!-- Flèche de demi-tour en U, même style que arrow.png : jaune, contour noir, épaisseur orange dessous.
+       Corps = trait épais le long de la ligne médiane (montée à gauche, arc, descente à droite), pointe vers le bas. -->
+  <defs>
+    <path id="body" d="M 95 320 V 190 A 125 125 0 0 1 345 190 V 240" fill="none" />
+    <polygon id="head" points="262,235 428,235 345,345" />
+  </defs>
+  <!-- Épaisseur (orange), décalée vers le bas -->
+  <g transform="translate(0 20)">
+    <use href="#body" stroke="#000" stroke-width="86" stroke-linecap="square" stroke-linejoin="round" />
+    <use href="#head" fill="#000" stroke="#000" stroke-width="16" stroke-linejoin="round" />
+    <use href="#body" stroke="#ffa000" stroke-width="70" stroke-linecap="square" stroke-linejoin="round" />
+    <use href="#head" fill="#ffa000" />
+  </g>
+  <!-- Dessus (jaune) -->
+  <use href="#body" stroke="#000" stroke-width="86" stroke-linecap="square" stroke-linejoin="round" />
+  <use href="#head" fill="#000" stroke="#000" stroke-width="16" stroke-linejoin="round" />
+  <use href="#body" stroke="#ffc107" stroke-width="70" stroke-linecap="square" stroke-linejoin="round" />
+  <use href="#head" fill="#ffc107" />
+</svg>

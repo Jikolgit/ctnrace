@@ -33,6 +33,21 @@
           <span class="desc">Roule sans fin, évite les véhicules et surveille ton essence.</span>
         </button>
       </div>
+      <button id="mode-bike" type="button">
+        <svg viewBox="0 0 64 40" aria-hidden="true">
+          <circle cx="14" cy="28" r="9" fill="none" stroke="#1b1b1b" stroke-width="4" />
+          <circle cx="50" cy="28" r="9" fill="none" stroke="#1b1b1b" stroke-width="4" />
+          <path d="M14 28 26 14h14l10 14M30 14l-4-6h-6M40 14l4-8h6" fill="none" stroke="#e8642a" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+        Moto
+      </button>
+    </div>
+    <div id="garage">
+      <h1 class="title">Moto</h1>
+      <p class="subtitle">Choisis ta moto</p>
+      <canvas id="garage-preview"></canvas>
+      <div class="bikes"><!-- cartes créées par garage.js --></div>
+      <button id="garage-back" type="button">Retour</button>
     </div>
     <div id="missions">
       <h1 class="title">Livraison</h1>
@@ -42,7 +57,9 @@
       </div>
       <button id="missions-back" type="button">Retour</button>
     </div>
-    <div id="hud"><span id="distance">0 m</span></div>
+    <div id="hud"><span id="distance">0 m</span><span id="money">0 $</span></div>
+    <div id="notice" hidden></div>
+    <div id="timer" hidden>2:00</div>
     <div id="cargo" aria-label="Produits à livrer">
       <svg viewBox="0 0 64 64" aria-hidden="true">
           <path d="M32 6 56 18v28L32 58 8 46V18Z" fill="#f2b45a" />
@@ -63,14 +80,21 @@
       Appuie sur <span class="key-keyboard">←</span><span class="key-touch">◀</span> pour partir
     </div>
     <div id="turn-arrows">
-      <img id="arrow-left" src="/arrow.png" alt="Tourne à gauche" hidden />
-      <img id="arrow-uturn" src="/arrow.png" alt="Demi-tour possible (flèche du bas)" hidden />
-      <img id="arrow-right" src="/arrow.png" alt="Tourne à droite" hidden />
+      <span id="arrow-left" class="turn-arrow" role="img" aria-label="Tourne à gauche" hidden>
+        <img class="base" src="/arrow.png" alt="" /><img class="fill" src="/arrow.png" alt="" />
+      </span>
+      <span id="arrow-uturn" class="turn-arrow" role="img" aria-label="Demi-tour possible (flèche du bas)" hidden>
+        <img class="base" src="/arrow-uturn.svg" alt="" /><img class="fill" src="/arrow-uturn.svg" alt="" />
+      </span>
+      <span id="arrow-right" class="turn-arrow" role="img" aria-label="Tourne à droite" hidden>
+        <img class="base" src="/arrow.png" alt="" /><img class="fill" src="/arrow.png" alt="" />
+      </span>
     </div>
     <div id="touch-controls">
       <button id="left" type="button" aria-label="Gauche">&#9664;</button>
       <button id="brake" type="button" aria-label="Frein">STOP</button>
       <button id="down" type="button" aria-label="Demi-tour" hidden>&#9660;</button>
+      <button id="look-back" type="button" aria-label="Regarder derrière" hidden>ARRIÈRE</button>
       <button id="right" type="button" aria-label="Droite">&#9654;</button>
     </div>
     <div id="unloading" hidden>
@@ -90,6 +114,7 @@
     <div id="pause-menu" hidden>
       <div class="panel">
         <h1>Pause</h1>
+        <p id="pause-distance">Distance parcourue : 0 m</p>
         <canvas id="minimap" aria-label="Carte du quartier"></canvas>
         <div class="actions">
           <button id="resume" type="button">Reprendre</button>
