@@ -4,26 +4,29 @@ import { atlas, ROAD_RECT, ROAD_ASPECT } from './atlas.js';
 
 // Couloirs
 export const LANE_COUNT = 3;
-export const LANE_WIDTH = 2;
+export const LANE_WIDTH = 3; // 3 m : les véhicules les plus larges (car_2, car_3 : ~3 m) tiennent dans un couloir
 export const laneX = (index) => (index - (LANE_COUNT - 1) / 2) * LANE_WIDTH;
-export const ROAD_HALF_WIDTH = (LANE_COUNT * LANE_WIDTH) / 2; // bord de la route : ±3
+export const ROAD_HALF_WIDTH = (LANE_COUNT * LANE_WIDTH) / 2; // bord de la route : ±4,5
 
 // Trottoirs
 export const SIDEWALK_WIDTH = 1.5;
 export const SIDEWALK_HEIGHT = 0.12;
-const SIDEWALK_EDGE = ROAD_HALF_WIDTH + SIDEWALK_WIDTH; // ±4,5 : début des bâtiments
+const SIDEWALK_EDGE = ROAD_HALF_WIDTH + SIDEWALK_WIDTH; // ±6 : début des bâtiments
 
 // Tronçons de route : une rue (track.js) est une suite de tronçons de 20 m, puis un carrefour
 export const CHUNK_LENGTH = 20;
 const CHUNK_SEGMENTS = 10; // subdivisions en longueur, pour suivre la courbure du monde
 
-// Pavés : motif pris dans l'atlas bikeTXT.jpg. Un motif couvre la largeur d'un couloir ; le nombre
-// de répétitions en longueur est entier pour que le motif se raccorde d'un tronçon à l'autre.
+// Pavés : motif pris dans l'atlas bikeTXT.jpg. Un motif fait PAVER_TILE m de large (2 m : la largeur des
+// couloirs d'origine ; elle ne change pas quand les couloirs s'élargissent) ; le nombre de répétitions en
+// longueur est entier pour que le motif se raccorde d'un tronçon à l'autre.
 // Une texture d'atlas ne peut pas se répéter seule : le shader replie les UV dans la zone des pavés
 // (fract), et textureGrad garde le bon niveau de détail aux jonctions (sinon une ligne apparaît).
 // La répétition passe par un uniform : on utilise directement l'atlas partagé (pas de copie de la
 // texture, qui était signalée "sans image" tant que bikeTXT.jpg n'était pas chargé).
-export const ROAD_REPEAT = new THREE.Vector2(1, Math.round(CHUNK_LENGTH / (LANE_WIDTH * ROAD_ASPECT)));
+const PAVER_TILE = 2;
+// Répétitions pour des UV qui comptent déjà la largeur en motifs (rues pavées de Livraison : u = largeur / 2)
+export const ROAD_REPEAT = new THREE.Vector2(1, Math.round(CHUNK_LENGTH / (PAVER_TILE * ROAD_ASPECT)));
 
 export function createPavedMaterial(repeat) {
   const material = applyWorldBend(
@@ -52,11 +55,13 @@ export function createPavedMaterial(repeat) {
   return material;
 }
 
-const laneMaterial = createPavedMaterial(ROAD_REPEAT);
-// Carrefour carré (largeur de la route des deux côtés) : même taille de pavés que les couloirs
+// Chaussée d'un tronçon (les 3 couloirs d'une seule pièce, UV 0 → 1 en largeur) : ROAD_WIDTH / PAVER_TILE
+// motifs en largeur
 const ROAD_WIDTH = 2 * ROAD_HALF_WIDTH;
+const laneMaterial = createPavedMaterial(new THREE.Vector2(ROAD_WIDTH / PAVER_TILE, ROAD_REPEAT.y));
+// Carrefour carré (largeur de la route des deux côtés) : même taille de pavés que les couloirs
 const crossingMaterial = createPavedMaterial(
-  new THREE.Vector2(LANE_COUNT, (ROAD_REPEAT.y * ROAD_WIDTH) / CHUNK_LENGTH)
+  new THREE.Vector2(ROAD_WIDTH / PAVER_TILE, (ROAD_REPEAT.y * ROAD_WIDTH) / CHUNK_LENGTH)
 );
 
 export const sidewalkMaterial = applyWorldBend(
@@ -64,7 +69,7 @@ export const sidewalkMaterial = applyWorldBend(
 );
 
 // Géométries partagées (aucune allocation en jeu)
-const laneGeometry = new THREE.PlaneGeometry(LANE_WIDTH, CHUNK_LENGTH, 1, CHUNK_SEGMENTS);
+const laneGeometry = new THREE.PlaneGeometry(ROAD_WIDTH, CHUNK_LENGTH, LANE_COUNT, CHUNK_SEGMENTS);
 laneGeometry.rotateX(-Math.PI / 2);
 const crossingGeometry = new THREE.PlaneGeometry(ROAD_WIDTH, ROAD_WIDTH, 1, 3);
 crossingGeometry.rotateX(-Math.PI / 2);
@@ -73,14 +78,10 @@ sidewalkGeometry.translate(0, SIDEWALK_HEIGHT / 2, 0);
 const blockGeometry = new THREE.BoxGeometry(1, SIDEWALK_HEIGHT, 1); // morceaux de trottoir des carrefours
 blockGeometry.translate(0, SIDEWALK_HEIGHT / 2, 0);
 
-// Tronçon droit : 3 couloirs + 2 trottoirs. Repère local : la route va vers -Z.
+// Tronçon droit : chaussée (3 couloirs, sans marquage) + 2 trottoirs. Repère local : la route va vers -Z.
 function createChunk() {
   const chunk = new THREE.Group();
-  for (let i = 0; i < LANE_COUNT; i++) {
-    const lane = new THREE.Mesh(laneGeometry, laneMaterial);
-    lane.position.x = laneX(i);
-    chunk.add(lane);
-  }
+  chunk.add(new THREE.Mesh(laneGeometry, laneMaterial));
   for (const side of [-1, 1]) {
     const sidewalk = new THREE.Mesh(sidewalkGeometry, sidewalkMaterial);
     sidewalk.position.x = side * (ROAD_HALF_WIDTH + SIDEWALK_WIDTH / 2);

@@ -18,6 +18,7 @@ import { createDeliveryPoints } from './deliveryPoints.js';
 import { placeStations } from './stations.js';
 import { createGuide } from './guide.js';
 import { createTraffic } from './traffic.js';
+import { extractVehicles } from './vehicles.js';
 import { createCameraTuner } from './cameraTuner.js';
 import { DELIVERY_REWARD, FUEL_PRICE, getMoney, addMoney } from './wallet.js';
 import { STATIONS } from './deliveryMap.js';
@@ -241,7 +242,7 @@ const graph = buildGraph();
 const network = createNetworkTrack(graph);
 let deliveryCity = null;
 let traffic = null; // circulation (Livraison), créée quand la ville et le modèle de voiture sont prêts
-let carModel = null; // modèle car_1 (models.glb), une fois chargé
+let carModels = null; // véhicules car_1, car_2, car_3 (models.glb, vehicles.js), une fois chargés
 let fuelCans = null; // bidons d'essence (Livraison), créés avec la ville
 let deliveryPoints = null; // flèches de livraison de la mission (Livraison), créées avec la ville
 let stationPoints = null; // points d'arrêt bleus devant les stations essence (Livraison)
@@ -414,9 +415,9 @@ new GLTFLoader().load(
   (gltf) => {
     const moto = gltf.scene;
 
-    // Modèle de voiture : retiré de la scène du joueur, il sert de gabarit aux obstacles
-    const carTemplate = moto.getObjectByName('car_1');
-    if (carTemplate) carTemplate.removeFromParent();
+    // Véhicules (car_1, car_2, car_3) : retirés de la scène du joueur, ils servent de gabarits aux voitures des
+    // deux modes (texture : atlas bikeTXT)
+    const vehicles = extractVehicles(moto, atlasMaterial);
 
     // Station essence : retirée de la scène du joueur, elle sert de gabarit aux stations de la ville
     // (texture : atlas bikeTXT). Le château d'eau et le cylindre du GLB ne sont pas encore utilisés : retirés
@@ -484,13 +485,9 @@ new GLTFLoader().load(
       if (object) garage.addModel(key, object, config.rotationY);
     }
 
-    if (carTemplate) {
-      carTemplate.traverse((child) => {
-        if (child.isMesh) child.material = atlasMaterial;
-      });
-      carTemplate.position.set(0, 0, 0); // placée à côté de la moto dans Blender
-      obstacles = createObstacles(challengeWorld, carTemplate, track);
-      carModel = carTemplate;
+    if (vehicles.length) {
+      obstacles = createObstacles(challengeWorld, vehicles, track);
+      carModels = vehicles;
     }
   },
   undefined,
@@ -577,7 +574,7 @@ function restart() {
     setTimeLeft(timeLimit ?? null);
     timerStarted = false;
     stationPoints.reset(STATIONS, 'fuel');
-    if (!traffic && carModel) traffic = createTraffic(deliveryWorld, carModel, graph);
+    if (!traffic && carModels) traffic = createTraffic(deliveryWorld, carModels, graph);
     traffic?.reset(minimapPoint.x, minimapPoint.z);
     refreshGuide();
     ignoredStation = -1;
@@ -1341,8 +1338,8 @@ function animate(timestamp) {
 
     // Circulation (Livraison) : les voitures roulent dans le réseau ; percuter une voiture = Game Over
     if (delivery) {
-      if (!traffic && carModel && deliveryCity) {
-        traffic = createTraffic(deliveryWorld, carModel, graph);
+      if (!traffic && carModels && deliveryCity) {
+        traffic = createTraffic(deliveryWorld, carModels, graph);
         traffic.reset(minimapPoint.x, minimapPoint.z);
       }
       if (traffic) {

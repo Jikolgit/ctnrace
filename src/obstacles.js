@@ -1,6 +1,8 @@
 import { LANE_COUNT, laneX } from './road.js';
+import { cloneVehicle } from './vehicles.js';
 
-// Voitures obstacles : un pool de clones du modèle, recyclés (aucune création en cours de jeu).
+// Voitures obstacles : un pool de clones des modèles (car_1, car_2, car_3 : vehicles.js), recyclés (aucune
+// création en cours de jeu). Chaque nouvelle voiture prend un modèle au hasard.
 // Elles roulent dans le même sens que le joueur, mais moins vite : elles se rapprochent donc de lui.
 // Chaque voiture est repérée sur le parcours (track.js) : distance s et couloir.
 // Une seule voiture à la fois à un endroit donné (jamais deux côte à côte).
@@ -9,7 +11,7 @@ import { LANE_COUNT, laneX } from './road.js';
 // Pour cela, on choisit d'abord l'endroit du parcours où le joueur croisera la prochaine voiture
 // (« rencontre »), dans une ligne droite et hors de cette zone, puis on fait apparaître la voiture
 // à la position d'où, en roulant, elle sera rejointe à cet endroit.
-const POOL_SIZE = 10;
+const POOL_PER_MODEL = 4; // une seule voiture à la fois : quelques clones par modèle suffisent
 const CAR_SPEED = 4; // unités par seconde
 const SPAWN_AHEAD = 90; // apparition au plus loin devant le joueur (dans le brouillard)
 const DESPAWN_BEHIND = 12; // recyclage, derrière la caméra
@@ -19,28 +21,23 @@ const FIRST_ENCOUNTER = 135; // première voiture croisée environ 11 s après l
 const CAR_FREE_ZONE = 30; // mètres sans voiture avant chaque carrefour
 const AFTER_CORNER = 25; // pas de rencontre dans les premiers mètres après un carrefour (la voiture
 // apparaît alors pendant le virage, cachée derrière l'angle de rue)
-const WHEEL_RADIUS = 0.36;
-
-// Boîte de collision d'une voiture (repère de la voiture, un peu plus petite que le modèle)
-const HALF_WIDTH = 0.82;
-const FRONT = -2.15; // l'avant regarde vers -Z
-const BACK = 2.3; // roue de secours comprise
 
 const randomRange = (min, max) => min + Math.random() * (max - min);
 
-// world : groupe qui porte le décor ; track : le parcours
-export function createObstacles(world, template, track) {
+// world : groupe qui porte le décor ; models : véhicules (vehicles.js, extractVehicles) ; track : le parcours
+export function createObstacles(world, models, track) {
   const cars = [];
-  for (let i = 0; i < POOL_SIZE; i++) {
-    const object = template.clone(true); // géométries et matériau partagés
-    object.visible = false;
-    world.add(object);
-    const wheels = [];
-    object.traverse((child) => {
-      if (child.name.includes('_Wheel_')) wheels.push(child);
-    });
-    cars.push({ object, wheels, active: false, s: 0, x: 0 });
+  for (const model of models) {
+    for (let i = 0; i < POOL_PER_MODEL; i++) {
+      const { object, wheels } = cloneVehicle(model);
+      object.visible = false;
+      world.add(object);
+      // Boîte de collision : front < 0 (l'avant regarde vers -Z)
+      cars.push({ object, wheels, model, front: -model.front, back: model.back, active: false, s: 0, x: 0 });
+    }
   }
+  // Longueur du plus long véhicule : la zone sans voiture avant un carrefour vaut pour tous
+  const MAX_LENGTH = Math.max(...models.map((m) => m.front + m.back));
 
   let playerS = 0;
   let nextEncounter = null; // s où le joueur croisera la prochaine voiture
@@ -50,7 +47,7 @@ export function createObstacles(world, template, track) {
     const leg = track.legAt(nextEncounter);
 
     // La voiture doit être entièrement dépassée avant la zone sans voiture du carrefour
-    if (nextEncounter + BACK - FRONT > leg.sArcStart - CAR_FREE_ZONE) {
+    if (nextEncounter + MAX_LENGTH > leg.sArcStart - CAR_FREE_ZONE) {
       // Rencontre reportée dans la rue suivante, dès que le joueur a choisi son virage
       if (!leg.turn) return;
       nextEncounter = leg.sEnd + AFTER_CORNER;
@@ -74,7 +71,9 @@ export function createObstacles(world, template, track) {
     // Elle doit partir de la même rue (elle ne prend pas les virages) : sinon, attendre un peu
     if (start < leg.sStart + 3) return;
 
-    const car = cars.find((c) => !c.active);
+    // Un modèle au hasard parmi les voitures libres
+    const free = cars.filter((c) => !c.active);
+    const car = free[Math.floor(Math.random() * free.length)];
     if (car) {
       car.active = true;
       car.s = start;
@@ -90,7 +89,6 @@ export function createObstacles(world, template, track) {
     if (nextEncounter === null) nextEncounter = s + FIRST_ENCOUNTER;
     trySpawn(speed);
 
-    const spin = (CAR_SPEED * delta) / WHEEL_RADIUS;
     for (const car of cars) {
       if (!car.active) continue;
       car.s += CAR_SPEED * delta;
@@ -100,6 +98,7 @@ export function createObstacles(world, template, track) {
         continue;
       }
       car.object.rotation.y = track.pose(car.s, car.x, car.object.position);
+      const spin = (CAR_SPEED * delta) / car.model.wheelRadius;
       for (const wheel of car.wheels) wheel.rotation.x -= spin;
     }
   }
@@ -110,9 +109,9 @@ export function createObstacles(world, template, track) {
       if (!car.active) continue;
       const z = playerS - car.s; // position de la voiture dans le repère du joueur (devant = négatif)
       if (
-        Math.abs(car.x - x) < HALF_WIDTH + halfWidth &&
-        z + FRONT < zMax &&
-        z + BACK > zMin
+        Math.abs(car.x - x) < car.model.halfWidth + halfWidth &&
+        z + car.front < zMax &&
+        z + car.back > zMin
       ) {
         return true;
       }
