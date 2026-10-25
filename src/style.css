@@ -245,6 +245,8 @@ body.in-menu #touch-controls {
 
 #menu .modes {
   display: flex;
+  flex-direction: column; /* boutons-images empilés, sur ordinateur comme sur téléphone */
+  align-items: center;
   flex-wrap: wrap;
   justify-content: center;
   gap: 20px;
@@ -548,26 +550,6 @@ body.in-missions #menu {
   height: 20px;
 }
 
-#missions-back {
-  margin-top: 20px;
-  padding: 10px 28px;
-  border: 3px solid #1b1b1b;
-  border-radius: 10px;
-  background: #fff;
-  box-shadow: 0 4px 0 #1b1b1b;
-  color: #1b1b1b;
-  font: bold 18px/1 system-ui, sans-serif;
-  cursor: pointer;
-}
-
-#missions-back:hover {
-  background: #fff3e8;
-}
-
-#missions-back:active {
-  transform: translateY(3px);
-  box-shadow: 0 1px 0 #1b1b1b;
-}
 
 /* Indication de départ : la moto attend sur le trottoir que le joueur appuie sur gauche */
 #start-hint {
@@ -1088,24 +1070,63 @@ body.in-garage #menu {
   opacity: 0.9;
 }
 
-#garage-back {
-  margin-top: 20px;
-  padding: 10px 28px;
-  border: 3px solid #1b1b1b;
-  border-radius: 10px;
-  background: #fff;
-  box-shadow: 0 4px 0 #1b1b1b;
-  color: #1b1b1b;
-  font: bold 18px/1 system-ui, sans-serif;
+
+
+/* Boutons des modes (images de l'utilisateur : public/delivery button.png, public/challenge button.png,
+   152 × 45 px, texte compris) */
+#menu .mode-image {
+  padding: 0;
+  border: 0;
+  background: none;
   cursor: pointer;
+  transition: transform 0.12s, filter 0.12s;
+  -webkit-tap-highlight-color: transparent;
 }
 
-#garage-back:hover {
-  background: #fff3e8;
+#menu .mode-image img {
+  display: block;
+  width: min(80vw, 304px); /* 2 × la taille de l'image */
+  height: auto;
 }
 
-#garage-back:active {
-  transform: translateY(3px);
-  box-shadow: 0 1px 0 #1b1b1b;
+#menu .mode-image:hover,
+#menu .mode-image:focus-visible {
+  transform: translateY(-3px) scale(1.03);
+  filter: brightness(1.08) drop-shadow(0 6px 0 rgba(0, 0, 0, 0.35));
+  outline: none;
 }
 
+#menu .mode-image:active {
+  transform: translateY(2px) scale(0.98);
+  filter: brightness(0.95);
+}
+
+/* Bouton Retour des écrans Missions et Moto : icône de fermeture (public/close icon.webp). La croix y est
+   découpée (transparente) : un disque blanc derrière la fait apparaître en blanc, sans laisser voir le décor */
+.close-button {
+  margin-top: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: #fff;
+  cursor: pointer;
+  transition: transform 0.12s, filter 0.12s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.close-button img {
+  display: block;
+  width: 64px;
+  height: 64px;
+}
+
+.close-button:hover,
+.close-button:focus-visible {
+  transform: scale(1.08);
+  filter: brightness(1.08);
+  outline: none;
+}
+
+.close-button:active {
+  transform: scale(0.95);
+}

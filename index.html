@@ -11,26 +11,11 @@
       <h1 class="title">ctn<span>Racer</span></h1>
       <p class="subtitle">Choisis ton mode de jeu</p>
       <div class="modes">
-        <button id="mode-delivery" class="mode" type="button">
-          <svg viewBox="0 0 64 64" aria-hidden="true">
-            <path d="M32 6 56 18v28L32 58 8 46V18Z" fill="#f2b45a" />
-            <path d="M32 30 56 18v28L32 58Z" fill="#d68f2f" />
-            <path d="M8 18 32 30 56 18 32 6Z" fill="#ffd28a" />
-            <path d="M20 12 44 24v8l-6 3v-8L14 15Z" fill="#c9772a" />
-            <path d="M32 6 56 18v28L32 58 8 46V18ZM8 18l24 12 24-12M32 30v28" fill="none" stroke="#1b1b1b" stroke-width="3" stroke-linejoin="round" />
-          </svg>
-          <span class="name">Livraison</span>
-          <span class="desc">Livre des colis d'un point A à un point B à travers la ville.</span>
+        <button id="mode-delivery" class="mode-image" type="button">
+          <img src="/delivery%20button.png" alt="Livraison" />
         </button>
-        <button id="mode-challenge" class="mode" type="button">
-          <svg viewBox="0 0 64 64" aria-hidden="true">
-            <path d="M16 10h22l10 10v32a4 4 0 0 1-4 4H16a4 4 0 0 1-4-4V14a4 4 0 0 1 4-4Z" fill="#e8642a" />
-            <path d="M40 10h10v8H40Z" fill="#c9481a" />
-            <path d="M22 26l20 20M42 26 22 46" stroke="#ffd28a" stroke-width="5" stroke-linecap="round" />
-            <path d="M16 10h22l10 10v32a4 4 0 0 1-4 4H16a4 4 0 0 1-4-4V14a4 4 0 0 1 4-4ZM40 10h10v8H40" fill="none" stroke="#1b1b1b" stroke-width="3" stroke-linejoin="round" />
-          </svg>
-          <span class="name">Défis</span>
-          <span class="desc">Roule sans fin, évite les véhicules et surveille ton essence.</span>
+        <button id="mode-challenge" class="mode-image" type="button">
+          <img src="/challenge%20button.png" alt="Défis" />
         </button>
       </div>
       <button id="mode-bike" type="button">
@@ -47,7 +32,7 @@
       <p class="subtitle">Choisis ta moto</p>
       <canvas id="garage-preview"></canvas>
       <div class="bikes"><!-- cartes créées par garage.js --></div>
-      <button id="garage-back" type="button">Retour</button>
+      <button id="garage-back" class="close-button" type="button" aria-label="Retour"><img src="/close%20icon.webp" alt="" /></button>
     </div>
     <div id="missions">
       <h1 class="title">Livraison</h1>
@@ -55,7 +40,7 @@
       <div class="board">
         <div class="grid"><!-- cases créées par main.js --></div>
       </div>
-      <button id="missions-back" type="button">Retour</button>
+      <button id="missions-back" class="close-button" type="button" aria-label="Retour"><img src="/close%20icon.webp" alt="" /></button>
     </div>
     <div id="hud"><span id="distance">0 m</span><span id="money">0 $</span></div>
     <div id="notice" hidden></div>
