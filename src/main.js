@@ -1,3 +1,4 @@
+import '@fontsource/anton/latin-400.css'; // police étroite des boutons du menu (Anton, intégrée au jeu)
 import './style.css';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';

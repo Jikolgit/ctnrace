@@ -1072,31 +1072,70 @@ body.in-garage #menu {
 
 
 
-/* Boutons des modes (images de l'utilisateur : public/delivery button.png, public/challenge button.png,
-   152 × 45 px, texte compris) */
-#menu .mode-image {
-  padding: 0;
-  border: 0;
-  background: none;
+/* Boutons des modes, recopiés des modèles de l'utilisateur (public/delivery button.png, challenge button.png) :
+   fond en dégradé vertical qui fonce vers le bas, liseré gris, grande icône à gauche coupée par les bords du
+   bouton (public/delivery-box.webp, helmet.webp), texte blanc en police étroite (Anton) à droite */
+#menu .mode-button {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: min(80vw, 320px);
+  aspect-ratio: 152 / 45;
+  padding: 0 2% 0 36%; /* le texte est centré à droite de l'icône */
+  box-sizing: border-box;
+  overflow: hidden; /* l'icône dépasse : elle est coupée par les bords */
+  border: 3px solid #6f6f6f;
+  border-radius: 0;
   cursor: pointer;
   transition: transform 0.12s, filter 0.12s;
   -webkit-tap-highlight-color: transparent;
 }
 
-#menu .mode-image img {
-  display: block;
-  width: min(80vw, 304px); /* 2 × la taille de l'image */
-  height: auto;
+#menu .mode-button.delivery {
+  background: linear-gradient(#35d575 0%, #33cf72 45%, #218e4a 100%);
 }
 
-#menu .mode-image:hover,
-#menu .mode-image:focus-visible {
+#menu .mode-button.challenge {
+  background: linear-gradient(#dea700 0%, #d9a302 45%, #8e7219 100%);
+}
+
+#menu .mode-button .icon {
+  position: absolute;
+  pointer-events: none;
+}
+
+/* Carton : à gauche, coupé en bas et à gauche */
+#menu .mode-button.delivery .icon {
+  height: 118%;
+  left: -3%;
+  top: 10%;
+}
+
+/* Casque : coupé en haut, en bas et à gauche ; la visière s'arrête vers 40 % de la largeur */
+#menu .mode-button.challenge .icon {
+  height: 150%;
+  left: -5%;
+  top: -18%;
+}
+
+#menu .mode-button .label {
+  position: relative; /* au-dessus de l'icône */
+  font-family: 'Anton', Impact, 'Arial Narrow', sans-serif;
+  font-size: calc(min(80vw, 320px) * 0.135);
+  line-height: 1;
+  color: #fff;
+  letter-spacing: 0.01em;
+}
+
+#menu .mode-button:hover,
+#menu .mode-button:focus-visible {
   transform: translateY(-3px) scale(1.03);
   filter: brightness(1.08) drop-shadow(0 6px 0 rgba(0, 0, 0, 0.35));
   outline: none;
 }
 
-#menu .mode-image:active {
+#menu .mode-button:active {
   transform: translateY(2px) scale(0.98);
   filter: brightness(0.95);
 }
