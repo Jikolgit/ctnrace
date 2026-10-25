@@ -31,7 +31,7 @@ src/main.js         scène, caméra, lumières, brouillard, chargement du GLB, j
 src/track.js        parcours : rues droites reliées par des carrefours en L ou en T, virage choisi par le joueur, pose(s, décalage)
 src/road.js         tronçons de route (3 couloirs + trottoirs) et carrefours posés le long du parcours, shader des pavés
 src/city.js         bâtiments (boîtes) le long des rues, angles de rue et « mur » au bout de chaque rue ; sol uni
-public/delivery button.png, public/challenge button.png  modèles des boutons de mode dessinés par l'utilisateur (152 × 45 px), NON utilisés : les boutons sont refaits en HTML/CSS ; public/option button.png : pas encore utilisé
+public/delivery button.png, public/challenge button.png  images des boutons de mode HTML/CSS (456 × 135 px, exportées depuis le jeu avec Playwright à la demande de l'utilisateur ; remplacent ses modèles 152 × 45 px), NON utilisées par le jeu (les boutons sont en HTML/CSS) ; public/option button.png : pas encore utilisé
 public/delivery-box.webp, public/helmet.webp  icônes des boutons Livraison et Défis (128 px, fond transparent)
 public/close icon.webp  bouton Retour des écrans Missions et Moto (`.close-button`, 64 px ; croix découpée : disque blanc derrière)
 public/arrow.png    flèche de virage (pointe à droite ; retournée en CSS pour la gauche), fond rendu transparent
