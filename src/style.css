@@ -189,8 +189,6 @@ body {
   inset: 0;
   display: grid;
   grid-template-columns: minmax(0, 32%) minmax(0, 1fr);
-  gap: 12px;
-  padding: 12px;
   box-sizing: border-box;
   font-family: system-ui, sans-serif;
   color: #fff;
@@ -210,10 +208,10 @@ body {
   padding: 12px 16px 16px;
   box-sizing: border-box;
   overflow-y: auto;
-  border: 3px solid #0f241d;
-  border-radius: 8px;
-  background: #1f3d34;
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
+  /* Toute la hauteur de l'écran (ordinateur) ; fond un peu transparent : la scène se devine derrière */
+  border-left: 3px solid #0f241d;
+  background: rgba(31, 61, 52, 0.85);
+  box-shadow: -6px 0 24px rgba(0, 0, 0, 0.35);
   pointer-events: auto;
 }
 
@@ -349,6 +347,13 @@ body {
   #menu {
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: minmax(0, 34%) minmax(0, 1fr);
+  }
+
+  /* Téléphone : toute la largeur de l'écran, bordure en haut */
+  #menu .menu-main {
+    border-left: 0;
+    border-top: 3px solid #0f241d;
+    box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.35);
   }
 
   #menu .menu-top {
