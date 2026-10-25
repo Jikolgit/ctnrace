@@ -14,10 +14,12 @@ export const MAP_HEIGHT = 520;
 // uturn : demi-tour possible aux carrefours (pas dans les ruelles).
 export const ROAD_TYPES = {
   small: { lanes: 3, surface: 'pavés', uturn: true },
-  big: { lanes: 4, surface: 'goudron', median: 2, laneWidth: 2.5, uturn: true }, // couloirs plus larges : 12 m au total
-  alley: { lanes: 2, surface: 'petits pavés' },
+  big: { lanes: 4, surface: 'goudron', median: 2, laneWidth: 3, uturn: true }, // 4 couloirs + terre-plein : 14 m au total
+  alley: { lanes: 2, surface: 'petits pavés', laneWidth: 2 }, // étroites : les voitures n'y vont jamais
 };
-export const LANE_WIDTH = 2;
+// 3 m : les véhicules les plus larges (car_2, car_3 : ~3 m) tiennent dans un couloir (avant : 2 m, et 2,5 m sur
+// les grandes routes)
+export const LANE_WIDTH = 3;
 export const SIDEWALK_WIDTH = 1.5;
 
 // Chaque rue : segment horizontal (y fixe, de x1 à x2) ou vertical (x fixe, de y1 à y2)

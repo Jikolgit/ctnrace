@@ -13,7 +13,7 @@ import { ROAD_HALF_WIDTH, SIDEWALK_WIDTH } from './road.js';
 //    comprend que la route tourne. Il appartient à la rue d'arrivée : il reste en place quel que soit
 //    le virage choisi. Les rues suivantes commencent donc leurs rangées après ce mur.
 
-const BUILDING_START = ROAD_HALF_WIDTH + SIDEWALK_WIDTH; // façades alignées au bord du trottoir : ±4,5
+const BUILDING_START = ROAD_HALF_WIDTH + SIDEWALK_WIDTH; // façades alignées au bord du trottoir : ±6
 
 // Dimensions aléatoires (mètres)
 const LENGTH_MIN = 4; // longueur le long de la rue

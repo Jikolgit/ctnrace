@@ -1,8 +1,10 @@
 import * as THREE from 'three';
 import { ROAD_TYPES } from './deliveryMap.js';
 import { DIR_X, DIR_Y, halfWidth, laneWidthOf } from './network.js';
+import { cloneVehicle } from './vehicles.js';
 
-// Mode Livraison : circulation. Des voitures (clones de car_1) roulent dans le réseau de rues, à droite, dans
+// Mode Livraison : circulation. Des véhicules (clones de car_1, car_2 et car_3 : vehicles.js, en proportions
+// égales) roulent dans le réseau de rues, à droite, dans
 // les deux sens. À chaque carrefour, elles vont tout droit, à gauche ou à droite au hasard (courbe), mais ne
 // font jamais demi-tour, ne prennent pas les ruelles et ne vont pas vers une impasse.
 // Elles sont prudentes : elles s'arrêtent si quelqu'un (voiture ou moto) est juste devant elles et attendent
@@ -24,12 +26,8 @@ const SPAWN_MIN = 60; // m : distance de réapparition (dans le brouillard, invi
 const SPAWN_MAX = 120;
 const SPAWN_SPACING = 10; // m : distance minimale à une autre voiture à la réapparition
 const START_CLEARANCE = 45; // m : pas de voiture à moins de ça de la moto au départ
-const WHEEL_RADIUS = 0.36;
 
-// Boîte de la voiture (repère de la voiture, avant = sens de marche) et demi-largeur de la moto
-const HALF_WIDTH = 0.82;
-const FRONT = 2.15;
-const BACK = 2.3;
+// Boîte de chaque véhicule : model.halfWidth, model.front, model.back (vehicles.js). Demi-largeur de la moto :
 const PLAYER_HALF_WIDTH = 0.35;
 const PLAYER_HALF_LENGTH = 0.9;
 
@@ -39,7 +37,8 @@ const rightX = (d) => DIR_X[(d + 1) % 4];
 const rightY = (d) => DIR_Y[(d + 1) % 4];
 const drivable = (arm) => arm && !arm.node.deadEnd && arm.road.type !== 'alley' && ROAD_TYPES[arm.road.type];
 
-export function createTraffic(parent, template, graph) {
+// models : véhicules (vehicles.js, extractVehicles)
+export function createTraffic(parent, models, graph) {
   // Bras où les voitures peuvent rouler : { node, d } (départ du carrefour node dans la direction d)
   const starts = [];
   for (const node of graph.nodes) {
@@ -49,15 +48,13 @@ export function createTraffic(parent, template, graph) {
 
   const cars = [];
   for (let i = 0; i < CAR_COUNT; i++) {
-    const object = template.clone(true);
+    const model = models[i % models.length];
+    const { object, wheels } = cloneVehicle(model);
     parent.add(object);
-    const wheels = [];
-    object.traverse((child) => {
-      if (child.name.includes('_Wheel_')) wheels.push(child);
-    });
     cars.push({
       object,
       wheels,
+      model,
       node: null, // carrefour de départ de la rue
       d: 0, // direction
       u: 0, // distance depuis le centre du carrefour de départ
@@ -153,7 +150,7 @@ export function createTraffic(parent, template, graph) {
   // Ligne d'arrêt avant le carrefour au bout de la rue : la voiture qui attend s'y arrête, l'avant hors du carrefour
   const stopLine = (car) => {
     const arm = car.node.arms[car.d];
-    return arm.length - arm.node.radius - FRONT - 0.5;
+    return arm.length - arm.node.radius - car.model.front - 0.5;
   };
   // Voiture engagée dans le carrefour (en train de tourner, ou ligne d'arrêt franchie)
   const committed = (car) => car.turning || car.u > stopLine(car) + 0.01;
@@ -247,10 +244,10 @@ export function createTraffic(parent, template, graph) {
         }
       }
 
-      // Modèle : l'avant de car_1 regarde vers -Z
+      // Modèle : l'avant des véhicules regarde vers -Z
       car.object.position.set(car.x, 0, car.y);
       car.object.rotation.y = Math.atan2(-car.fx, -car.fy);
-      const spin = step / WHEEL_RADIUS;
+      const spin = step / car.model.wheelRadius;
       for (const wheel of car.wheels) wheel.rotation.x -= spin;
     }
   }
@@ -263,7 +260,8 @@ export function createTraffic(parent, template, graph) {
       const ry = py - car.y;
       const along = rx * car.fx + ry * car.fy;
       const lateral = Math.abs(rx * car.fy - ry * car.fx);
-      if (lateral < HALF_WIDTH + PLAYER_HALF_WIDTH && along < FRONT + PLAYER_HALF_LENGTH && along > -BACK - PLAYER_HALF_LENGTH) {
+      const { halfWidth: hw, front, back } = car.model;
+      if (lateral < hw + PLAYER_HALF_WIDTH && along < front + PLAYER_HALF_LENGTH && along > -back - PLAYER_HALF_LENGTH) {
         return true;
       }
     }
