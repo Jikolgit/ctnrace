@@ -659,7 +659,7 @@ function showMissions() {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'mission';
-    button.textContent = n;
+    button.innerHTML = `<span class="num">${n}</span><span class="label">Mission</span>`;
     if (n > unlocked) {
       button.disabled = true;
       button.insertAdjacentHTML('beforeend', LOCK_ICON);

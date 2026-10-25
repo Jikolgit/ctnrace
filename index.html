@@ -48,12 +48,17 @@
       <button id="garage-back" class="close-button" type="button" aria-label="Retour"><img src="/close%20icon.webp" alt="" /></button>
     </div>
     <div id="missions">
-      <h1 class="title">Livraison</h1>
-      <p class="subtitle">Choisis ta mission</p>
-      <div class="board">
-        <div class="grid"><!-- cases créées par main.js --></div>
-      </div>
-      <button id="missions-back" class="close-button" type="button" aria-label="Retour"><img src="/close%20icon.webp" alt="" /></button>
+      <!-- Même mise en page que le menu principal : côté gauche libre, panneau à droite -->
+      <aside class="menu-side"></aside>
+      <section class="menu-main">
+        <header class="menu-top">
+          <h1 class="title">Livraison</h1>
+          <div class="menu-actions">
+            <button id="missions-back" class="close-button" type="button" aria-label="Retour"><img src="/close%20icon.webp" alt="" /></button>
+          </div>
+        </header>
+        <div class="grid"><!-- vignettes des missions créées par main.js --></div>
+      </section>
     </div>
     <div id="hud"><span id="distance">0 m</span><span id="money">0 $</span></div>
     <div id="notice" hidden></div>
