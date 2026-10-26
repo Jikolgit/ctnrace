@@ -201,9 +201,12 @@ if (DEBUG_ORBIT) {
   controls.update();
 }
 
-// Lumières
-scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 1.2));
-const sun = new THREE.DirectionalLight(0xffffff, 2);
+// Lumières (intensités de jour ; baissées le soir et la nuit en jeu : applySkyColor)
+const HEMI_INTENSITY = 1.2;
+const SUN_INTENSITY = 2;
+const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, HEMI_INTENSITY);
+scene.add(hemiLight);
+const sun = new THREE.DirectionalLight(0xffffff, SUN_INTENSITY);
 sun.position.set(5, 10, 5);
 scene.add(sun);
 
@@ -363,6 +366,17 @@ function bendFade() {
 const player = new THREE.Group();
 player.position.set(laneX(1), 0, 0);
 scene.add(player);
+
+// Phare de la moto, allumé de HEADLIGHT_ON (20 h) à HEADLIGHT_OFF (6 h), heure de Cotonou : cône de lumière vers
+// l'avant (-Z), dans le groupe du joueur (suit les changements de couloir et l'inclinaison). Toujours présent,
+// intensité 0 le jour : allumer ou éteindre une lumière ne recompile pas les matériaux.
+const HEADLIGHT_INTENSITY = 40;
+const HEADLIGHT_ON = 20;
+const HEADLIGHT_OFF = 6;
+const headlight = new THREE.SpotLight(0xfff2d0, 0, 45, 0.42, 0.5, 1);
+headlight.position.set(0, 1.1, -0.9);
+headlight.target.position.set(0, 0, -18);
+player.add(headlight, headlight.target);
 
 const wheels = []; // roues de la moto en cours
 
@@ -1223,18 +1237,46 @@ const SKY_KEYS = [
   [24, 0x0b1430],
 ].map(([hour, color]) => [hour, new THREE.Color(color)]);
 
-function applySkyColor(hours) {
+// Lumière du jour (part des intensités de jour) selon l'heure : pleine de 8 h à 16 h, faible la nuit
+const LIGHT_KEYS = [
+  [0, 0.25], // nuit
+  [5, 0.25],
+  [6.5, 0.6], // aube
+  [8, 1], // jour
+  [16, 1],
+  [18.5, 0.7], // coucher du soleil
+  [19.5, 0.4], // crépuscule
+  [21, 0.25], // nuit
+  [24, 0.25],
+];
+
+// Clé précédente et suivante de keys ([heure, valeur]) autour de hours, et position entre les deux (0..1)
+function keyBlend(keys, hours) {
   let i = 1;
-  while (i < SKY_KEYS.length - 1 && SKY_KEYS[i][0] <= hours) i++;
-  const [h0, c0] = SKY_KEYS[i - 1];
-  const [h1, c1] = SKY_KEYS[i];
-  scene.fog.color.lerpColors(c0, c1, (hours - h0) / (h1 - h0));
-  scene.background.copy(scene.fog.color); // ciel de la même couleur : les bâtiments lointains s'y fondent
+  while (i < keys.length - 1 && keys[i][0] <= hours) i++;
+  const [h0, a] = keys[i - 1];
+  const [h1, b] = keys[i];
+  return { a, b, t: (hours - h0) / (h1 - h0) };
 }
 
+function applySkyColor(hours) {
+  const sky = keyBlend(SKY_KEYS, hours);
+  scene.fog.color.lerpColors(sky.a, sky.b, sky.t);
+  scene.background.copy(scene.fog.color); // ciel de la même couleur : les bâtiments lointains s'y fondent
+  const light = keyBlend(LIGHT_KEYS, hours);
+  const level = THREE.MathUtils.lerp(light.a, light.b, light.t);
+  hemiLight.intensity = HEMI_INTENSITY * level;
+  sun.intensity = SUN_INTENSITY * level;
+  headlight.intensity = hours >= HEADLIGHT_ON || hours < HEADLIGHT_OFF ? HEADLIGHT_INTENSITY : 0;
+}
+
+// Menu : ciel et lumière de jour, phare éteint
 function resetSkyColor() {
   scene.fog.color.set(SKY_COLOR);
   scene.background.set(SKY_COLOR);
+  hemiLight.intensity = HEMI_INTENSITY;
+  sun.intensity = SUN_INTENSITY;
+  headlight.intensity = 0;
 }
 
 updateClock();
