@@ -5,4 +5,9 @@ sauf mention contraire (« ✅ fait »).
 
 ## Idées
 
-_(aucune pour l'instant)_
+### Mission d'urgence (à implémenter plus tard)
+
+- Mission de dernière minute qui survient **quand toutes les livraisons d'un niveau sont terminées** : par
+  exemple, une dernière commande vient d'arriver et il faut la livrer.
+- Le joueur peut **l'accepter ou la refuser**.
+- Rien n'est encore décidé sur la suite (récompense, délai, ce qui se passe en cas de refus ou d'échec).
