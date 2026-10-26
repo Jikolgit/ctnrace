@@ -22,7 +22,7 @@ import { createTraffic } from './traffic.js';
 import { extractVehicles } from './vehicles.js';
 import { createCameraTuner } from './cameraTuner.js';
 import { DELIVERY_REWARD, FUEL_PRICE, getMoney, addMoney } from './wallet.js';
-import { STATIONS } from './deliveryMap.js';
+import { STATIONS, MAP_WIDTH, MAP_HEIGHT } from './deliveryMap.js';
 import { atlas } from './atlas.js';
 import { createGarage, savedBike, saveBike } from './garage.js';
 
@@ -593,17 +593,83 @@ restartButton.addEventListener('click', restart);
 let inMenu = true;
 let gameMode = null;
 
+// Ville fixe du mode Livraison, construite une seule fois (au lancement : elle sert aussi de fond au menu)
+function buildDeliveryCity() {
+  if (deliveryCity) return;
+  deliveryCity = createDeliveryCity(deliveryWorld, graph);
+  fuelCans = createFuelCans(deliveryWorld, graph);
+  deliveryPoints = createDeliveryPoints(deliveryWorld);
+  stationPoints = createDeliveryPoints(deliveryWorld);
+  guide = createGuide(deliveryWorld);
+  placeStationsIfReady();
+}
+
+// Fond du menu : survol de la ville de Livraison, comme depuis un hélicoptère. La caméra tourne lentement sur une
+// ellipse autour du centre de la carte, en regardant le sol devant elle ; la circulation roule en dessous.
+// Moto, flèches de livraison et ligne de guidage sont cachées ; le brouillard est repoussé pour voir loin.
+const MENU_FLY_RADIUS_X = 150; // m : demi-axes de l'ellipse (carte de 640 × 520 m)
+const MENU_FLY_RADIUS_Z = 110;
+const MENU_FLY_SPEED = 7; // m/s
+const MENU_FLY_HEIGHT = 60; // m (au-dessus des toits)
+const MENU_LOOK_AHEAD = 70; // m : point regardé, au sol, devant la caméra
+const MENU_FOG_NEAR = 90;
+const MENU_FOG_FAR = 190; // < camera.far (200)
+const MENU_SIDE_LANDSCAPE = 0.32; // part libre de l'écran (style.css : colonne .menu-side, rangée en portrait)
+const MENU_SIDE_PORTRAIT = 0.34;
+let menuFlyAngle = Math.random() * Math.PI * 2;
+const ground = scene.getObjectByName('ground'); // sol uni (city.js)
+const menuFocus = new THREE.Vector3(); // point regardé (repère de la carte : x, z)
+
+function showMenuScene() {
+  buildDeliveryCity();
+  challengeWorld.visible = false;
+  deliveryWorld.visible = true;
+  player.visible = false;
+  deliveryPoints.reset([]);
+  stationPoints.reset([], 'fuel');
+  guide.setObjectives([]);
+  bendUniforms.uBend.value = 0;
+  scene.fog.near = MENU_FOG_NEAR;
+  scene.fog.far = MENU_FOG_FAR;
+  world.position.set(0, 0, 0); // la carte est posée telle quelle : la caméra vole dans son repère
+  world.rotation.set(0, 0, 0);
+  placeMenuCamera(0);
+  traffic?.reset(menuFocus.x, menuFocus.z);
+}
+
+function placeMenuCamera(delta) {
+  const rx = MENU_FLY_RADIUS_X;
+  const rz = MENU_FLY_RADIUS_Z;
+  // Vitesse constante sur l'ellipse : l'angle avance de (distance / longueur de la tangente)
+  let tx = -rx * Math.sin(menuFlyAngle);
+  let tz = rz * Math.cos(menuFlyAngle);
+  menuFlyAngle += (MENU_FLY_SPEED * delta) / Math.hypot(tx, tz);
+  tx = -rx * Math.sin(menuFlyAngle);
+  tz = rz * Math.cos(menuFlyAngle);
+  const length = Math.hypot(tx, tz);
+  const x = MAP_WIDTH / 2 + rx * Math.cos(menuFlyAngle);
+  const z = MAP_HEIGHT / 2 + rz * Math.sin(menuFlyAngle);
+  camera.position.set(x, MENU_FLY_HEIGHT, z);
+  ground?.position.set(x, -0.03, z); // le sol uni suit la caméra (600 m de côté)
+  menuFocus.set(x + (tx / length) * MENU_LOOK_AHEAD, 0, z + (tz / length) * MENU_LOOK_AHEAD);
+  camera.lookAt(menuFocus);
+  // Le panneau du menu couvre la droite (ordinateur : 68 %) ou le bas (téléphone : 66 %) : le centre de la vue
+  // (point regardé) est décalé au milieu de la partie libre de l'écran
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  if (camera.aspect <= 1) camera.setViewOffset(w, h, 0, (0.5 - MENU_SIDE_PORTRAIT / 2) * h, w, h);
+  else camera.setViewOffset(w, h, (0.5 - MENU_SIDE_LANDSCAPE / 2) * w, 0, w, h);
+}
+
 function startGame(mode) {
   gameMode = mode;
   const delivery = mode === 'delivery';
-  if (delivery && !deliveryCity) {
-    deliveryCity = createDeliveryCity(deliveryWorld, graph);
-    fuelCans = createFuelCans(deliveryWorld, graph);
-    deliveryPoints = createDeliveryPoints(deliveryWorld);
-    stationPoints = createDeliveryPoints(deliveryWorld);
-    guide = createGuide(deliveryWorld);
-    placeStationsIfReady();
-  }
+  if (delivery) buildDeliveryCity();
+  player.visible = true; // cachée pendant le survol du menu
+  camera.clearViewOffset();
+  ground?.position.set(0, -0.03, 0); // de retour sous la moto
+  scene.fog.near = FOG_NEAR;
+  scene.fog.far = FOG_FAR;
   activeTrack = delivery ? network : track;
   challengeWorld.visible = !delivery;
   deliveryWorld.visible = delivery;
@@ -640,6 +706,7 @@ function showMenu() {
   restart(); // repart d'une scène propre derrière le menu
   setPaused(false);
   inMenu = true;
+  showMenuScene();
   document.body.classList.add('in-menu');
   document.body.classList.remove('in-missions');
   challengeButton.focus();
@@ -1371,10 +1438,19 @@ function animate(timestamp) {
   }
 
   if (controls) controls.update();
-  else updateCamera(delta);
+  else if (inMenu) {
+    placeMenuCamera(delta);
+    // Circulation du survol : les voitures restent autour du point regardé et ne s'y arrêtent pas
+    if (!traffic && carModels) {
+      traffic = createTraffic(deliveryWorld, carModels, graph);
+      traffic.reset(menuFocus.x, menuFocus.z);
+    }
+    traffic?.update(delta, menuFocus.x, menuFocus.z, true);
+  } else updateCamera(delta);
 
   renderer.render(scene, camera);
   requestAnimationFrame(animate);
 }
 
+showMenuScene(); // le jeu s'ouvre sur le menu : survol de la ville
 animate();
