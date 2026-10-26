@@ -50,6 +50,7 @@ src/cameraTuner.js  réglage de la caméra en jeu (adresse avec ?camera) : curse
 src/traffic.js      mode Livraison : circulation (20 voitures sur le réseau, virages, priorité aux carrefours), hits()
 src/garage.js       écran « Moto » du menu : aperçu 3D qui tourne (renderer à part, canvas #garage-preview), vignettes de choix avec miniatures 3D, moto gardée (localStorage `ctnrace-bike`)
 src/wallet.js       mode Livraison : argent du joueur (localStorage `ctnrace-money`), DELIVERY_REWARD, FUEL_PRICE, addMoney
+docs/idees-gameplay.md  idées de gameplay de l'utilisateur, à noter au fil des conversations (pas encore implémentées sauf mention ✅)
 tools/drawDeliveryMap.mjs  dessine le plan du réseau dans docs/reseau-livraison.svg (node tools/drawDeliveryMap.mjs)
 src/smoke.js        fumée d'échappement : pool de sprites (dans la scène, pas dans `world` : repère de la caméra)
 src/worldBend.js    effet de courbure du monde (vertex shader) : applyWorldBend(material), bendUniforms
