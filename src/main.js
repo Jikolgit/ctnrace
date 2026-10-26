@@ -676,7 +676,7 @@ function showMenuScene() {
   bendUniforms.uBend.value = 0;
   scene.fog.near = MENU_FOG_NEAR;
   scene.fog.far = MENU_FOG_FAR;
-  resetSkyColor(); // le survol du menu garde le ciel de jour
+  applySkyColor(cotonouHours()); // ciel, brouillard et lumière selon l'heure de Cotonou, comme en jeu
   world.position.set(0, 0, 0); // la carte est posée telle quelle : la caméra vole dans son repère
   world.rotation.set(0, 0, 0);
   placeMenuCamera(0);
@@ -1248,11 +1248,11 @@ function updateClock() {
   const h = Math.floor(hours);
   const m = Math.floor((hours - h) * 60);
   clockLabel.textContent = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-  if (!inMenu) applySkyColor(hours);
+  applySkyColor(hours); // menu et jeu
 }
 
 // Couleur du ciel et du brouillard en jeu selon l'heure de Cotonou (lever ~6 h 15, coucher ~18 h 30 toute l'année,
-// près de l'équateur) : couleurs clés, fondues entre elles. Le menu garde le ciel de jour (SKY_COLOR).
+// près de l'équateur) : couleurs clés, fondues entre elles. Aussi dans le survol du menu.
 const SKY_COLOR = 0x87ceeb;
 const SKY_KEYS = [
   [0, 0x0b1430], // nuit
@@ -1301,16 +1301,6 @@ function applySkyColor(hours) {
   const night = hours >= HEADLIGHT_ON || hours < HEADLIGHT_OFF;
   headlight.intensity = night ? HEADLIGHT_INTENSITY : 0;
   setVehicleLights(night); // phares et feux arrière des voitures
-}
-
-// Menu : ciel et lumière de jour, phare éteint
-function resetSkyColor() {
-  scene.fog.color.set(SKY_COLOR);
-  scene.background.set(SKY_COLOR);
-  hemiLight.intensity = HEMI_INTENSITY;
-  sun.intensity = SUN_INTENSITY;
-  headlight.intensity = 0;
-  setVehicleLights(false);
 }
 
 updateClock();
