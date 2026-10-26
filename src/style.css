@@ -249,9 +249,10 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
-:is(#menu, #missions) .top-button svg {
-  width: 32px;
-  height: 20px;
+:is(#menu, #missions) .top-button img {
+  width: 30px;
+  height: 30px;
+  margin: -6px 0; /* plus grande que le texte sans agrandir le bouton */
 }
 
 :is(#menu, #missions) .top-button:hover,
@@ -310,7 +311,7 @@ body {
 }
 
 #menu .mode-tile .art img {
-  width: 72%;
+  width: 64%; /* icônes recadrées au plus près (256 px, fond transparent) */
   filter: drop-shadow(0 6px 4px rgba(0, 0, 0, 0.35));
   transition: transform 0.15s;
 }
