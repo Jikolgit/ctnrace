@@ -42,3 +42,11 @@ sauf mention contraire (« ✅ fait »).
 - Contraintes techniques notées : un serveur est nécessaire (clé secrète FedaPay hors du jeu, confirmation des
   paiements par webhook), des comptes joueurs et une base de données (les achats ne peuvent pas rester dans le
   navigateur, comme l'argent actuel en localStorage).
+
+### Missions de filature : suivre un véhicule
+
+- Certaines missions demanderont de **suivre un véhicule**, parce qu'on **ne connaît pas la destination** :
+  c'est le véhicule qui y mène.
+- À préciser : ce qui fait échouer la mission (véhicule perdu de vue, trop loin, trop près, collision), si le
+  véhicule roule plus vite ou fait des détours, ce qu'on fait à l'arrivée (livrer, récupérer un colis…),
+  ligne de guidage absente pendant la filature.
