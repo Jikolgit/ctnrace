@@ -297,6 +297,11 @@ body {
   background: radial-gradient(circle at 50% 40%, #5cc0ff 0%, #1d8cff 55%, #0f66dc 100%);
 }
 
+#menu .mode-tile.bike {
+  background: radial-gradient(circle at 50% 40%, #ffb347 0%, #ff7a00 55%, #d95a00 100%);
+}
+
+/* Vignette « Bientôt » (non cliquable), pour un futur mode */
 #menu .mode-tile.soon {
   background: radial-gradient(circle at 50% 35%, #e2e2e2 0%, #b4b4b4 50%, #7d7d7d 100%);
   cursor: default;

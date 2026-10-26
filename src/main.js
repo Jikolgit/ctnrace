@@ -762,14 +762,20 @@ const garage = createGarage(
 );
 garage.select(bikeName);
 
-document.getElementById('mode-bike').addEventListener('click', () => {
-  document.body.classList.add('in-garage');
-  garage.show();
-});
+// Écran Moto : ouvert par la vignette Moto ou le bouton MOTO du haut ; au retour, le focus revient sur celui utilisé
+let garageOpener = null;
+for (const id of ['mode-bike', 'mode-bike-tile']) {
+  const button = document.getElementById(id);
+  button.addEventListener('click', () => {
+    garageOpener = button;
+    document.body.classList.add('in-garage');
+    garage.show();
+  });
+}
 document.getElementById('garage-back').addEventListener('click', () => {
   document.body.classList.remove('in-garage');
   garage.hide();
-  document.getElementById('mode-bike').focus();
+  garageOpener?.focus();
 });
 
 challengeButton.addEventListener('click', () => startGame('challenge'));
