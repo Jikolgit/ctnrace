@@ -233,38 +233,6 @@ body {
   gap: 8px;
 }
 
-:is(#menu, #missions) .top-button {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 7px 12px;
-  border: 0;
-  border-radius: 6px;
-  background: rgba(0, 0, 0, 0.45);
-  color: #fff;
-  font: 400 18px/1 'Anton', Impact, sans-serif;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-
-:is(#menu, #missions) .top-button img {
-  width: 30px;
-  height: 30px;
-  margin: -6px 0; /* plus grande que le texte sans agrandir le bouton */
-}
-
-:is(#menu, #missions) .top-button:hover,
-:is(#menu, #missions) .top-button:focus-visible {
-  background: rgba(0, 0, 0, 0.7);
-  outline: 2px solid #fff;
-}
-
-:is(#menu, #missions) .top-button:active {
-  transform: translateY(2px);
-}
-
 /* Grille des modes : vignettes carrées, nom en bas */
 #menu .modes {
   display: grid;
