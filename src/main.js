@@ -19,7 +19,8 @@ import { createDeliveryPoints } from './deliveryPoints.js';
 import { placeStations } from './stations.js';
 import { createGuide } from './guide.js';
 import { createTraffic } from './traffic.js';
-import { extractVehicles } from './vehicles.js';
+import { extractVehicles, setVehicleLights } from './vehicles.js';
+import { glowMaterial, glowDisc } from './glow.js';
 import { createCameraTuner } from './cameraTuner.js';
 import { DELIVERY_REWARD, FUEL_PRICE, getMoney, addMoney } from './wallet.js';
 import { STATIONS, MAP_WIDTH, MAP_HEIGHT } from './deliveryMap.js';
@@ -378,6 +379,34 @@ headlight.position.set(0, 1.1, -0.9);
 headlight.target.position.set(0, 0, -18);
 player.add(headlight, headlight.target);
 
+// Feu arrière (stop) de la moto : petit disque rouge sombre, qui s'illumine (rouge vif + halo) quand la moto freine
+// (frein maintenu, arrêt à un point de livraison, panne d'essence). Placé à l'arrière de la moto choisie, d'après
+// sa boîte englobante (placeTailLight).
+const tailLightMaterial = applyWorldBend(new THREE.MeshBasicMaterial({ color: 0x5a0d0d }));
+const tailLight = new THREE.Mesh(new THREE.CircleGeometry(0.06, 16), tailLightMaterial);
+const tailGlow = glowDisc(glowMaterial(0xff1a10), 0.6);
+tailGlow.visible = false;
+tailLight.add(tailGlow);
+tailGlow.position.z = 0.01;
+player.add(tailLight);
+const TAIL_LIGHT_HEIGHT = 0.6; // part de la hauteur de la moto (rétroviseurs compris)
+const TAIL_LIGHT_OFF = new THREE.Color(0x5a0d0d);
+const TAIL_LIGHT_ON = new THREE.Color(0xff2a1a);
+const bikeBox = new THREE.Box3();
+
+function placeTailLight(object) {
+  player.updateMatrixWorld(true);
+  bikeBox.setFromObject(object);
+  player.worldToLocal(bikeBox.min);
+  player.worldToLocal(bikeBox.max);
+  tailLight.position.set(0, bikeBox.min.y + (bikeBox.max.y - bikeBox.min.y) * TAIL_LIGHT_HEIGHT, bikeBox.max.z + 0.02);
+}
+
+function setBrakeLight(on) {
+  tailGlow.visible = on;
+  tailLightMaterial.color.copy(on ? TAIL_LIGHT_ON : TAIL_LIGHT_OFF);
+}
+
 const wheels = []; // roues de la moto en cours
 
 // Fumée : sort du bout du pot (repère de la moto : à droite, à l'arrière)
@@ -465,6 +494,7 @@ new GLTFLoader().load(
       }
       wheels.length = 0;
       for (const wheelName of bike.wheels) wheels.push(moto.getObjectByName(wheelName));
+      if (moto.parent) placeTailLight(moto.getObjectByName(name));
 
       rider.position.copy(bike.riderPosition);
       mixer.stopAllAction();
@@ -492,8 +522,8 @@ new GLTFLoader().load(
       }
     }
 
-    selectBike(bikeName);
     player.add(moto);
+    selectBike(bikeName);
     // Copies des motos pour l'aperçu de l'écran « Moto »
     for (const [key, config] of Object.entries(BIKES)) {
       const object = moto.getObjectByName(key);
@@ -541,6 +571,7 @@ function endGame(reason = '') {
 }
 
 function restart() {
+  setBrakeLight(false);
   distance = 0;
   gameTime = 0;
   resetRoadWave();
@@ -1267,7 +1298,9 @@ function applySkyColor(hours) {
   const level = THREE.MathUtils.lerp(light.a, light.b, light.t);
   hemiLight.intensity = HEMI_INTENSITY * level;
   sun.intensity = SUN_INTENSITY * level;
-  headlight.intensity = hours >= HEADLIGHT_ON || hours < HEADLIGHT_OFF ? HEADLIGHT_INTENSITY : 0;
+  const night = hours >= HEADLIGHT_ON || hours < HEADLIGHT_OFF;
+  headlight.intensity = night ? HEADLIGHT_INTENSITY : 0;
+  setVehicleLights(night); // phares et feux arrière des voitures
 }
 
 // Menu : ciel et lumière de jour, phare éteint
@@ -1277,6 +1310,7 @@ function resetSkyColor() {
   hemiLight.intensity = HEMI_INTENSITY;
   sun.intensity = SUN_INTENSITY;
   headlight.intensity = 0;
+  setVehicleLights(false);
 }
 
 updateClock();
@@ -1374,6 +1408,8 @@ function animate(timestamp) {
       // Démarrage, reprise après un freinage (touche relâchée) ou après un bidon ramassé en roue libre
       speed = Math.min(SPEED, speed + ACCELERATION * delta);
     }
+    // Feu stop : allumé pendant les freinages
+    setBrakeLight((started && braking) || deliveryState === 'braking' || (delivery && fuel <= 0 && speed > 0));
     const step = speed * delta; // distance parcourue pendant cette image
     updateTurnHold(delta, step); // virage confirmé par un appui maintenu
 
