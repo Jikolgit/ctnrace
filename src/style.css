@@ -1198,8 +1198,8 @@ body.in-garage #menu {
   pointer-events: none;
 }
 
-/* Heure de Cotonou (main.js, updateClock) : en haut au centre, dans le menu principal et en jeu (pas sur les écrans
-   Missions et Moto) ; le chronomètre de mission passe juste en dessous */
+/* Heure de Cotonou (main.js, updateClock) : en haut au centre, partout (menu, Missions, Moto, jeu) ; le chronomètre
+   de mission passe juste en dessous */
 #clock {
   position: fixed;
   top: 16px;
@@ -1216,10 +1216,6 @@ body.in-garage #menu {
   user-select: none;
 }
 
-body.in-missions #clock,
-body.in-garage #clock {
-  display: none;
-}
 
 #timer {
   top: 52px;

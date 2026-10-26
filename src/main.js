@@ -79,7 +79,7 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 
 // Scène
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x87ceeb);
+scene.background = new THREE.Color(0x87ceeb); // en jeu : couleur selon l'heure (applySkyColor)
 
 // Brouillard de la couleur du ciel : la route (jusqu'à ~110 m devant) et les voitures (apparition à 90 m)
 // surgissent dans le brouillard au lieu d'apparaître d'un coup. Distances depuis la caméra.
@@ -631,6 +631,7 @@ function showMenuScene() {
   bendUniforms.uBend.value = 0;
   scene.fog.near = MENU_FOG_NEAR;
   scene.fog.far = MENU_FOG_FAR;
+  resetSkyColor(); // le survol du menu garde le ciel de jour
   world.position.set(0, 0, 0); // la carte est posée telle quelle : la caméra vole dans son repère
   world.rotation.set(0, 0, 0);
   placeMenuCamera(0);
@@ -670,6 +671,7 @@ function startGame(mode) {
   ground?.position.set(0, -0.03, 0); // de retour sous la moto
   scene.fog.near = FOG_NEAR;
   scene.fog.far = FOG_FAR;
+  applySkyColor(cotonouHours()); // ciel et brouillard selon l'heure de Cotonou
   activeTrack = delivery ? network : track;
   challengeWorld.visible = !delivery;
   deliveryWorld.visible = delivery;
@@ -1176,13 +1178,65 @@ let displayedDistance = -1;
 const timer = new THREE.Timer();
 timer.connect(document); // ignore le temps passé onglet caché
 
-// Heure de Cotonou (fuseau du Bénin, UTC+1 sans heure d'été), affichée en haut au centre dans le menu et en jeu,
-// quelle que soit l'heure de l'appareil. Mise à jour chaque seconde, hors boucle de jeu.
+// Heure de Cotonou (fuseau du Bénin, UTC+1 sans heure d'été), affichée en haut au centre (menu, écrans Missions et
+// Moto, jeu), quelle que soit l'heure de l'appareil. Mise à jour chaque seconde, hors boucle de jeu.
+// Test : ?heure=19.5 dans l'adresse impose une heure (19 h 30) à l'horloge et à la couleur du ciel.
 const clockLabel = document.getElementById('clock');
-const clockFormat = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Africa/Porto-Novo', hour: '2-digit', minute: '2-digit' });
-function updateClock() {
-  clockLabel.textContent = clockFormat.format(new Date());
+const clockFormat = new Intl.DateTimeFormat('fr-FR', {
+  timeZone: 'Africa/Porto-Novo',
+  hour: '2-digit',
+  minute: '2-digit',
+  hourCycle: 'h23',
+});
+const forcedHour = Number.parseFloat(new URLSearchParams(location.search).get('heure'));
+
+// Heure de Cotonou en heures décimales (14 h 30 → 14,5)
+function cotonouHours() {
+  if (Number.isFinite(forcedHour)) return ((forcedHour % 24) + 24) % 24;
+  const parts = clockFormat.formatToParts(new Date());
+  const value = (type) => Number(parts.find((part) => part.type === type)?.value ?? 0);
+  return value('hour') + value('minute') / 60;
 }
+
+function updateClock() {
+  const hours = cotonouHours();
+  const h = Math.floor(hours);
+  const m = Math.floor((hours - h) * 60);
+  clockLabel.textContent = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+  if (!inMenu) applySkyColor(hours);
+}
+
+// Couleur du ciel et du brouillard en jeu selon l'heure de Cotonou (lever ~6 h 15, coucher ~18 h 30 toute l'année,
+// près de l'équateur) : couleurs clés, fondues entre elles. Le menu garde le ciel de jour (SKY_COLOR).
+const SKY_COLOR = 0x87ceeb;
+const SKY_KEYS = [
+  [0, 0x0b1430], // nuit
+  [5, 0x0b1430],
+  [6, 0xf0a37a], // aube
+  [7.5, 0xa9d4f0],
+  [9, SKY_COLOR], // jour
+  [16, SKY_COLOR],
+  [17.5, 0xf6c27a], // fin d'après-midi
+  [18.5, 0xe0703f], // coucher du soleil
+  [19.5, 0x2a2a55], // crépuscule
+  [21, 0x0b1430], // nuit
+  [24, 0x0b1430],
+].map(([hour, color]) => [hour, new THREE.Color(color)]);
+
+function applySkyColor(hours) {
+  let i = 1;
+  while (i < SKY_KEYS.length - 1 && SKY_KEYS[i][0] <= hours) i++;
+  const [h0, c0] = SKY_KEYS[i - 1];
+  const [h1, c1] = SKY_KEYS[i];
+  scene.fog.color.lerpColors(c0, c1, (hours - h0) / (h1 - h0));
+  scene.background.copy(scene.fog.color); // ciel de la même couleur : les bâtiments lointains s'y fondent
+}
+
+function resetSkyColor() {
+  scene.fog.color.set(SKY_COLOR);
+  scene.background.set(SKY_COLOR);
+}
+
 updateClock();
 setInterval(updateClock, 1000);
 
