@@ -1260,8 +1260,11 @@ const SKY_KEYS = [
   [6, 0xf0a37a], // aube
   [7.5, 0xa9d4f0],
   [9, SKY_COLOR], // jour
-  [16, SKY_COLOR],
-  [17.5, 0xf6c27a], // fin d'après-midi
+  [14.5, SKY_COLOR], // transition courte : le mélange bleu / doré tire sur le gris
+  // De 15 h à 18 h : ciel doré puis orangé (couleurs relevées sur une photo de Cotonou donnée par l'utilisateur)
+  [15, 0xf3d59c], // doré clair
+  [16.5, 0xf8c878], // doré
+  [18, 0xf3a65c], // orangé
   [18.5, 0xe0703f], // coucher du soleil
   [19.5, 0x2a2a55], // crépuscule
   [21, 0x0b1430], // nuit
