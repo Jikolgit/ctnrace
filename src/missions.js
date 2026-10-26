@@ -2,7 +2,7 @@
 // La progression (dernière mission débloquée) est gardée dans le navigateur (localStorage) ; si le
 // stockage est indisponible (navigation privée...), seule la mission 1 est ouverte.
 
-export const MISSION_COUNT = 5;
+export const MISSION_COUNT = 15;
 const STORAGE_KEY = 'ctnRacer.unlockedMission';
 
 // Capacité de la moto : nombre maximal de produits transportés à la fois. Une mission qui en compte plus
