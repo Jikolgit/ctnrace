@@ -51,11 +51,16 @@
       <section class="menu-main">
         <header class="menu-top">
           <h1 class="title">Livraison</h1>
-          <div class="menu-actions">
-            <button id="missions-back" class="close-button" type="button" aria-label="Retour"><img src="/close%20icon.webp" alt="" /></button>
-          </div>
         </header>
         <div class="grid"><!-- vignettes des missions créées par main.js --></div>
+        <!-- Bouton Retour fixé en bas du panneau (les missions défilent au-dessus), comme dans Voxel Wreck -->
+        <footer class="menu-footer">
+          <button id="missions-back" class="back-button" type="button">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12H5M11 5l-7 7 7 7" fill="none" stroke="currentColor"
+              stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" /></svg>
+            Retour
+          </button>
+        </footer>
       </section>
     </div>
     <div id="hud"><span id="distance">0 m</span><span id="money">0 $</span></div>
