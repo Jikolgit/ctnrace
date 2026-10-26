@@ -1176,7 +1176,24 @@ let displayedDistance = -1;
 const timer = new THREE.Timer();
 timer.connect(document); // ignore le temps passé onglet caché
 
+// Images par seconde, affichées en haut à droite (#fps), moyenne sur FPS_INTERVAL
+const FPS_INTERVAL = 500; // ms
+const fpsLabel = document.getElementById('fps');
+let fpsFrames = 0;
+let fpsStart = 0;
+
+function updateFps(timestamp) {
+  fpsFrames++;
+  if (!fpsStart) fpsStart = timestamp;
+  const elapsed = timestamp - fpsStart;
+  if (elapsed < FPS_INTERVAL) return;
+  fpsLabel.textContent = `${Math.round((fpsFrames * 1000) / elapsed)} FPS`;
+  fpsFrames = 0;
+  fpsStart = timestamp;
+}
+
 function animate(timestamp) {
+  if (timestamp !== undefined) updateFps(timestamp);
   timer.update(timestamp);
   // Plafonné pour éviter un grand saut après un onglet resté en arrière-plan
   const delta = Math.min(timer.getDelta(), 0.1);

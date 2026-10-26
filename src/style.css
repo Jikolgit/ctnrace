@@ -1183,3 +1183,17 @@ body.in-garage #menu {
 .close-button:active {
   transform: scale(0.95);
 }
+
+/* Images par seconde (main.js, updateFps) : tout en haut à droite, au-dessus de tous les écrans, sans gêner les clics */
+#fps {
+  position: fixed;
+  top: 0;
+  right: 0;
+  z-index: 100;
+  padding: 2px 6px;
+  border-bottom-left-radius: 6px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #7dff7d;
+  font: bold 11px/1.2 ui-monospace, monospace;
+  pointer-events: none;
+}
