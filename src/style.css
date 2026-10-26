@@ -187,6 +187,8 @@ body {
 #menu,
 #missions,
 #garage {
+  --tile-border: rgba(255, 255, 255, 0.35); /* bords fins des vignettes */
+  --panel-border: rgba(255, 255, 255, 0.22); /* bord fin du panneau */
   position: fixed;
   inset: 0;
   display: grid;
@@ -211,7 +213,7 @@ body {
   box-sizing: border-box;
   overflow-y: auto;
   /* Toute la hauteur de l'écran (ordinateur) ; fond un peu transparent : la scène se devine derrière */
-  border-left: 3px solid #0f241d;
+  border-left: 1px solid var(--panel-border);
   background: rgba(31, 61, 52, 0.85);
   box-shadow: -6px 0 24px rgba(0, 0, 0, 0.35);
   pointer-events: auto;
@@ -247,8 +249,8 @@ body {
   aspect-ratio: 1;
   padding: 0;
   overflow: hidden;
-  border: 3px solid #0f241d;
-  border-radius: 4px;
+  border: 1px solid var(--tile-border); /* bord fin, comme dans Voxel Wreck */
+  border-radius: 8px;
   font: inherit;
   color: #fff;
   cursor: pointer;
@@ -332,7 +334,7 @@ body {
   /* Téléphone : toute la largeur de l'écran, bordure en haut */
   :is(#menu, #missions, #garage) .menu-main {
     border-left: 0;
-    border-top: 3px solid #0f241d;
+    border-top: 1px solid var(--panel-border);
     box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.35);
   }
 
@@ -521,19 +523,41 @@ body.in-missions #menu {
   height: 40px;
 }
 
-/* Missions : seule la grille défile ; le bouton Retour reste en bas du panneau */
-#missions .menu-main {
+/* Écrans à bouton Retour en bas (Missions, Moto) : seule la grille défile, le bouton reste en bas du panneau */
+:is(#missions, #garage) .menu-main {
   overflow: hidden;
 }
 
-/* Missions : vignettes carrées comme les modes du menu (numéro au centre, « Mission » en bas) */
-#missions .grid {
+:is(#missions .grid, #garage .bikes) {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
   align-content: start;
   grid-auto-rows: max-content; /* sinon les lignes se tassent pour tenir dans la hauteur et écrasent les vignettes */
-  padding: 3px 3px 10px; /* place pour le bord blanc et le soulèvement des vignettes au survol */
+  padding: 3px 6px 10px 3px; /* place pour le soulèvement des vignettes au survol ; à droite, pour la barre */
+}
+
+/* Barre de défilement comme dans Voxel Wreck : fine, gris clair, sans rail */
+:is(#missions .grid, #garage .bikes) {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(200, 212, 206, 0.6) transparent;
+}
+
+:is(#missions .grid, #garage .bikes)::-webkit-scrollbar {
+  width: 4px;
+}
+
+:is(#missions .grid, #garage .bikes)::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+:is(#missions .grid, #garage .bikes)::-webkit-scrollbar-thumb {
+  background: rgba(200, 212, 206, 0.6);
+  border-radius: 2px;
+}
+
+/* Missions : vignettes carrées comme les modes du menu (numéro au centre, « Mission » en bas) */
+#missions .grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   gap: 10px;
@@ -552,8 +576,8 @@ body.in-missions #menu {
   aspect-ratio: 1;
   padding: 0;
   overflow: hidden;
-  border: 3px solid #0f241d;
-  border-radius: 4px;
+  border: 1px solid var(--tile-border); /* bord fin, comme dans Voxel Wreck */
+  border-radius: 8px;
   background: radial-gradient(circle at 50% 40%, var(--light) 0%, var(--base) 55%, var(--dark) 100%);
   --light: #c95cff;
   --base: #a314ec;
@@ -1066,8 +1090,8 @@ body.in-garage #menu {
   aspect-ratio: 1;
   padding: 0;
   overflow: hidden;
-  border: 3px solid #0f241d;
-  border-radius: 4px;
+  border: 1px solid var(--tile-border); /* bord fin, comme dans Voxel Wreck */
+  border-radius: 8px;
   background: radial-gradient(circle at 50% 40%, var(--light) 0%, var(--base) 55%, var(--dark) 100%);
   --light: #5ff0f2;
   --base: #12c4d4;
@@ -1142,7 +1166,7 @@ body.in-garage #menu {
 /* Moto choisie : bord blanc et coche verte en haut à droite */
 .bike-tile.selected {
   border-color: #fff;
-  box-shadow: 0 0 0 3px #0f241d;
+  box-shadow: 0 0 0 1px #fff;
 }
 
 .bike-tile .check {
@@ -1159,8 +1183,16 @@ body.in-garage #menu {
 }
 
 /* Description de la moto choisie, sous les vignettes */
+/* Moto : la grille ne prend que la place de ses vignettes (description juste en dessous), elle ne défile que si
+   elle déborde ; la marge automatique pousse le bouton Retour en bas */
+#garage .bikes {
+  flex: 0 1 auto;
+}
+
 #garage .bike-desc {
-  margin: 14px 0 0;
+  flex-shrink: 0;
+  margin: 10px 0 auto;
+  padding-bottom: 12px;
   font: 600 16px/1.35 system-ui, sans-serif;
   opacity: 0.9;
 }
