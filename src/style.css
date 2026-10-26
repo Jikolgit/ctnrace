@@ -1306,3 +1306,61 @@ body.in-garage #menu {
 .back-button:active {
   transform: translateY(2px);
 }
+
+/* Écran Missions : choix de la ville sous le titre (◀ Ville 1 ▶) */
+.city-picker {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 6px;
+  border: 1px solid var(--tile-border);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.city-name {
+  font: 400 clamp(20px, 3vw, 26px)/1 'Anton', Impact, sans-serif;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-shadow: 0 2px 0 #10241d;
+}
+
+.city-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid var(--tile-border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  cursor: pointer;
+  transition: transform 0.12s, background 0.12s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.city-arrow svg {
+  width: 24px;
+  height: 24px;
+}
+
+.city-arrow:not(:disabled):hover,
+.city-arrow:not(:disabled):focus-visible {
+  background: rgba(255, 255, 255, 0.25);
+  outline: none;
+}
+
+.city-arrow:not(:disabled):active {
+  transform: scale(0.94);
+}
+
+/* Première ou dernière ville : flèche estompée */
+.city-arrow:disabled {
+  opacity: 0.3;
+  cursor: default;
+}

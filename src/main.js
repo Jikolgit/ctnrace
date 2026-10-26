@@ -14,7 +14,16 @@ import { buildGraph, createNetworkTrack, UTURN } from './network.js';
 import { createDeliveryCity } from './deliveryCity.js';
 import { createMinimap } from './minimap.js';
 import { createFuelCans } from './fuelCans.js';
-import { MISSION_COUNT, BIKE_CAPACITY, unlockedMission, completeMission, missionData } from './missions.js';
+import {
+  CITY_COUNT,
+  MISSIONS_PER_CITY,
+  cityName,
+  missionCity,
+  BIKE_CAPACITY,
+  unlockedMission,
+  completeMission,
+  missionData,
+} from './missions.js';
 import { createDeliveryPoints } from './deliveryPoints.js';
 import { placeStations } from './stations.js';
 import { createGuide } from './guide.js';
@@ -766,20 +775,32 @@ const LOCK_ICON = `<svg class="lock" viewBox="0 0 24 24" aria-hidden="true"><pat
   fill="none" stroke="#1b1b1b" stroke-width="2.5"/><rect x="4" y="10" width="16" height="12" rx="2" fill="#1b1b1b"/></svg>`;
 let currentMission = 1;
 
-function showMissions() {
+// Ville affichée dans l'écran Missions (flèches ◀ ▶ sous le titre) ; au premier affichage, celle de la dernière
+// mission débloquée
+let shownCity = 0;
+const cityLabel = document.getElementById('city-name');
+const cityPrev = document.getElementById('city-prev');
+const cityNext = document.getElementById('city-next');
+
+function showMissions(city = shownCity || missionCity(unlockedMission())) {
+  shownCity = city;
+  cityLabel.textContent = cityName(city);
+  cityPrev.disabled = city <= 1;
+  cityNext.disabled = city >= CITY_COUNT;
   const unlocked = unlockedMission();
   missionGrid.replaceChildren();
-  for (let n = 1; n <= MISSION_COUNT; n++) {
+  for (let i = 1; i <= MISSIONS_PER_CITY; i++) {
+    const n = (city - 1) * MISSIONS_PER_CITY + i; // numéro global de la mission
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'mission';
-    button.innerHTML = `<span class="num">${n}</span><span class="label">Mission</span>`;
+    button.innerHTML = `<span class="num">${i}</span><span class="label">Mission</span>`;
     if (n > unlocked) {
       button.disabled = true;
       button.insertAdjacentHTML('beforeend', LOCK_ICON);
-      button.setAttribute('aria-label', `Mission ${n} (verrouillée)`);
+      button.setAttribute('aria-label', `${cityName(city)}, mission ${i} (verrouillée)`);
     } else {
-      button.setAttribute('aria-label', `Mission ${n}`);
+      button.setAttribute('aria-label', `${cityName(city)}, mission ${i}`);
       button.addEventListener('click', () => {
         currentMission = n;
         startGame('delivery');
@@ -787,9 +808,13 @@ function showMissions() {
     }
     missionGrid.append(button);
   }
+  missionGrid.scrollTop = 0;
   document.body.classList.add('in-missions');
   missionGrid.querySelector('.mission:not(:disabled)')?.focus();
 }
+
+cityPrev.addEventListener('click', () => showMissions(Math.max(1, shownCity - 1)));
+cityNext.addEventListener('click', () => showMissions(Math.min(CITY_COUNT, shownCity + 1)));
 
 document.getElementById('missions-back').addEventListener('click', () => {
   document.body.classList.remove('in-missions');
@@ -823,7 +848,7 @@ document.getElementById('garage-back').addEventListener('click', () => {
 });
 
 challengeButton.addEventListener('click', () => startGame('challenge'));
-deliveryButton.addEventListener('click', showMissions);
+deliveryButton.addEventListener('click', () => showMissions());
 menuButton.addEventListener('click', showMenu);
 
 pauseButton.addEventListener('click', () => {

@@ -56,6 +56,18 @@
         <header class="menu-top">
           <h1 class="title">Livraison</h1>
         </header>
+        <!-- Ville des missions affichées : flèches pour changer de ville -->
+        <div class="city-picker">
+          <button id="city-prev" class="city-arrow" type="button" aria-label="Ville précédente">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="3"
+              stroke-linecap="round" stroke-linejoin="round" /></svg>
+          </button>
+          <span id="city-name" class="city-name">Ville 1</span>
+          <button id="city-next" class="city-arrow" type="button" aria-label="Ville suivante">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="3"
+              stroke-linecap="round" stroke-linejoin="round" /></svg>
+          </button>
+        </div>
         <div class="grid"><!-- vignettes des missions créées par main.js --></div>
         <!-- Bouton Retour fixé en bas du panneau (les missions défilent au-dessus), comme dans Voxel Wreck -->
         <footer class="menu-footer">
