@@ -19,3 +19,13 @@ sauf mention contraire (« ✅ fait »).
 - Avec une vie en réserve, percuter un véhicule fait seulement **perdre 1 vie** au lieu du Game Over.
 - À préciser : modes concernés (Défis, Livraison ou les deux), nombre maximum de vies, fréquence des casques,
   ce qui se passe juste après le choc (voiture retirée, moto ralentie, courte invincibilité…), affichage des vies.
+
+### Rues bloquées selon l'heure
+
+- Au-delà d'une certaine heure, **certaines rues sont bloquées** (travaux ou autre cause) : il faut faire un
+  détour.
+- **L'heure du jeu est celle du Bénin** (heure réelle, fuseau `Africa/Porto-Novo`, UTC+1, sans heure d'été),
+  quelle que soit l'heure de l'appareil du joueur.
+- À préciser : quelles rues, à partir de quelle heure (et jusqu'à quand), comment le blocage est montré
+  (barrières, cônes, panneau, sur la mini-carte), mode concerné (Livraison a priori), effet sur la ligne de
+  guidage (chemin recalculé en évitant les rues bloquées).
