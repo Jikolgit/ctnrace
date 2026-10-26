@@ -1181,6 +1181,13 @@ function animate(timestamp) {
   // Plafonné pour éviter un grand saut après un onglet resté en arrière-plan
   const delta = Math.min(timer.getDelta(), 0.1);
 
+  // Écran Moto ouvert : la ville n'est plus dessinée (canvas #game caché, fond bleu foncé) ; seul l'aperçu de la
+  // moto (garage.js, son propre renderer) tourne. Le survol et la circulation reprennent à la fermeture.
+  if (document.body.classList.contains('in-garage')) {
+    requestAnimationFrame(animate);
+    return;
+  }
+
   if (!paused && !gameOver && !inMenu) {
     // Démo : la route ondule entre virage gauche et virage droit
     gameTime += delta;

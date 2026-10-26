@@ -1019,6 +1019,11 @@ body:not(.delivery) #timer { display: none; }
 
 body.in-garage #garage {
   display: grid;
+  background: #0d1b2e; /* bleu foncé : la ville (canvas #game) n'est pas dessinée pendant l'écran Moto */
+}
+
+body.in-garage #game {
+  visibility: hidden;
 }
 
 body.in-garage #menu {
