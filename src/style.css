@@ -185,7 +185,8 @@ body {
 /* Menu principal et écran des missions (inspirés de MineFun.io) : à gauche, la scène 3D visible (les motos s'y afficheront) ; à droite,
    un panneau vert foncé avec le logo, le bouton Moto en haut à droite et une grille de vignettes de modes */
 #menu,
-#missions {
+#missions,
+#garage {
   position: fixed;
   inset: 0;
   display: grid;
@@ -198,11 +199,11 @@ body {
   pointer-events: none; /* le côté gauche laisse passer : seuls les panneaux captent les clics */
 }
 
-:is(#menu, #missions) .menu-side {
+:is(#menu, #missions, #garage) .menu-side {
   min-height: 0;
 }
 
-:is(#menu, #missions) .menu-main {
+:is(#menu, #missions, #garage) .menu-main {
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -217,7 +218,7 @@ body {
 }
 
 /* Barre du haut : logo au centre, boutons à droite */
-:is(#menu, #missions) .menu-top {
+:is(#menu, #missions, #garage) .menu-top {
   position: relative;
   display: flex;
   align-items: center;
@@ -225,7 +226,7 @@ body {
   min-height: 48px;
 }
 
-:is(#menu, #missions) .menu-actions {
+:is(#menu, #missions, #garage) .menu-actions {
   position: absolute;
   top: 0;
   right: 0;
@@ -322,19 +323,20 @@ body {
 /* Téléphone en portrait : la scène (motos) en haut, le panneau en dessous */
 @media (max-aspect-ratio: 1/1) {
   #menu,
-  #missions {
+  #missions,
+  #garage {
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: minmax(0, 34%) minmax(0, 1fr);
   }
 
   /* Téléphone : toute la largeur de l'écran, bordure en haut */
-  :is(#menu, #missions) .menu-main {
+  :is(#menu, #missions, #garage) .menu-main {
     border-left: 0;
     border-top: 3px solid #0f241d;
     box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.35);
   }
 
-  :is(#menu, #missions) .menu-top {
+  :is(#menu, #missions, #garage) .menu-top {
     justify-content: flex-start;
   }
 
@@ -362,7 +364,8 @@ body.in-menu #touch-controls {
 
 /* Logo : blanc à contour foncé, « Racer » orange */
 #menu .title,
-#missions .title {
+#missions .title,
+#garage .title {
   margin: 0;
   font: 400 clamp(30px, 5vw, 52px)/1 'Anton', Impact, sans-serif;
   letter-spacing: 0.02em;
@@ -509,11 +512,11 @@ body.in-missions #menu {
 }
 
 /* Bouton Retour en haut à droite (icône de fermeture, plus petite qu'en bas des écrans) */
-#missions .menu-actions .close-button {
+:is(#missions, #garage) .menu-actions .close-button {
   margin: 0;
 }
 
-#missions .menu-actions .close-button img {
+:is(#missions, #garage) .menu-actions .close-button img {
   width: 40px;
   height: 40px;
 }
@@ -1008,117 +1011,143 @@ body:not(.delivery) #timer { display: none; }
   display: none;
 }
 
-/* Écran « Moto » : même fond que les missions ; aperçu 3D puis cartes de choix */
+/* Écran « Moto » : même mise en page que le menu principal (règles partagées plus haut) ; l'aperçu 3D de la
+   moto occupe la partie libre (gauche, ou haut sur téléphone), le survol de la ville se voit derrière */
 #garage {
-  position: fixed;
-  inset: 0;
   display: none;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 24px 16px;
-  box-sizing: border-box;
-  overflow-y: auto;
-  background: linear-gradient(rgba(10, 30, 50, 0.35), rgba(10, 20, 35, 0.75));
-  backdrop-filter: blur(3px);
-  -webkit-backdrop-filter: blur(3px);
-  font-family: system-ui, sans-serif;
-  color: #fff;
-  user-select: none;
-  -webkit-user-select: none;
 }
 
 body.in-garage #garage {
-  display: flex;
+  display: grid;
 }
 
 body.in-garage #menu {
   display: none;
 }
 
-#garage .title {
-  margin: 0;
-  font-size: clamp(40px, 10vw, 72px);
-  font-weight: 900;
-  font-style: italic;
-  line-height: 1;
-  color: #fff;
-  -webkit-text-stroke: 3px #1b1b1b;
-  paint-order: stroke fill;
-  text-shadow: 0 6px 0 #1b1b1b;
-}
-
-#garage .subtitle {
-  margin: 4px 0 8px;
-  font-size: 18px;
-  opacity: 0.85;
-}
-
 #garage-preview {
-  width: min(100%, 420px);
-  height: min(36vh, 300px);
-  flex-shrink: 0;
-}
-
-#garage .bikes {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 16px;
+  display: block;
   width: 100%;
-  max-width: 560px;
+  height: 100%;
 }
 
-.bike-card {
-  flex: 1 1 200px;
-  max-width: 260px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  padding: 16px 16px 14px;
-  border: 3px solid #1b1b1b;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.95);
-  box-shadow: 0 6px 0 #1b1b1b;
-  color: #1b1b1b;
+/* Motos : vignettes carrées comme les modes du menu (miniature 3D au centre, nom en bas) */
+#garage .bikes {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+
+@media (max-aspect-ratio: 1/1) {
+  #garage .bikes {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.bike-tile {
+  position: relative;
+  aspect-ratio: 1;
+  padding: 0;
+  overflow: hidden;
+  border: 3px solid #0f241d;
+  border-radius: 4px;
+  background: radial-gradient(circle at 50% 40%, var(--light) 0%, var(--base) 55%, var(--dark) 100%);
+  --light: #5ff0f2;
+  --base: #12c4d4;
+  --dark: #0b97b0;
+  color: #fff;
   font: inherit;
   cursor: pointer;
-  transition: transform 0.12s, box-shadow 0.12s, background 0.12s;
+  transition: transform 0.12s, border-color 0.12s;
   -webkit-tap-highlight-color: transparent;
 }
 
-.bike-card .name {
-  font-size: 24px;
-  font-weight: 900;
-  font-style: italic;
+/* Une couleur vive par moto (turquoise, rose, vert, puis on recommence) */
+.bike-tile:nth-child(3n + 2) {
+  --light: #ff7cc4;
+  --base: #ff2d95;
+  --dark: #d81775;
 }
 
-.bike-card .desc {
-  font-size: 14px;
-  line-height: 1.35;
-  opacity: 0.75;
+.bike-tile:nth-child(3n + 3) {
+  --light: #7ff28f;
+  --base: #2ed35a;
+  --dark: #17a33f;
 }
 
-.bike-card:hover,
-.bike-card:focus-visible {
+.bike-tile .art {
+  position: absolute;
+  inset: 0 0 18% 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bike-tile .art img {
+  width: 86%;
+  filter: drop-shadow(0 6px 4px rgba(0, 0, 0, 0.35));
+  transition: transform 0.15s;
+}
+
+.bike-tile .art img:not([src]) {
+  visibility: hidden; /* miniature pas encore rendue (modèle en cours de chargement) */
+}
+
+.bike-tile .label {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 22px 4px 7px;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.6));
+  font: 400 clamp(15px, 2.2vw, 20px)/1 'Anton', Impact, sans-serif;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-align: center;
+  text-shadow: 0 2px 0 #000;
+}
+
+.bike-tile:hover,
+.bike-tile:focus-visible {
   transform: translateY(-3px);
-  box-shadow: 0 9px 0 #1b1b1b;
   outline: none;
 }
 
-/* Moto choisie : carte orange */
-.bike-card.selected {
-  background: #e8642a;
-  color: #fff;
+.bike-tile:hover .art img,
+.bike-tile:focus-visible .art img {
+  transform: scale(1.08);
 }
 
-.bike-card.selected .desc {
+.bike-tile:active {
+  transform: translateY(1px);
+}
+
+/* Moto choisie : bord blanc et coche verte en haut à droite */
+.bike-tile.selected {
+  border-color: #fff;
+  box-shadow: 0 0 0 3px #0f241d;
+}
+
+.bike-tile .check {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: none;
+  width: 26px;
+  height: 26px;
+}
+
+.bike-tile.selected .check {
+  display: block;
+}
+
+/* Description de la moto choisie, sous les vignettes */
+#garage .bike-desc {
+  margin: 14px 0 0;
+  font: 600 16px/1.35 system-ui, sans-serif;
   opacity: 0.9;
 }
-
-
 
 /* Bouton Retour des écrans Missions et Moto : icône de fermeture (public/close icon.webp). La croix y est
    découpée (transparente) : un disque blanc derrière la fait apparaître en blanc, sans laisser voir le décor */

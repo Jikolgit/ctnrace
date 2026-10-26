@@ -31,11 +31,18 @@
       </section>
     </div>
     <div id="garage">
-      <h1 class="title">Moto</h1>
-      <p class="subtitle">Choisis ta moto</p>
-      <canvas id="garage-preview"></canvas>
-      <div class="bikes"><!-- cartes créées par garage.js --></div>
-      <button id="garage-back" class="close-button" type="button" aria-label="Retour"><img src="/close%20icon.webp" alt="" /></button>
+      <!-- Même mise en page que le menu principal : aperçu 3D de la moto à gauche (en haut sur téléphone), panneau à droite -->
+      <aside class="menu-side"><canvas id="garage-preview"></canvas></aside>
+      <section class="menu-main">
+        <header class="menu-top">
+          <h1 class="title">Moto</h1>
+          <div class="menu-actions">
+            <button id="garage-back" class="close-button" type="button" aria-label="Retour"><img src="/close%20icon.webp" alt="" /></button>
+          </div>
+        </header>
+        <div class="bikes"><!-- vignettes des motos créées par garage.js --></div>
+        <p class="bike-desc"></p>
+      </section>
     </div>
     <div id="missions">
       <!-- Même mise en page que le menu principal : côté gauche libre, panneau à droite -->

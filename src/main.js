@@ -753,6 +753,7 @@ document.getElementById('missions-back').addEventListener('click', () => {
 const garage = createGarage(
   document.getElementById('garage-preview'),
   document.querySelector('#garage .bikes'),
+  document.querySelector('#garage .bike-desc'),
   BIKE_CARDS,
   (name) => {
     selectBike?.(name);
