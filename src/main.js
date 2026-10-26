@@ -1176,6 +1176,16 @@ let displayedDistance = -1;
 const timer = new THREE.Timer();
 timer.connect(document); // ignore le temps passé onglet caché
 
+// Heure de Cotonou (fuseau du Bénin, UTC+1 sans heure d'été), affichée en haut au centre dans le menu et en jeu,
+// quelle que soit l'heure de l'appareil. Mise à jour chaque seconde, hors boucle de jeu.
+const clockLabel = document.getElementById('clock');
+const clockFormat = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Africa/Porto-Novo', hour: '2-digit', minute: '2-digit' });
+function updateClock() {
+  clockLabel.textContent = clockFormat.format(new Date());
+}
+updateClock();
+setInterval(updateClock, 1000);
+
 // Images par seconde, affichées en haut à droite (#fps), moyenne sur FPS_INTERVAL
 const FPS_INTERVAL = 500; // ms
 const fpsLabel = document.getElementById('fps');
