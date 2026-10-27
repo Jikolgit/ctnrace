@@ -15,6 +15,7 @@
   "type": "module",
   "dependencies": {
     "@fontsource/anton": "^5.2.5",
+    "firebase": "^13.1.0",
     "three": "^0.186.1"
   },
   "devDependencies": {

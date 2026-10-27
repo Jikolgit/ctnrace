@@ -1,0 +1,21 @@
+rules_version = '2';
+
+// Règles de sécurité Firestore de ctnRacer (à copier dans la console Firebase : Firestore Database → Règles).
+// Chaque joueur (compte anonyme ou lié) ne peut lire et écrire que sa propre sauvegarde : players/{son uid}.
+// Les champs sont vérifiés (types et valeurs raisonnables) ; tout le reste de la base est fermé.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /players/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow create, update: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['unlockedMission', 'bike', 'money', 'savedAt', 'updatedAt'])
+        && request.resource.data.unlockedMission is int
+        && request.resource.data.unlockedMission >= 1 && request.resource.data.unlockedMission <= 1000
+        && (request.resource.data.bike == null || request.resource.data.bike is string)
+        && request.resource.data.money is int
+        && request.resource.data.money >= 0 && request.resource.data.money <= 100000000
+        && request.resource.data.savedAt is int;
+      allow delete: if false;
+    }
+  }
+}

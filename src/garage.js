@@ -1,11 +1,12 @@
 import * as THREE from 'three';
+import { SAVE_KEYS, requestSave } from './saveQueue.js';
 
 // Écran « Moto » du menu principal : aperçu 3D de la moto choisie, qui tourne lentement sur elle-même (dans la
 // partie libre de l'écran), et une vignette par moto pour la choisir, avec une miniature rendue par l'aperçu. Le choix est gardé dans le navigateur (localStorage).
 // L'aperçu a son propre renderer (canvas #garage-preview) et sa propre petite scène, avec des copies des
 // motos du GLB (géométries et matériaux partagés) ; il ne tourne que pendant que l'écran est ouvert.
 
-const STORAGE_KEY = 'ctnrace-bike';
+const STORAGE_KEY = SAVE_KEYS.bike;
 const SPIN_SPEED = 0.6; // rad/s
 const CAMERA_POSITION = new THREE.Vector3(2.2, 1.3, 2.4);
 const CAMERA_TARGET = new THREE.Vector3(0, 0.55, 0);
@@ -36,6 +37,7 @@ export function saveBike(name) {
   } catch {
     // navigation privée : le choix ne sera pas gardé
   }
+  requestSave(); // copie dans Firebase (cloudSave.js)
 }
 
 // canvas : aperçu ; list : conteneur des vignettes ; description : texte de la moto choisie ;

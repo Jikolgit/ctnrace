@@ -30,7 +30,7 @@ import { createGuide } from './guide.js';
 import { createTraffic } from './traffic.js';
 import { extractVehicles, setVehicleLights } from './vehicles.js';
 import { createCameraTuner } from './cameraTuner.js';
-import { DELIVERY_REWARD, FUEL_PRICE, getMoney, addMoney } from './wallet.js';
+import { DELIVERY_REWARD, FUEL_PRICE, getMoney, addMoney, setMoney } from './wallet.js';
 import { STATIONS, MAP_WIDTH, MAP_HEIGHT } from './deliveryMap.js';
 import { atlas } from './atlas.js';
 import { createGarage, savedBike, saveBike } from './garage.js';
@@ -1665,6 +1665,24 @@ function animate(timestamp) {
   renderer.render(scene, camera);
   requestAnimationFrame(animate);
 }
+
+// Sauvegarde des joueurs dans Firebase (cloudSave.js : compte anonyme, document Firestore players/{uid}). Chargée à
+// part pour ne pas retarder le démarrage ; sans réseau, le jeu garde sa sauvegarde du navigateur (localStorage).
+// Si la sauvegarde du serveur est plus récente, elle remplace celle du navigateur : argent, moto, missions.
+function restoreSave(data) {
+  setMoney(data.money);
+  showMoney();
+  const name = savedBike(Object.keys(BIKES));
+  if (name && name !== bikeName) {
+    bikeName = name;
+    selectBike?.(name);
+    garage.select(name);
+  }
+  if (document.body.classList.contains('in-missions')) showMissions();
+}
+import('./cloudSave.js')
+  .then(({ startCloudSave }) => startCloudSave(restoreSave))
+  .catch((error) => console.warn('Sauvegarde Firebase indisponible', error));
 
 showMenuScene(); // le jeu s'ouvre sur le menu : survol de la ville
 animate();

@@ -1,0 +1,111 @@
+import { initializeApp } from 'firebase/app';
+import { getAuth, onAuthStateChanged, signInAnonymously } from 'firebase/auth';
+import { getFirestore, doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore/lite'; // version légère : lecture / écriture simples, sans temps réel
+import { SAVE_KEYS, SAVE_EVENT, localSavedAt, setLocalSavedAt } from './saveQueue.js';
+
+// Sauvegarde des joueurs dans Firebase (projet ctnracer-5a420) : chaque joueur reçoit automatiquement un compte
+// anonyme (rien à remplir) et sa sauvegarde est le document players/{uid} de Firestore :
+//   { unlockedMission, bike, money, savedAt (ms), updatedAt (date du serveur) }
+// Le jeu continue de lire et d'écrire dans localStorage (immédiat, marche hors ligne) ; ce module recopie ces
+// données dans Firestore à chaque changement (regroupés pendant SAVE_DELAY) et, au démarrage, reprend la
+// sauvegarde du serveur si elle est plus récente que celle du navigateur. Sans réseau ou si Firebase refuse,
+// le jeu marche comme avant (localStorage seul).
+//
+// Ces valeurs ne sont pas secrètes (elles sont dans le code de toute page Firebase) : les données sont protégées
+// par les règles de sécurité de Firestore (docs/firestore.rules).
+const firebaseConfig = {
+  apiKey: 'AIzaSyAQSqvvB3OIB4UPToIxysfzPWm43NQeovE',
+  authDomain: 'ctnracer-5a420.firebaseapp.com',
+  projectId: 'ctnracer-5a420',
+  storageBucket: 'ctnracer-5a420.firebasestorage.app',
+  messagingSenderId: '841910822033',
+  appId: '1:841910822033:web:abc037ddf8c5262c144b30',
+};
+
+const SAVE_DELAY = 1500; // ms : plusieurs changements rapprochés = une seule écriture
+
+const readLocal = () => {
+  const get = (key) => {
+    try {
+      return localStorage.getItem(key);
+    } catch {
+      return null;
+    }
+  };
+  return {
+    unlockedMission: parseInt(get(SAVE_KEYS.unlockedMission), 10) || 1,
+    bike: get(SAVE_KEYS.bike),
+    money: parseInt(get(SAVE_KEYS.money), 10) || 0,
+  };
+};
+
+// onRestore(data) : appelé quand la sauvegarde du serveur remplace celle du navigateur (le jeu met à jour
+// l'argent affiché, la moto…)
+export function startCloudSave(onRestore) {
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+  let playerDoc = null;
+  let timer = 0;
+
+  async function upload() {
+    timer = 0;
+    if (!playerDoc) return;
+    const data = readLocal();
+    try {
+      await setDoc(playerDoc, { ...data, savedAt: localSavedAt(), updatedAt: serverTimestamp() }, { merge: true });
+    } catch (error) {
+      console.warn('Sauvegarde Firebase impossible', error.code ?? error);
+    }
+  }
+
+  function schedule() {
+    if (!timer) timer = setTimeout(upload, SAVE_DELAY);
+  }
+
+  window.addEventListener(SAVE_EVENT, schedule);
+  // Onglet caché ou fermé : on envoie tout de suite ce qui attend
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden' && timer) {
+      clearTimeout(timer);
+      upload();
+    }
+  });
+
+  // Compte anonyme gardé par le navigateur : créé à la première visite, retrouvé ensuite
+  onAuthStateChanged(auth, async (user) => {
+    if (!user) {
+      signInAnonymously(auth).catch((error) => console.warn('Connexion Firebase impossible', error.code ?? error));
+      return;
+    }
+    playerDoc = doc(db, 'players', user.uid);
+    try {
+      const snapshot = await getDoc(playerDoc);
+      const cloud = snapshot.exists() ? snapshot.data() : null;
+      if (cloud && (cloud.savedAt ?? 0) > localSavedAt()) {
+        // Sauvegarde du serveur plus récente : elle remplace celle du navigateur (mission débloquée : la plus avancée)
+        const local = readLocal();
+        const restored = {
+          unlockedMission: Math.max(local.unlockedMission, cloud.unlockedMission ?? 1),
+          bike: cloud.bike ?? local.bike,
+          money: cloud.money ?? local.money,
+        };
+        try {
+          localStorage.setItem(SAVE_KEYS.unlockedMission, String(restored.unlockedMission));
+          if (restored.bike) localStorage.setItem(SAVE_KEYS.bike, restored.bike);
+          localStorage.setItem(SAVE_KEYS.money, String(restored.money));
+        } catch {
+          // stockage indisponible : le jeu utilisera quand même les valeurs restaurées
+        }
+        setLocalSavedAt(cloud.savedAt);
+        onRestore(restored);
+      } else {
+        // Première connexion (on reprend ce qui était dans le navigateur) ou navigateur plus récent
+        upload();
+      }
+    } catch (error) {
+      console.warn('Lecture de la sauvegarde Firebase impossible', error.code ?? error);
+    }
+  });
+
+}

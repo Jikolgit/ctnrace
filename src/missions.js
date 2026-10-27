@@ -1,3 +1,5 @@
+import { SAVE_KEYS, requestSave } from './saveQueue.js';
+
 // Mode Livraison : missions numérotées. Terminer une mission débloque la suivante.
 // La progression (dernière mission débloquée) est gardée dans le navigateur (localStorage) ; si le
 // stockage est indisponible (navigation privée...), seule la mission 1 est ouverte.
@@ -13,7 +15,7 @@ export const cityName = (city) => `Ville ${city}`;
 // Ville d'une mission (numéro global) et son numéro dans la ville
 export const missionCity = (n) => Math.ceil(n / MISSIONS_PER_CITY);
 export const missionInCity = (n) => ((n - 1) % MISSIONS_PER_CITY) + 1;
-const STORAGE_KEY = 'ctnRacer.unlockedMission';
+const STORAGE_KEY = SAVE_KEYS.unlockedMission;
 
 // Capacité de la moto : nombre maximal de produits transportés à la fois. Une mission qui en compte plus
 // demande plusieurs allers-retours au point de chargement. (Plus tard : motos à débloquer, plus grandes.)
@@ -80,6 +82,7 @@ export function completeMission(n) {
   if (n + 1 <= unlockedMission() || n >= MISSION_COUNT) return;
   try {
     localStorage.setItem(STORAGE_KEY, String(n + 1));
+    requestSave(); // copie dans Firebase (cloudSave.js)
   } catch {
     // stockage indisponible : la progression n'est pas gardée
   }

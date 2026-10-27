@@ -1,6 +1,8 @@
 // Mode Livraison : argent du joueur (dollars), gardé d'une partie à l'autre dans le navigateur (localStorage),
 // comme la progression des missions.
-const STORAGE_KEY = 'ctnrace-money';
+import { SAVE_KEYS, requestSave } from './saveQueue.js';
+
+const STORAGE_KEY = SAVE_KEYS.money;
 
 export const DELIVERY_REWARD = 10; // $ par produit livré
 export const FUEL_PRICE = 5; // $ le plein à la station essence
@@ -23,5 +25,11 @@ export function addMoney(amount) {
   } catch {
     // stockage indisponible : le solde n'est pas gardé
   }
+  requestSave(); // copie dans Firebase (cloudSave.js)
   return money;
+}
+
+// Solde repris de la sauvegarde Firebase (cloudSave.js)
+export function setMoney(value) {
+  money = Math.max(0, Math.floor(value) || 0);
 }
