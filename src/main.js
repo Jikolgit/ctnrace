@@ -390,7 +390,7 @@ scene.add(player);
 // Phare de la moto, allumé de HEADLIGHT_ON (20 h) à HEADLIGHT_OFF (6 h), heure de Cotonou : cône de lumière vers
 // l'avant (-Z), dans le groupe du joueur (suit les changements de couloir et l'inclinaison). Toujours présent,
 // intensité 0 le jour : allumer ou éteindre une lumière ne recompile pas les matériaux.
-const HEADLIGHT_INTENSITY = 40;
+const HEADLIGHT_INTENSITY = 20; // réduit de 40 à 20 (octobre 2026, demande de l'utilisateur)
 const HEADLIGHT_ON = 20;
 const HEADLIGHT_OFF = 6;
 // Lampadaires de la ville allumés de LAMP_ON (19 h) à LAMP_OFF (6 h)
