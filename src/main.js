@@ -31,6 +31,7 @@ import { createTraffic } from './traffic.js';
 import { extractVehicles, setVehicleLights } from './vehicles.js';
 import { createCameraTuner } from './cameraTuner.js';
 import { DELIVERY_REWARD, FUEL_PRICE, getMoney, addMoney, setMoney } from './wallet.js';
+import { FRIC_PACKS, formatFric, onFricChange, setFric } from './fric.js';
 import { STATIONS, MAP_WIDTH, MAP_HEIGHT } from './deliveryMap.js';
 import { atlas } from './atlas.js';
 import { createGarage, savedBike, saveBike } from './garage.js';
@@ -842,6 +843,41 @@ cityNext.addEventListener('click', () => showMissions(Math.min(CITY_COUNT, shown
 document.getElementById('missions-back').addEventListener('click', () => {
   document.body.classList.remove('in-missions');
   deliveryButton.focus();
+});
+
+// Solde de Fric affiché en haut du menu et de la Boutique
+const fricAmounts = document.querySelectorAll('.fric-amount');
+onFricChange((value) => {
+  for (const label of fricAmounts) label.textContent = formatFric(value);
+});
+
+// Boutique : packs de Fric à acheter avec de l'argent réel. Le paiement (FedaPay) n'est pas encore branché : un
+// pack choisi affiche seulement un message.
+const shopButton = document.getElementById('mode-shop');
+const shopNote = document.querySelector('#shop .shop-note');
+const packList = document.querySelector('#shop .packs');
+for (const pack of FRIC_PACKS) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'pack-tile';
+  button.setAttribute('aria-label', `${formatFric(pack.fric)} Fric pour ${formatFric(pack.price)} FCFA`);
+  button.innerHTML = `<span class="coins"><img src="/fric.svg" alt="" /><img src="/fric.svg" alt="" /><img src="/fric.svg" alt="" /></span>
+    <span class="amount">${formatFric(pack.fric)}</span><span class="unit">Fric</span>
+    <span class="price">${formatFric(pack.price)} FCFA</span>`;
+  button.addEventListener('click', () => {
+    shopNote.textContent = `Paiement bientôt disponible : ${formatFric(pack.fric)} Fric pour ${formatFric(pack.price)} FCFA (Mobile Money ou carte, avec FedaPay).`;
+    shopNote.hidden = false;
+  });
+  packList.append(button);
+}
+shopButton.addEventListener('click', () => {
+  shopNote.hidden = true;
+  document.body.classList.add('in-shop');
+  packList.querySelector('.pack-tile')?.focus();
+});
+document.getElementById('shop-back').addEventListener('click', () => {
+  document.body.classList.remove('in-shop');
+  shopButton.focus();
 });
 
 // Écran « Moto » : choix de la moto (appliqué tout de suite, gardé pour les parties suivantes)
@@ -1681,7 +1717,7 @@ function restoreSave(data) {
   if (document.body.classList.contains('in-missions')) showMissions();
 }
 import('./cloudSave.js')
-  .then(({ startCloudSave }) => startCloudSave(restoreSave))
+  .then(({ startCloudSave }) => startCloudSave(restoreSave, setFric))
   .catch((error) => console.warn('Sauvegarde Firebase indisponible', error));
 
 showMenuScene(); // le jeu s'ouvre sur le menu : survol de la ville

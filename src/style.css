@@ -186,7 +186,8 @@ body {
    un panneau vert foncé avec le logo, le bouton Moto en haut à droite et une grille de vignettes de modes */
 #menu,
 #missions,
-#garage {
+#garage,
+#shop {
   --tile-border: rgba(255, 255, 255, 0.35); /* bords fins des vignettes */
   --panel-border: rgba(255, 255, 255, 0.22); /* bord fin du panneau */
   position: fixed;
@@ -201,11 +202,11 @@ body {
   pointer-events: none; /* le côté gauche laisse passer : seuls les panneaux captent les clics */
 }
 
-:is(#menu, #missions, #garage) .menu-side {
+:is(#menu, #missions, #garage, #shop) .menu-side {
   min-height: 0;
 }
 
-:is(#menu, #missions, #garage) .menu-main {
+:is(#menu, #missions, #garage, #shop) .menu-main {
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -220,7 +221,7 @@ body {
 }
 
 /* Barre du haut : logo au centre, boutons à droite */
-:is(#menu, #missions, #garage) .menu-top {
+:is(#menu, #missions, #garage, #shop) .menu-top {
   position: relative;
   display: flex;
   align-items: center;
@@ -228,7 +229,7 @@ body {
   min-height: 48px;
 }
 
-:is(#menu, #missions, #garage) .menu-actions {
+:is(#menu, #missions, #garage, #shop) .menu-actions {
   position: absolute;
   top: 0;
   right: 0;
@@ -270,6 +271,10 @@ body {
 
 #menu .mode-tile.bike {
   background: radial-gradient(circle at 50% 40%, #ffb347 0%, #ff7a00 55%, #d95a00 100%);
+}
+
+#menu .mode-tile.shop {
+  background: radial-gradient(circle at 50% 40%, #7ff28f 0%, #2ed35a 55%, #17a33f 100%);
 }
 
 /* Vignette « Bientôt » (non cliquable), pour un futur mode */
@@ -326,19 +331,20 @@ body {
 @media (max-aspect-ratio: 1/1) {
   #menu,
   #missions,
-  #garage {
+  #garage,
+  #shop {
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: minmax(0, 34%) minmax(0, 1fr);
   }
 
   /* Téléphone : toute la largeur de l'écran, bordure en haut */
-  :is(#menu, #missions, #garage) .menu-main {
+  :is(#menu, #missions, #garage, #shop) .menu-main {
     border-left: 0;
     border-top: 1px solid var(--panel-border);
     box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.35);
   }
 
-  :is(#menu, #missions, #garage) .menu-top {
+  :is(#menu, #missions, #garage, #shop) .menu-top {
     justify-content: flex-start;
   }
 
@@ -367,7 +373,8 @@ body.in-menu #touch-controls {
 /* Logo : blanc à contour foncé, « Racer » orange */
 #menu .title,
 #missions .title,
-#garage .title {
+#garage .title,
+#shop .title {
   margin: 0;
   font: 400 clamp(30px, 5vw, 52px)/1 'Anton', Impact, sans-serif;
   letter-spacing: 0.02em;
@@ -524,11 +531,11 @@ body.in-missions #menu {
 }
 
 /* Écrans à bouton Retour en bas (Missions, Moto) : seule la grille défile, le bouton reste en bas du panneau */
-:is(#missions, #garage) .menu-main {
+:is(#missions, #garage, #shop) .menu-main {
   overflow: hidden;
 }
 
-:is(#missions .grid, #garage .bikes) {
+:is(#missions .grid, #garage .bikes, #shop .packs) {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
@@ -538,20 +545,20 @@ body.in-missions #menu {
 }
 
 /* Barre de défilement comme dans Voxel Wreck : fine, gris clair, sans rail */
-:is(#missions .grid, #garage .bikes) {
+:is(#missions .grid, #garage .bikes, #shop .packs) {
   scrollbar-width: thin;
   scrollbar-color: rgba(200, 212, 206, 0.6) transparent;
 }
 
-:is(#missions .grid, #garage .bikes)::-webkit-scrollbar {
+:is(#missions .grid, #garage .bikes, #shop .packs)::-webkit-scrollbar {
   width: 4px;
 }
 
-:is(#missions .grid, #garage .bikes)::-webkit-scrollbar-track {
+:is(#missions .grid, #garage .bikes, #shop .packs)::-webkit-scrollbar-track {
   background: transparent;
 }
 
-:is(#missions .grid, #garage .bikes)::-webkit-scrollbar-thumb {
+:is(#missions .grid, #garage .bikes, #shop .packs)::-webkit-scrollbar-thumb {
   background: rgba(200, 212, 206, 0.6);
   border-radius: 2px;
 }
@@ -1363,4 +1370,144 @@ body.in-garage #menu {
 .city-arrow:disabled {
   opacity: 0.3;
   cursor: default;
+}
+
+/* Solde de Fric (monnaie du jeu, nom provisoire) en haut à droite du menu et de la boutique */
+.fric-balance {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 12px 0 6px;
+  border: 1px solid var(--tile-border);
+  border-radius: 18px;
+  background: rgba(0, 0, 0, 0.35);
+  font: 400 20px/1 'Anton', Impact, sans-serif;
+  letter-spacing: 0.03em;
+  color: #ffd84a;
+  text-shadow: 0 2px 0 #10241d;
+}
+
+.fric-balance img {
+  width: 28px;
+  height: 28px;
+}
+
+/* Le solde est centré verticalement avec le logo */
+:is(#menu, #shop) .menu-actions {
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+/* Boutique : à sa place quand elle est ouverte */
+#shop {
+  display: none;
+}
+
+body.in-shop #shop {
+  display: grid;
+}
+
+body.in-shop #menu {
+  display: none;
+}
+
+/* Packs de Fric : vignettes carrées dorées (pièces, quantité, prix en bas) */
+#shop .packs {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+
+@media (max-aspect-ratio: 1/1) {
+  #shop .packs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.pack-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  aspect-ratio: 1;
+  padding: 10px 6px 54px;
+  overflow: hidden;
+  border: 1px solid var(--tile-border);
+  border-radius: 8px;
+  background: radial-gradient(circle at 50% 35%, #ffe27a 0%, #ffb81c 55%, #e08a00 100%);
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+  transition: transform 0.12s, border-color 0.12s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.pack-tile .coins {
+  display: flex;
+  justify-content: center;
+}
+
+.pack-tile .coins img {
+  width: 30%;
+  max-width: 64px;
+  margin: 0 -6%;
+  filter: drop-shadow(0 4px 3px rgba(0, 0, 0, 0.35));
+}
+
+.pack-tile .amount {
+  font: 400 clamp(26px, 4vw, 40px)/1 'Anton', Impact, sans-serif;
+  -webkit-text-stroke: 3px #10241d;
+  paint-order: stroke fill;
+  text-shadow: 0 3px 0 #10241d;
+}
+
+.pack-tile .unit {
+  font: 400 16px/1 'Anton', Impact, sans-serif;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-shadow: 0 2px 0 #10241d;
+}
+
+/* Prix : bandeau vert en bas de la vignette */
+.pack-tile .price {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 12px 4px;
+  background: #2ed35a;
+  border-top: 1px solid rgba(255, 255, 255, 0.5);
+  font: 400 clamp(18px, 2.4vw, 22px)/1 'Anton', Impact, sans-serif;
+  letter-spacing: 0.04em;
+  text-shadow: 0 2px 0 #10241d;
+}
+
+.pack-tile:hover,
+.pack-tile:focus-visible {
+  transform: translateY(-3px);
+  border-color: #fff;
+  outline: none;
+}
+
+.pack-tile:active {
+  transform: translateY(1px);
+}
+
+/* Message de la boutique (paiement pas encore disponible…) */
+.shop-note {
+  flex-shrink: 0;
+  margin: 12px 0;
+  padding: 10px 12px;
+  border: 1px solid var(--tile-border);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.3);
+  font: 600 15px/1.35 system-ui, sans-serif;
+}
+
+.shop-note[hidden] {
+  display: none;
 }

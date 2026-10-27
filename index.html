@@ -14,6 +14,10 @@
       <section class="menu-main">
         <header class="menu-top">
           <h1 class="title">ctn<span>Racer</span></h1>
+          <!-- Solde de Fric (monnaie du jeu, nom provisoire), à droite du logo -->
+          <div class="menu-actions">
+            <div class="fric-balance" title="Fric"><img src="/fric.svg" alt="" /><span class="fric-amount">0</span></div>
+          </div>
         </header>
         <div class="modes">
           <button id="mode-delivery" class="mode-tile delivery" type="button">
@@ -28,7 +32,33 @@
             <span class="art"><img src="/bike-head.webp" alt="" /></span>
             <span class="label">Moto</span>
           </button>
+          <button id="mode-shop" class="mode-tile shop" type="button">
+            <span class="art"><img src="/fric.svg" alt="" /></span>
+            <span class="label">Boutique</span>
+          </button>
         </div>
+      </section>
+    </div>
+    <div id="shop">
+      <!-- Boutique : achat de Fric avec de l'argent réel (paiement FedaPay, pas encore branché). Même mise en page que
+           le menu : côté gauche libre, panneau à droite -->
+      <aside class="menu-side"></aside>
+      <section class="menu-main">
+        <header class="menu-top">
+          <h1 class="title">Boutique</h1>
+          <div class="menu-actions">
+            <div class="fric-balance" title="Fric"><img src="/fric.svg" alt="" /><span class="fric-amount">0</span></div>
+          </div>
+        </header>
+        <div class="packs"><!-- packs de Fric créés par main.js (FRIC_PACKS) --></div>
+        <p class="shop-note" hidden></p>
+        <footer class="menu-footer">
+          <button id="shop-back" class="back-button" type="button">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12H5M11 5l-7 7 7 7" fill="none" stroke="currentColor"
+              stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" /></svg>
+            Retour
+          </button>
+        </footer>
       </section>
     </div>
     <div id="garage">

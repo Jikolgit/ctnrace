@@ -40,8 +40,8 @@ const readLocal = () => {
 };
 
 // onRestore(data) : appelé quand la sauvegarde du serveur remplace celle du navigateur (le jeu met à jour
-// l'argent affiché, la moto…)
-export function startCloudSave(onRestore) {
+// l'argent affiché, la moto…) ; onFric(solde) : solde de Fric de la fiche (écrit seulement par le serveur)
+export function startCloudSave(onRestore, onFric) {
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
   const db = getFirestore(app);
@@ -82,6 +82,7 @@ export function startCloudSave(onRestore) {
     try {
       const snapshot = await getDoc(playerDoc);
       const cloud = snapshot.exists() ? snapshot.data() : null;
+      onFric(cloud?.fric ?? 0);
       if (cloud && (cloud.savedAt ?? 0) > localSavedAt()) {
         // Sauvegarde du serveur plus récente : elle remplace celle du navigateur (mission débloquée : la plus avancée)
         const local = readLocal();
