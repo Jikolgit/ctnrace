@@ -442,6 +442,10 @@ const atlasMaterial = applyWorldBend(
   new THREE.MeshStandardMaterial({ map: atlas, roughness: 0.65, metalness: 0 })
 );
 const toonAtlasMaterial = toToon(new THREE.MeshStandardMaterial({ map: atlas })); // ancienne moto
+// Roues de la MotoCub (bike_1) : pièces sans UV dans le GLB (elles prendraient la couleur du coin de l'atlas),
+// en noir uni à la place
+const BIKE_1_WHEELS = /^(MotoCub_Roue_Avant|bike_1_Roue_Arriere)$/;
+const toonWheelMaterial = toToon(new THREE.MeshStandardMaterial({ color: 0x1c1c1c }));
 
 // Motos jouables : chacune a sa pose de pilote (animation du GLB) et sa position de pilote
 const BIKES = {
@@ -558,6 +562,7 @@ new GLTFLoader().load(
         // sur leur palette de l'atlas (sinon elles prennent la couleur du coin de l'atlas)
         if (/front_light/i.test(child.name)) child.material = bikeHeadlightMaterial;
         else if (/back_light/i.test(child.name)) child.material = bikeTaillightMaterial;
+        else if (BIKE_1_WHEELS.test(child.name)) child.material = toonWheelMaterial;
         else child.material = toonAtlasMaterial;
         addOutline(child);
       } else {
