@@ -1,15 +1,12 @@
 // POST /api/create-payment { packId } (jeton Firebase du joueur dans Authorization)
 // Crée le paiement FedaPay du pack choisi et renvoie { url } : la page de paiement (Mobile Money, carte).
 // Le prix vient de FRIC_PACKS côté serveur : le jeu ne peut pas choisir son prix.
-// GET /api/create-payment : diagnostic de la configuration (variables Vercel), sans rien afficher de secret.
+// Le diagnostic par GET (ouvrir l'adresse dans le navigateur) a été retiré à la demande de l'utilisateur (octobre 2026),
+// pour que les joueurs ne tombent pas dessus : un GET répond 405 comme toute autre méthode.
 import { FRIC_PACKS, setup, playerId, errorMessage, send } from './_lib/server.js';
 
 export default async function handler(req, res) {
   try {
-    if (req.method === 'GET') {
-      const { mode, project } = await setup();
-      return send(res, 200, { ok: true, message: 'Configuration correcte (Firebase et FedaPay prêts)', fedapay: mode, firebase: project });
-    }
     if (req.method !== 'POST') return send(res, 405, { error: 'Méthode non permise' });
     const uid = await playerId(req);
     if (!uid) return send(res, 401, { error: 'Joueur non connecté' });
@@ -39,10 +36,6 @@ export default async function handler(req, res) {
     return send(res, 200, { url: token.url, id: transaction.id });
   } catch (error) {
     console.error('create-payment', error);
-    const message = errorMessage(error, 'Création du paiement impossible');
-    // Diagnostic (GET) : message de l'erreur inattendue ajouté, raccourci (pas de clé dedans)
-    const unexpected = !message.startsWith('Configuration');
-    const detail = req.method === 'GET' && unexpected ? ` (${String(error?.message ?? error).slice(0, 200)})` : '';
-    return send(res, 500, { error: message + detail });
+    return send(res, 500, { error: errorMessage(error, 'Création du paiement impossible') });
   }
 }

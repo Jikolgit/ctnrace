@@ -32,7 +32,7 @@ import { extractVehicles, setVehicleLights } from './vehicles.js';
 import { createStreetLights } from './streetLights.js';
 import { createCameraTuner } from './cameraTuner.js';
 import { DELIVERY_REWARD, FUEL_PRICE, getMoney, addMoney, setMoney } from './wallet.js';
-import { FRIC_PACKS, formatFric, onFricChange, setFric } from './fric.js';
+import { FRIC_PACKS, formatFric, setFric } from './fric.js';
 import { STATIONS, MAP_WIDTH, MAP_HEIGHT } from './deliveryMap.js';
 import { atlas } from './atlas.js';
 import { createGarage, savedBike, saveBike } from './garage.js';
@@ -473,8 +473,8 @@ const BIKES = {
 const DEFAULT_BIKE = 'bike_1';
 // Écran « Moto » du menu : nom affiché et description de chaque moto
 const BIKE_CARDS = [
-  { name: 'bike_1', label: 'MotoCub', desc: 'Petite moto rouge, maniable en ville.' },
-  { name: 'bike_2', label: 'Moto classique', desc: 'La première moto du jeu.' },
+  { name: 'bike_1', label: 'Rave 110', desc: 'Petite moto rouge, maniable en ville.' },
+  { name: 'bike_2', label: 'Baraj', desc: 'La première moto du jeu.' },
 ];
 let bikeName = savedBike(Object.keys(BIKES)) ?? DEFAULT_BIKE;
 let bike = BIKES[bikeName];
@@ -785,7 +785,7 @@ function finishMission() {
   guide?.setObjectives([]); // plus d'objectif : la ligne disparaît
   completeMission(currentMission);
   const total = missionData(currentMission).deliveries.length;
-  missionSummary.textContent = `${total} produits livrés en ${Math.floor(distance)} m : +${total * DELIVERY_REWARD} $.`;
+  missionSummary.textContent = `${total} produits livrés en ${Math.floor(distance)} m : +${formatFric(total * DELIVERY_REWARD)} Fric.`;
   missionPanel.hidden = false;
   startHint.hidden = true;
   updateArrows();
@@ -861,14 +861,22 @@ document.getElementById('missions-back').addEventListener('click', () => {
   deliveryButton.focus();
 });
 
-// Solde de Fric affiché en haut du menu et de la Boutique
+// Solde de Fric affiché en haut du menu et de la Boutique. Depuis octobre 2026 (demande de l'utilisateur), les Fric
+// sont l'argent gagné en livrant (wallet.js, gardé sur l'appareil) : voir showMoney
 const fricAmounts = document.querySelectorAll('.fric-amount');
-onFricChange((value) => {
-  for (const label of fricAmounts) label.textContent = formatFric(value);
-});
+function showFricBalance() {
+  for (const label of fricAmounts) label.textContent = formatFric(getMoney());
+}
+
+// Boutique et compte en ligne désactivés pour le moment (octobre 2026, demande de l'utilisateur) : vignette Boutique
+// cachée, pas de retour de paiement, pas de connexion Google ni de sauvegarde Firebase (Firebase n'est même pas
+// chargé) ; les données restent sur l'appareil (localStorage). Le code reste en place : remettre true pour rebrancher.
+const SHOP_ENABLED = false;
+const ONLINE_ENABLED = false;
 
 // Boutique : packs de Fric à acheter avec de l'argent réel, payés avec FedaPay (buyPack, plus bas)
 const shopButton = document.getElementById('mode-shop');
+shopButton.hidden = !SHOP_ENABLED;
 const shopNote = document.querySelector('#shop .shop-note');
 const packList = document.querySelector('#shop .packs');
 for (const pack of FRIC_PACKS) {
@@ -1205,7 +1213,8 @@ let cargo = 0; // produits encore à livrer
 
 // Argent (Livraison) : affiché à la place du compteur de distance ; petit grossissement à chaque changement
 function showMoney(pop = false) {
-  moneyDisplay.textContent = `${getMoney()} $`;
+  moneyDisplay.innerHTML = `<img src="/fric.svg" alt="Fric" />${formatFric(getMoney())}`;
+  showFricBalance();
   if (!pop) return;
   moneyDisplay.classList.remove('pop');
   void moneyDisplay.offsetWidth; // relance l'animation CSS
@@ -1414,24 +1423,7 @@ function applySkyColor(hours) {
 updateClock();
 setInterval(updateClock, 1000);
 
-// Images par seconde, affichées en haut à droite (#fps), moyenne sur FPS_INTERVAL
-const FPS_INTERVAL = 500; // ms
-const fpsLabel = document.getElementById('fps');
-let fpsFrames = 0;
-let fpsStart = 0;
-
-function updateFps(timestamp) {
-  fpsFrames++;
-  if (!fpsStart) fpsStart = timestamp;
-  const elapsed = timestamp - fpsStart;
-  if (elapsed < FPS_INTERVAL) return;
-  fpsLabel.textContent = `${Math.round((fpsFrames * 1000) / elapsed)} FPS`;
-  fpsFrames = 0;
-  fpsStart = timestamp;
-}
-
 function animate(timestamp) {
-  if (timestamp !== undefined) updateFps(timestamp);
   timer.update(timestamp);
   // Plafonné pour éviter un grand saut après un onglet resté en arrière-plan
   const delta = Math.min(timer.getDelta(), 0.1);
@@ -1654,7 +1646,7 @@ function animate(timestamp) {
       if (station >= 0 && started && !deliveryState && getMoney() < FUEL_PRICE) {
         // Pas assez d'argent : pas de plein (la moto continue) ; message une seule fois par passage
         ignoredStation = station;
-        showNotice(`Pas assez d'argent pour le plein (${FUEL_PRICE} $)`);
+        showNotice(`Pas assez de Fric pour le plein (${FUEL_PRICE} Fric)`);
       } else if (station >= 0 && started && !deliveryState) {
         // Plein payé à l'arrivée sur le point
         addMoney(-FUEL_PRICE);
@@ -1736,6 +1728,7 @@ function restoreSave(data) {
 // Compte du joueur (bouton en haut du menu) : anonyme au départ, à lier à Google pour ne pas perdre sa
 // sauvegarde et ses Fric (navigateur vidé, autre appareil). Messages dans #account-note.
 const accountButton = document.getElementById('account-button');
+accountButton.hidden = !ONLINE_ENABLED;
 const accountNote = document.getElementById('account-note');
 let account = { linked: false };
 let accountNoteTimer = 0;
@@ -1794,12 +1787,14 @@ accountButton.addEventListener('click', async () => {
 
 // cloud : { idToken, reloadFric, linkGoogle } (cloudSave.js), ou null si Firebase n'a pas pu se charger
 let cloudApi = null; // même chose, une fois chargé
-const cloud = import('./cloudSave.js')
-  .then(({ startCloudSave }) => (cloudApi = startCloudSave(restoreSave, setFric, showAccount)))
-  .catch((error) => {
-    console.warn('Sauvegarde Firebase indisponible', error);
-    return null;
-  });
+const cloud = ONLINE_ENABLED
+  ? import('./cloudSave.js')
+      .then(({ startCloudSave }) => (cloudApi = startCloudSave(restoreSave, setFric, showAccount)))
+      .catch((error) => {
+        console.warn('Sauvegarde Firebase indisponible', error);
+        return null;
+      })
+  : Promise.resolve(null);
 
 // Appel d'une fonction serveur de la Boutique (api/*.js sur Vercel), avec le jeton Firebase du joueur
 async function shopRequest(path, body) {
@@ -1847,7 +1842,7 @@ async function checkPaymentReturn() {
     showShopNote(`Vérification impossible pour le moment (${error.message}). Tes Fric arriveront dès que le paiement sera confirmé.`);
   }
 }
-checkPaymentReturn();
+if (SHOP_ENABLED) checkPaymentReturn();
 
 showMenuScene(); // le jeu s'ouvre sur le menu : survol de la ville
 animate();
