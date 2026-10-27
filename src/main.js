@@ -29,6 +29,7 @@ import { placeStations } from './stations.js';
 import { createGuide } from './guide.js';
 import { createTraffic } from './traffic.js';
 import { extractVehicles, setVehicleLights } from './vehicles.js';
+import { createStreetLights } from './streetLights.js';
 import { createCameraTuner } from './cameraTuner.js';
 import { DELIVERY_REWARD, FUEL_PRICE, getMoney, addMoney, setMoney } from './wallet.js';
 import { FRIC_PACKS, formatFric, onFricChange, setFric } from './fric.js';
@@ -277,11 +278,19 @@ function refreshGuide() {
   else guide.setObjectives(onBoard.filter((_, i) => deliveryPoints.isActive(i)));
 }
 let stationTemplate = null; // modèle StationEssence (models.glb), une fois chargé
-let lampTemplate = null; // lampadaire (models.glb), pas encore placé dans la ville
+let lampTemplate = null; // lampadaire (models.glb), gabarit des lampadaires de la ville
+let streetLights = null; // lampadaires du terre-plein des grandes routes (streetLights.js)
 let stationsPlaced = false;
 
 // Pose les bâtiments des stations dès que la ville et le modèle sont prêts (l'un ou l'autre peut arriver en
 // premier : chargement du GLB / premier lancement du mode Livraison)
+// Lampadaires : placés quand la ville et le modèle sont prêts tous les deux, allumés selon l'heure
+function placeLampsIfReady() {
+  if (streetLights || !deliveryCity || !lampTemplate) return;
+  streetLights = createStreetLights(deliveryWorld, lampTemplate, deliveryCity.userData.lampSpots);
+  applySkyColor(cotonouHours());
+}
+
 function placeStationsIfReady() {
   if (stationsPlaced || !deliveryCity || !stationTemplate) return;
   placeStations(deliveryWorld, stationTemplate);
@@ -384,6 +393,9 @@ scene.add(player);
 const HEADLIGHT_INTENSITY = 40;
 const HEADLIGHT_ON = 20;
 const HEADLIGHT_OFF = 6;
+// Lampadaires de la ville allumés de LAMP_ON (19 h) à LAMP_OFF (6 h)
+const LAMP_ON = 19;
+const LAMP_OFF = 6;
 const headlight = new THREE.SpotLight(0xfff2d0, 0, 45, 0.42, 0.5, 1);
 headlight.position.set(0, 1.1, -0.9);
 headlight.target.position.set(0, 0, -18);
@@ -488,14 +500,12 @@ new GLTFLoader().load(
       stationTemplate = station;
       placeStationsIfReady();
     }
-    // Lampadaire : retiré de la scène du joueur, gardé comme gabarit (à placer plus tard dans la ville)
+    // Lampadaire : retiré de la scène du joueur, gardé comme gabarit des lampadaires de la ville (streetLights.js)
     lampTemplate = moto.getObjectByName('lampadaire') ?? null;
     if (lampTemplate) {
       lampTemplate.removeFromParent();
       lampTemplate.position.set(0, 0, 0);
-      lampTemplate.traverse((child) => {
-        if (child.isMesh) child.material = atlasMaterial;
-      });
+      placeLampsIfReady();
     }
     // Pas encore utilisés : retirés, sinon ils suivraient la moto
     for (const unused of ['ChateauEau_Vedoko', 'Cylinder', 'Empty.001']) moto.getObjectByName(unused)?.removeFromParent();
@@ -680,6 +690,7 @@ function buildDeliveryCity() {
   stationPoints = createDeliveryPoints(deliveryWorld);
   guide = createGuide(deliveryWorld);
   placeStationsIfReady();
+  placeLampsIfReady();
 }
 
 // Fond du menu : survol de la ville de Livraison, comme depuis un hélicoptère. La caméra tourne lentement sur une
@@ -1388,6 +1399,7 @@ function applySkyColor(hours) {
   const night = hours >= HEADLIGHT_ON || hours < HEADLIGHT_OFF;
   headlight.intensity = night ? HEADLIGHT_INTENSITY : 0;
   setVehicleLights(night); // phares et feux arrière des voitures
+  streetLights?.setOn(hours >= LAMP_ON || hours < LAMP_OFF);
   if (night !== lightsAtNight) {
     lightsAtNight = night;
     updateBikeLights(); // phare et feu arrière de la moto

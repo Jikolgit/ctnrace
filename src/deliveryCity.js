@@ -26,7 +26,9 @@ const GAP_CHANCE = 0.4; // probabilité d'une ruelle avant un bâtiment
 const GAP_MIN = 0.5;
 const GAP_MAX = 1.5;
 const ASPHALT_TILE = 6; // longueur (m) couverte par la texture du goudron
-const MEDIAN_HEIGHT = 0.2; // hauteur de la bordure du terre-plein central
+export const MEDIAN_HEIGHT = 0.2; // hauteur de la bordure du terre-plein central
+const LAMP_SPACING = 25; // m : écart entre deux lampadaires sur le terre-plein
+const LAMP_MARGIN = 5; // m : pas de lampadaire tout près d'un carrefour
 
 const randomRange = (min, max) => min + Math.random() * (max - min);
 
@@ -176,6 +178,7 @@ export function createDeliveryCity(parent, graph) {
   const sidewalks = []; // matrices
   const medianCurbs = []; // bordures du terre-plein central des grandes routes
   const medianGrass = []; // herbe sur le terre-plein
+  const lampSpots = []; // lampadaires du terre-plein : { x, z, angle } (angle : direction du bras, voir streetLights.js)
   const buildings = BUILDING_COLORS.map(() => []);
   const matrix = new THREE.Matrix4();
   const position = new THREE.Vector3();
@@ -250,6 +253,19 @@ export function createDeliveryCity(parent, graph) {
         } else {
           box(medianCurbs, road.x - m, road.x + m, road.y1 + u1, road.y1 + u2, MEDIAN_HEIGHT);
           box(medianGrass, road.x - g, road.x + g, road.y1 + u1 + 0.25, road.y1 + u2 - 0.25, MEDIAN_HEIGHT + 0.02);
+        }
+        // Lampadaires au milieu du terre-plein, régulièrement espacés (centrés entre les deux carrefours) ;
+        // le bras va d'un côté puis de l'autre, pour éclairer les deux chaussées
+        const free = u2 - u1 - 2 * LAMP_MARGIN;
+        if (free >= 0) {
+          const count = Math.floor(free / LAMP_SPACING) + 1;
+          const start = u1 + LAMP_MARGIN + (free - (count - 1) * LAMP_SPACING) / 2;
+          for (let i = 0; i < count; i++) {
+            const u = start + i * LAMP_SPACING;
+            const toward = i % 2 ? 1 : -1; // côté du bras : nord / sud (rue horizontale), ouest / est (verticale)
+            if (horizontal) lampSpots.push({ x: road.x1 + u, z: road.y, angle: (-toward * Math.PI) / 2 });
+            else lampSpots.push({ x: road.x, z: road.y1 + u, angle: toward < 0 ? Math.PI : 0 });
+          }
         }
       }
 
@@ -338,5 +354,6 @@ export function createDeliveryCity(parent, graph) {
     instanced(applyWorldBend(new THREE.MeshStandardMaterial({ color, roughness: 0.95, metalness: 0 })), buildings[i])
   );
 
+  group.userData.lampSpots = lampSpots; // placés par streetLights.js une fois le modèle chargé
   return group;
 }
