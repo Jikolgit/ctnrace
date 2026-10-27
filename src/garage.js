@@ -1,13 +1,18 @@
 import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { SAVE_KEYS, requestSave } from './saveQueue.js';
 
 // Écran « Moto » du menu principal : aperçu 3D de la moto choisie, qui tourne lentement sur elle-même (dans la
-// partie libre de l'écran), et une vignette par moto pour la choisir, avec une miniature rendue par l'aperçu. Le choix est gardé dans le navigateur (localStorage).
+// partie libre de l'écran) ; le joueur peut la faire tourner sous tous les angles (glisser) et zoomer (molette,
+// pincement à deux doigts), la rotation automatique reprend après SPIN_RESUME secondes sans toucher, et une vignette par moto pour la choisir, avec une miniature rendue par l'aperçu. Le choix est gardé dans le navigateur (localStorage).
 // L'aperçu a son propre renderer (canvas #garage-preview) et sa propre petite scène, avec des copies des
 // motos du GLB (géométries et matériaux partagés) ; il ne tourne que pendant que l'écran est ouvert.
 
 const STORAGE_KEY = SAVE_KEYS.bike;
 const SPIN_SPEED = 0.6; // rad/s
+const SPIN_RESUME = 4; // s sans toucher l'aperçu avant que la moto se remette à tourner seule
+const ZOOM_MIN = 0.35; // distance de la caméra, en part de la distance de départ (zoom avant)
+const ZOOM_MAX = 2.2; // zoom arrière
 const CAMERA_POSITION = new THREE.Vector3(2.2, 1.3, 2.4);
 const CAMERA_TARGET = new THREE.Vector3(0, 0.55, 0);
 const FRAME_ASPECT = 1.4; // format pour lequel CAMERA_POSITION cadre la moto ; plus étroit : la caméra recule
@@ -54,6 +59,9 @@ export function createGarage(canvas, list, description, bikes, onSelect) {
   camera.lookAt(CAMERA_TARGET);
   const turntable = new THREE.Group();
   scene.add(turntable);
+  let controls = null; // OrbitControls, créés avec le renderer
+  let idle = SPIN_RESUME; // s depuis le dernier geste (la moto tourne seule au-delà de SPIN_RESUME)
+  let framedAspect = 0; // format de l'aperçu pour lequel la caméra a été placée
 
   const models = new Map(); // nom → copie de la moto dans l'aperçu
   let current = null;
@@ -101,7 +109,12 @@ export function createGarage(canvas, list, description, bikes, onSelect) {
     if (!width || !height) return;
     if (canvas.width !== Math.round(width * renderer.getPixelRatio())) renderer.setSize(width, height, false);
     camera.aspect = width / height;
-    placeCamera(Math.max(1, FRAME_ASPECT / camera.aspect));
+    camera.updateProjectionMatrix();
+    // Caméra replacée seulement quand le format change (sinon elle annulerait les gestes du joueur)
+    if (Math.abs(camera.aspect - framedAspect) > 0.01) {
+      framedAspect = camera.aspect;
+      placeCamera(Math.max(1, FRAME_ASPECT / camera.aspect));
+    }
   }
 
   // Caméra sur l'axe CAMERA_TARGET → CAMERA_POSITION, éloignée de factor (zone étroite : la moto reste entière)
@@ -109,6 +122,12 @@ export function createGarage(canvas, list, description, bikes, onSelect) {
     camera.position.subVectors(CAMERA_POSITION, CAMERA_TARGET).multiplyScalar(factor).add(CAMERA_TARGET);
     camera.lookAt(CAMERA_TARGET);
     camera.updateProjectionMatrix();
+    if (controls) {
+      const distance = camera.position.distanceTo(CAMERA_TARGET);
+      controls.minDistance = distance * ZOOM_MIN;
+      controls.maxDistance = distance * ZOOM_MAX;
+      controls.update();
+    }
   }
 
   // Miniatures des vignettes : chaque moto rendue une fois, de trois quarts, en image carrée (dès que toutes
@@ -117,6 +136,7 @@ export function createGarage(canvas, list, description, bikes, onSelect) {
     renderer.setSize(THUMB_SIZE, THUMB_SIZE, false);
     camera.aspect = 1;
     placeCamera(1.1);
+    framedAspect = 0; // l'aperçu reprendra son cadrage
     const spin = turntable.rotation.y;
     turntable.rotation.y = THUMB_ANGLE;
     for (const [name, model] of models) {
@@ -134,8 +154,10 @@ export function createGarage(canvas, list, description, bikes, onSelect) {
     const delta = last ? Math.min((time - last) / 1000, 0.1) : 0;
     last = time;
     if (!thumbsDone && models.size === bikes.length) renderThumbs();
-    turntable.rotation.y += SPIN_SPEED * delta;
+    idle += delta;
+    if (idle > SPIN_RESUME) turntable.rotation.y += SPIN_SPEED * delta;
     resize();
+    controls.update(); // amorti des gestes
     renderer.render(scene, camera);
     requestAnimationFrame(frame);
   }
@@ -144,6 +166,18 @@ export function createGarage(canvas, list, description, bikes, onSelect) {
     if (!renderer) {
       renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      // Gestes : glisser = tourner autour de la moto (dessus et dessous compris), molette / pincement = zoom
+      controls = new OrbitControls(camera, canvas);
+      controls.target.copy(CAMERA_TARGET);
+      controls.enablePan = false;
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.1;
+      controls.minPolarAngle = 0;
+      controls.maxPolarAngle = Math.PI; // jusque sous la moto
+      controls.addEventListener('start', () => (idle = 0));
+      controls.addEventListener('change', () => {
+        if (idle < SPIN_RESUME) idle = 0; // geste en cours ou amorti : la moto ne repart pas toute seule
+      });
     }
     open = true;
     last = 0;

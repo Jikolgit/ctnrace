@@ -9,6 +9,10 @@ import { applyWorldBend } from './worldBend.js';
 //    dont on n'affiche que les faces arrière (« inverted hull ») ; elle dépasse autour de la pièce
 //    et dessine un trait.
 
+// Effet désactivé à la demande de l'utilisateur (octobre 2026) : les motos ont un rendu normal (MeshStandardMaterial,
+// sans contour). Remettre true pour retrouver l'effet cartoon.
+export const CARTOON = false;
+
 const TONES = [90, 170, 255]; // luminosité de chaque palier (ombre, mi-ombre, lumière), 0-255
 const OUTLINE_COLOR = 0x111111;
 const OUTLINE_WIDTH = 0.022; // épaisseur du contour, en mètres
@@ -22,6 +26,7 @@ gradientMap.needsUpdate = true;
 
 // Version cartoon d'un matériau : même couleur, texture et lumière émise (feux), éclairage en paliers
 export function toToon(material) {
+  if (!CARTOON) return applyWorldBend(material); // rendu normal : le matériau tel quel
   return applyWorldBend(
     new THREE.MeshToonMaterial({
       name: material.name,
@@ -68,6 +73,7 @@ function outlineGeometry(geometry) {
 
 // Ajoute le contour d'une pièce : enfant qui suit ses mouvements (roues, inclinaison)
 export function addOutline(mesh) {
+  if (!CARTOON) return;
   const outline = new THREE.Mesh(outlineGeometry(mesh.geometry), outlineMaterial);
   outline.name = `${mesh.name}_Contour`;
   outline.renderOrder = mesh.renderOrder;
