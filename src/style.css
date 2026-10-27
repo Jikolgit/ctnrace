@@ -1393,6 +1393,88 @@ body.in-garage #menu {
   height: 28px;
 }
 
+/* Bouton du compte (menu principal) : « G Connexion » tant que le compte est anonyme, photo (ou initiale) avec
+   une pastille verte une fois lié à Google */
+.account-button {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 12px 0 8px;
+  border: 1px solid var(--tile-border);
+  border-radius: 18px;
+  background: #fff;
+  font: 700 14px/1 system-ui, sans-serif;
+  color: #1f1f1f;
+  cursor: pointer;
+}
+
+.account-button:hover {
+  border-color: #fff;
+}
+
+.account-button .google-logo {
+  width: 20px;
+  height: 20px;
+}
+
+.account-button.linked {
+  width: 36px;
+  padding: 0;
+  justify-content: center;
+  background: #2b5a4b;
+}
+
+.account-button.linked :is(.google-logo, .account-label) {
+  display: none;
+}
+
+.account-photo,
+.account-initial {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+}
+
+.account-photo[hidden],
+.account-initial[hidden] {
+  display: none;
+}
+
+.account-initial {
+  display: grid;
+  place-items: center;
+  font: 400 18px/1 'Anton', Impact, sans-serif;
+  color: #fff;
+}
+
+/* Pastille verte : compte lié */
+.account-button.linked::after {
+  content: '';
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  width: 12px;
+  height: 12px;
+  border: 2px solid #1f3d34;
+  border-radius: 50%;
+  background: #2ed35a;
+}
+
+/* Téléphone étroit : seulement le logo Google, pour laisser la place au titre et au solde */
+@media (max-width: 420px) {
+  .account-button:not(.linked) {
+    width: 36px;
+    padding: 0;
+    justify-content: center;
+  }
+
+  .account-button .account-label {
+    display: none;
+  }
+}
+
 /* Le solde est centré verticalement avec le logo */
 :is(#menu, #shop) .menu-actions {
   top: 50%;

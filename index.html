@@ -14,11 +14,16 @@
       <section class="menu-main">
         <header class="menu-top">
           <h1 class="title">ctn<span>Racer</span></h1>
-          <!-- Solde de Fric (monnaie du jeu, nom provisoire), à droite du logo -->
+          <!-- Compte (connexion Google) et solde de Fric (monnaie du jeu, nom provisoire), à droite du logo -->
           <div class="menu-actions">
+            <button id="account-button" class="account-button" type="button" title="Se connecter avec Google">
+              <img class="google-logo" src="/google.svg" alt="" /><span class="account-label">Connexion</span>
+              <img class="account-photo" alt="" referrerpolicy="no-referrer" hidden /><span class="account-initial" hidden></span>
+            </button>
             <div class="fric-balance" title="Fric"><img src="/fric.svg" alt="" /><span class="fric-amount">0</span></div>
           </div>
         </header>
+        <p id="account-note" class="shop-note" hidden></p>
         <div class="modes">
           <button id="mode-delivery" class="mode-tile delivery" type="button">
             <span class="art"><img src="/delivery-box.webp" alt="" /></span>

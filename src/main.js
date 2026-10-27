@@ -1716,9 +1716,69 @@ function restoreSave(data) {
   }
   if (document.body.classList.contains('in-missions')) showMissions();
 }
-// cloud : { idToken, reloadFric } (cloudSave.js), ou null si Firebase n'a pas pu se charger
+// Compte du joueur (bouton en haut du menu) : anonyme au départ, à lier à Google pour ne pas perdre sa
+// sauvegarde et ses Fric (navigateur vidé, autre appareil). Messages dans #account-note.
+const accountButton = document.getElementById('account-button');
+const accountNote = document.getElementById('account-note');
+let account = { linked: false };
+let accountNoteTimer = 0;
+function showAccountNote(text, duration = 6000) {
+  accountNote.textContent = text;
+  accountNote.hidden = false;
+  clearTimeout(accountNoteTimer);
+  if (duration) accountNoteTimer = setTimeout(() => (accountNote.hidden = true), duration);
+}
+function showAccount(info) {
+  account = info;
+  accountButton.classList.toggle('linked', info.linked);
+  const photo = accountButton.querySelector('.account-photo');
+  const initial = accountButton.querySelector('.account-initial');
+  photo.hidden = !(info.linked && info.photo);
+  if (info.linked && info.photo) photo.src = info.photo;
+  initial.hidden = !info.linked || Boolean(info.photo);
+  initial.textContent = (info.name || info.email || '?').charAt(0).toUpperCase();
+  accountButton.title = info.linked ? `Connecté avec Google : ${info.email}` : 'Se connecter avec Google';
+}
+// Messages des erreurs de connexion Google les plus courantes
+const GOOGLE_ERRORS = {
+  'auth/popup-closed-by-user': 'Connexion annulée.',
+  'auth/cancelled-popup-request': 'Connexion annulée.',
+  'auth/popup-blocked': 'La fenêtre de connexion a été bloquée : autorise les fenêtres pop-up pour ce site, puis réessaie.',
+  'auth/operation-not-allowed': 'La connexion Google n’est pas encore activée pour ce jeu.',
+  'auth/unauthorized-domain': 'Ce site n’est pas encore autorisé pour la connexion Google.',
+  'auth/network-request-failed': 'Pas de connexion internet : réessaie plus tard.',
+  'auth/web-storage-unsupported': 'Ce navigateur bloque la connexion : ouvre le jeu dans Chrome ou Safari.',
+};
+accountButton.addEventListener('click', async () => {
+  if (account.linked) {
+    showAccountNote(`Connecté avec Google (${account.email}) : ta progression et tes Fric sont sauvegardés sur ce compte.`);
+    return;
+  }
+  // cloudApi plutôt que « await cloud » : la fenêtre Google doit s'ouvrir sans attente après le clic, sinon
+  // le navigateur la bloque (Safari surtout)
+  const api = cloudApi;
+  if (!api) return showAccountNote('Sauvegarde pas encore prête : réessaie dans quelques secondes.');
+  showAccountNote('Connexion à Google…', 0);
+  try {
+    const result = await api.linkGoogle((fric) =>
+      window.confirm(
+        'Ce compte Google a déjà une partie (sur un autre appareil). La charger ? La progression de cet appareil sera remplacée' +
+          (fric > 0 ? ` et les ${formatFric(fric)} Fric de cet appareil resteront sur l’ancien compte.` : '.')
+      )
+    );
+    if (result === 'linked') showAccountNote('Compte Google lié : ta progression et tes Fric sont maintenant sauvegardés.');
+    else if (result === 'switched') showAccountNote('Partie du compte Google chargée.');
+    else showAccountNote('Connexion annulée : tu restes sur la partie de cet appareil.');
+  } catch (error) {
+    console.warn('Connexion Google impossible', error.code ?? error);
+    showAccountNote(GOOGLE_ERRORS[error.code] ?? `Connexion impossible pour le moment (${error.code ?? error.message}).`);
+  }
+});
+
+// cloud : { idToken, reloadFric, linkGoogle } (cloudSave.js), ou null si Firebase n'a pas pu se charger
+let cloudApi = null; // même chose, une fois chargé
 const cloud = import('./cloudSave.js')
-  .then(({ startCloudSave }) => startCloudSave(restoreSave, setFric))
+  .then(({ startCloudSave }) => (cloudApi = startCloudSave(restoreSave, setFric, showAccount)))
   .catch((error) => {
     console.warn('Sauvegarde Firebase indisponible', error);
     return null;
