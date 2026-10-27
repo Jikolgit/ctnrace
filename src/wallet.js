@@ -4,8 +4,8 @@ import { SAVE_KEYS, requestSave } from './saveQueue.js';
 
 const STORAGE_KEY = SAVE_KEYS.money;
 
-export const DELIVERY_REWARD = 10; // $ par produit livré
-export const FUEL_PRICE = 5; // $ le plein à la station essence
+export const DELIVERY_REWARD = 50; // Fric par produit livré
+export const FUEL_PRICE = 20; // Fric le plein à la station essence
 
 let money = 0;
 try {
