@@ -9,9 +9,9 @@ import { applyWorldBend } from './worldBend.js';
 //    dont on n'affiche que les faces arrière (« inverted hull ») ; elle dépasse autour de la pièce
 //    et dessine un trait.
 
-// Effet désactivé à la demande de l'utilisateur (octobre 2026) : les motos ont un rendu normal (MeshStandardMaterial,
-// sans contour). Remettre true pour retrouver l'effet cartoon.
-export const CARTOON = false;
+// Interrupteur de l'effet (false : rendu normal MeshStandardMaterial, sans contour). Désactivé puis remis à la
+// demande de l'utilisateur (octobre 2026).
+export const CARTOON = true;
 
 const TONES = [90, 170, 255]; // luminosité de chaque palier (ombre, mi-ombre, lumière), 0-255
 const OUTLINE_COLOR = 0x111111;
