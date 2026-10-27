@@ -43,18 +43,41 @@ async function prepare() {
     throw new SetupError('Variable FEDAPAY_SECRET_KEY absente ou invalide (doit commencer par sk_sandbox_ ou sk_live_)');
   }
 
-  const { initializeApp, getApps, cert } = await import('firebase-admin/app');
-  const { getAuth } = await import('firebase-admin/auth');
-  const { getFirestore, FieldValue } = await import('firebase-admin/firestore');
-  const fedapay = await import('fedapay');
+  const { initializeApp, getApps, cert } = await step('chargement de firebase-admin/app', () => import('firebase-admin/app'));
+  const { getAuth } = await step('chargement de firebase-admin/auth', () => import('firebase-admin/auth'));
+  const { getFirestore, FieldValue } = await step('chargement de firebase-admin/firestore', () =>
+    import('firebase-admin/firestore')
+  );
+  const fedapay = await step('chargement de fedapay', () => import('fedapay'));
   const { FedaPay, Transaction } = fedapay.FedaPay ? fedapay : fedapay.default; // module CommonJS
 
   // Firebase Admin : ignore les règles de sécurité (seul le serveur peut écrire le champ fric)
-  if (!getApps().length) initializeApp({ credential: cert(account) });
+  await step('clé de compte de service Firebase', () => {
+    if (!getApps().length) initializeApp({ credential: cert(account) });
+  });
   // FedaPay : environnement d'essai ou réel selon la clé
-  FedaPay.setApiKey(secretKey);
-  FedaPay.setEnvironment(secretKey.startsWith('sk_live_') ? 'live' : 'sandbox');
-  return { auth: getAuth(), db: getFirestore(), FieldValue, Transaction };
+  await step('réglage de FedaPay', () => {
+    FedaPay.setApiKey(secretKey);
+    FedaPay.setEnvironment(secretKey.startsWith('sk_live_') ? 'live' : 'sandbox');
+  });
+  return {
+    auth: getAuth(),
+    db: getFirestore(),
+    FieldValue,
+    Transaction,
+    mode: secretKey.startsWith('sk_live_') ? 'live' : 'sandbox',
+    project: account.project_id,
+  };
+}
+
+// Étape de la préparation : en cas d'échec, erreur de configuration qui nomme l'étape (message d'erreur de la
+// bibliothèque, raccourci ; il ne contient pas les clés)
+async function step(label, fn) {
+  try {
+    return await fn();
+  } catch (error) {
+    throw new SetupError(`${label} : ${String(error?.message ?? error).slice(0, 200)}`);
+  }
 }
 
 // Outils prêts : { auth, db, FieldValue, Transaction } (préparés une fois, gardés entre les demandes)

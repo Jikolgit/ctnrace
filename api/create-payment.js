@@ -7,8 +7,8 @@ import { FRIC_PACKS, setup, playerId, errorMessage, send } from './_lib/server.j
 export default async function handler(req, res) {
   try {
     if (req.method === 'GET') {
-      await setup();
-      return send(res, 200, { ok: true, message: 'Configuration correcte (Firebase et FedaPay prêts)' });
+      const { mode, project } = await setup();
+      return send(res, 200, { ok: true, message: 'Configuration correcte (Firebase et FedaPay prêts)', fedapay: mode, firebase: project });
     }
     if (req.method !== 'POST') return send(res, 405, { error: 'Méthode non permise' });
     const uid = await playerId(req);
@@ -39,6 +39,10 @@ export default async function handler(req, res) {
     return send(res, 200, { url: token.url, id: transaction.id });
   } catch (error) {
     console.error('create-payment', error);
-    return send(res, 500, { error: errorMessage(error, 'Création du paiement impossible') });
+    const message = errorMessage(error, 'Création du paiement impossible');
+    // Diagnostic (GET) : message de l'erreur inattendue ajouté, raccourci (pas de clé dedans)
+    const unexpected = !message.startsWith('Configuration');
+    const detail = req.method === 'GET' && unexpected ? ` (${String(error?.message ?? error).slice(0, 200)})` : '';
+    return send(res, 500, { error: message + detail });
   }
 }
