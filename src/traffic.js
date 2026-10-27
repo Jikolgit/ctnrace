@@ -179,7 +179,7 @@ export function createTraffic(parent, models, graph) {
       if (ahead <= 0 || ahead > SAFE_DISTANCE) return false;
       return Math.abs(rx * car.fy - ry * car.fx) < SAFE_WIDTH;
     };
-    if (check(px, py)) return true;
+    if (playerSolid && check(px, py)) return true;
     for (const other of cars) {
       if (other === car || !other.node) continue;
       if (car.turning && waitingAtJunction(other)) continue;
@@ -191,7 +191,7 @@ export function createTraffic(parent, models, graph) {
   // Carrefour occupé ? Par la moto, ou par une voiture en train de le traverser (pas par celles qui attendent à
   // son entrée : elles s'attendraient l'une l'autre indéfiniment)
   function junctionBusy(car, node, px, py) {
-    if (Math.hypot(px - node.x, py - node.y) < node.radius + JUNCTION_MARGIN) return true;
+    if (playerSolid && Math.hypot(px - node.x, py - node.y) < node.radius + JUNCTION_MARGIN) return true;
     for (const other of cars) {
       if (other === car || !other.node || !committed(other)) continue;
       const toward = other.turning ? other.turnNode : other.node.arms[other.d].node;
@@ -200,8 +200,11 @@ export function createTraffic(parent, models, graph) {
     return false;
   }
 
-  // px, py : position de la moto sur la carte
-  function update(delta, px, py) {
+  // px, py : position de la moto sur la carte. ghost : pas de moto (fond du menu) : (px, py) ne sert qu'à garder
+  // les voitures autour de ce point, elles ne s'y arrêtent pas
+  let playerSolid = true;
+  function update(delta, px, py, ghost = false) {
+    playerSolid = !ghost;
     for (const car of cars) {
       if (!car.node) {
         spawn(car, px, py, SPAWN_MIN, SPAWN_MAX);

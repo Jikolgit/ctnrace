@@ -7,43 +7,81 @@
   </head>
   <body class="in-menu">
     <canvas id="game"></canvas>
+    <div id="fps">-- FPS</div>
     <div id="menu">
-      <h1 class="title">ctn<span>Racer</span></h1>
-      <p class="subtitle">Choisis ton mode de jeu</p>
-      <div class="modes">
-        <button id="mode-delivery" class="mode-image" type="button">
-          <img src="/delivery%20button.png" alt="Livraison" />
-        </button>
-        <button id="mode-challenge" class="mode-image" type="button">
-          <img src="/challenge%20button.png" alt="Défis" />
-        </button>
-      </div>
-      <button id="mode-bike" type="button">
-        <svg viewBox="0 0 64 40" aria-hidden="true">
-          <circle cx="14" cy="28" r="9" fill="none" stroke="#1b1b1b" stroke-width="4" />
-          <circle cx="50" cy="28" r="9" fill="none" stroke="#1b1b1b" stroke-width="4" />
-          <path d="M14 28 26 14h14l10 14M30 14l-4-6h-6M40 14l4-8h6" fill="none" stroke="#e8642a" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />
-        </svg>
-        Moto
-      </button>
+      <!-- Côté gauche : les motos s'y afficheront (vide pour l'instant, la scène 3D reste visible derrière) -->
+      <aside class="menu-side" aria-label="Motos"></aside>
+      <section class="menu-main">
+        <header class="menu-top">
+          <h1 class="title">ctn<span>Racer</span></h1>
+        </header>
+        <div class="modes">
+          <button id="mode-delivery" class="mode-tile delivery" type="button">
+            <span class="art"><img src="/delivery-box.webp" alt="" /></span>
+            <span class="label">Livraison</span>
+          </button>
+          <button id="mode-challenge" class="mode-tile challenge" type="button">
+            <span class="art"><img src="/helmet.webp" alt="" /></span>
+            <span class="label">Défis</span>
+          </button>
+          <button id="mode-bike-tile" class="mode-tile bike" type="button">
+            <span class="art"><img src="/bike-head.webp" alt="" /></span>
+            <span class="label">Moto</span>
+          </button>
+        </div>
+      </section>
     </div>
     <div id="garage">
-      <h1 class="title">Moto</h1>
-      <p class="subtitle">Choisis ta moto</p>
-      <canvas id="garage-preview"></canvas>
-      <div class="bikes"><!-- cartes créées par garage.js --></div>
-      <button id="garage-back" class="close-button" type="button" aria-label="Retour"><img src="/close%20icon.webp" alt="" /></button>
+      <!-- Même mise en page que le menu principal : aperçu 3D de la moto à gauche (en haut sur téléphone), panneau à droite -->
+      <aside class="menu-side"><canvas id="garage-preview"></canvas></aside>
+      <section class="menu-main">
+        <header class="menu-top">
+          <h1 class="title">Moto</h1>
+        </header>
+        <div class="bikes"><!-- vignettes des motos créées par garage.js --></div>
+        <p class="bike-desc"></p>
+        <footer class="menu-footer">
+          <button id="garage-back" class="back-button" type="button">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12H5M11 5l-7 7 7 7" fill="none" stroke="currentColor"
+              stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" /></svg>
+            Retour
+          </button>
+        </footer>
+      </section>
     </div>
     <div id="missions">
-      <h1 class="title">Livraison</h1>
-      <p class="subtitle">Choisis ta mission</p>
-      <div class="board">
-        <div class="grid"><!-- cases créées par main.js --></div>
-      </div>
-      <button id="missions-back" class="close-button" type="button" aria-label="Retour"><img src="/close%20icon.webp" alt="" /></button>
+      <!-- Même mise en page que le menu principal : côté gauche libre, panneau à droite -->
+      <aside class="menu-side"></aside>
+      <section class="menu-main">
+        <header class="menu-top">
+          <h1 class="title">Livraison</h1>
+        </header>
+        <!-- Ville des missions affichées : flèches pour changer de ville -->
+        <div class="city-picker">
+          <button id="city-prev" class="city-arrow" type="button" aria-label="Ville précédente">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="3"
+              stroke-linecap="round" stroke-linejoin="round" /></svg>
+          </button>
+          <span id="city-name" class="city-name">Ville 1</span>
+          <button id="city-next" class="city-arrow" type="button" aria-label="Ville suivante">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="3"
+              stroke-linecap="round" stroke-linejoin="round" /></svg>
+          </button>
+        </div>
+        <div class="grid"><!-- vignettes des missions créées par main.js --></div>
+        <!-- Bouton Retour fixé en bas du panneau (les missions défilent au-dessus), comme dans Voxel Wreck -->
+        <footer class="menu-footer">
+          <button id="missions-back" class="back-button" type="button">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12H5M11 5l-7 7 7 7" fill="none" stroke="currentColor"
+              stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" /></svg>
+            Retour
+          </button>
+        </footer>
+      </section>
     </div>
     <div id="hud"><span id="distance">0 m</span><span id="money">0 $</span></div>
     <div id="notice" hidden></div>
+    <div id="clock" aria-label="Heure à Cotonou">--:--</div>
     <div id="timer" hidden>2:00</div>
     <div id="cargo" aria-label="Produits à livrer">
       <svg viewBox="0 0 64 64" aria-hidden="true">

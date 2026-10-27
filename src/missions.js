@@ -2,7 +2,17 @@
 // La progression (dernière mission débloquée) est gardée dans le navigateur (localStorage) ; si le
 // stockage est indisponible (navigation privée...), seule la mission 1 est ouverte.
 
-export const MISSION_COUNT = 5;
+// Les missions se font dans plusieurs villes (CITY_COUNT), MISSIONS_PER_CITY chacune. Numérotation globale :
+// missions 1 à 10 = ville 1, 11 à 20 = ville 2, etc. (affichées 1 à 10 dans chaque ville). La progression suit
+// cet ordre : la ville 2 s'ouvre quand la dernière mission de la ville 1 est terminée. Pour l'instant, toutes
+// les missions se jouent dans la même ville (Ségbeya / Kpondehou).
+export const CITY_COUNT = 3;
+export const MISSIONS_PER_CITY = 10;
+export const MISSION_COUNT = CITY_COUNT * MISSIONS_PER_CITY;
+export const cityName = (city) => `Ville ${city}`;
+// Ville d'une mission (numéro global) et son numéro dans la ville
+export const missionCity = (n) => Math.ceil(n / MISSIONS_PER_CITY);
+export const missionInCity = (n) => ((n - 1) % MISSIONS_PER_CITY) + 1;
 const STORAGE_KEY = 'ctnRacer.unlockedMission';
 
 // Capacité de la moto : nombre maximal de produits transportés à la fois. Une mission qui en compte plus

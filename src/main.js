@@ -1,3 +1,4 @@
+import '@fontsource/anton/latin-400.css'; // police étroite des boutons du menu (Anton, intégrée au jeu)
 import './style.css';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -13,15 +14,25 @@ import { buildGraph, createNetworkTrack, UTURN } from './network.js';
 import { createDeliveryCity } from './deliveryCity.js';
 import { createMinimap } from './minimap.js';
 import { createFuelCans } from './fuelCans.js';
-import { MISSION_COUNT, BIKE_CAPACITY, unlockedMission, completeMission, missionData } from './missions.js';
+import {
+  CITY_COUNT,
+  MISSIONS_PER_CITY,
+  cityName,
+  missionCity,
+  BIKE_CAPACITY,
+  unlockedMission,
+  completeMission,
+  missionData,
+} from './missions.js';
 import { createDeliveryPoints } from './deliveryPoints.js';
 import { placeStations } from './stations.js';
 import { createGuide } from './guide.js';
 import { createTraffic } from './traffic.js';
-import { extractVehicles } from './vehicles.js';
+import { extractVehicles, setVehicleLights } from './vehicles.js';
+import { glowMaterial, glowDisc } from './glow.js';
 import { createCameraTuner } from './cameraTuner.js';
 import { DELIVERY_REWARD, FUEL_PRICE, getMoney, addMoney } from './wallet.js';
-import { STATIONS } from './deliveryMap.js';
+import { STATIONS, MAP_WIDTH, MAP_HEIGHT } from './deliveryMap.js';
 import { atlas } from './atlas.js';
 import { createGarage, savedBike, saveBike } from './garage.js';
 
@@ -78,7 +89,7 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 
 // Scène
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x87ceeb);
+scene.background = new THREE.Color(0x87ceeb); // en jeu : couleur selon l'heure (applySkyColor)
 
 // Brouillard de la couleur du ciel : la route (jusqu'à ~110 m devant) et les voitures (apparition à 90 m)
 // surgissent dans le brouillard au lieu d'apparaître d'un coup. Distances depuis la caméra.
@@ -200,9 +211,12 @@ if (DEBUG_ORBIT) {
   controls.update();
 }
 
-// Lumières
-scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 1.2));
-const sun = new THREE.DirectionalLight(0xffffff, 2);
+// Lumières (intensités de jour ; baissées le soir et la nuit en jeu : applySkyColor)
+const HEMI_INTENSITY = 1.2;
+const SUN_INTENSITY = 2;
+const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, HEMI_INTENSITY);
+scene.add(hemiLight);
+const sun = new THREE.DirectionalLight(0xffffff, SUN_INTENSITY);
 sun.position.set(5, 10, 5);
 scene.add(sun);
 
@@ -363,6 +377,45 @@ const player = new THREE.Group();
 player.position.set(laneX(1), 0, 0);
 scene.add(player);
 
+// Phare de la moto, allumé de HEADLIGHT_ON (20 h) à HEADLIGHT_OFF (6 h), heure de Cotonou : cône de lumière vers
+// l'avant (-Z), dans le groupe du joueur (suit les changements de couloir et l'inclinaison). Toujours présent,
+// intensité 0 le jour : allumer ou éteindre une lumière ne recompile pas les matériaux.
+const HEADLIGHT_INTENSITY = 40;
+const HEADLIGHT_ON = 20;
+const HEADLIGHT_OFF = 6;
+const headlight = new THREE.SpotLight(0xfff2d0, 0, 45, 0.42, 0.5, 1);
+headlight.position.set(0, 1.1, -0.9);
+headlight.target.position.set(0, 0, -18);
+player.add(headlight, headlight.target);
+
+// Feu arrière (stop) de la moto : petit disque rouge sombre, qui s'illumine (rouge vif + halo) quand la moto freine
+// (frein maintenu, arrêt à un point de livraison, panne d'essence). Placé à l'arrière de la moto choisie, d'après
+// sa boîte englobante (placeTailLight).
+const tailLightMaterial = applyWorldBend(new THREE.MeshBasicMaterial({ color: 0x5a0d0d }));
+const tailLight = new THREE.Mesh(new THREE.CircleGeometry(0.06, 16), tailLightMaterial);
+const tailGlow = glowDisc(glowMaterial(0xff1a10), 0.6);
+tailGlow.visible = false;
+tailLight.add(tailGlow);
+tailGlow.position.z = 0.01;
+player.add(tailLight);
+const TAIL_LIGHT_HEIGHT = 0.6; // part de la hauteur de la moto (rétroviseurs compris)
+const TAIL_LIGHT_OFF = new THREE.Color(0x5a0d0d);
+const TAIL_LIGHT_ON = new THREE.Color(0xff2a1a);
+const bikeBox = new THREE.Box3();
+
+function placeTailLight(object) {
+  player.updateMatrixWorld(true);
+  bikeBox.setFromObject(object);
+  player.worldToLocal(bikeBox.min);
+  player.worldToLocal(bikeBox.max);
+  tailLight.position.set(0, bikeBox.min.y + (bikeBox.max.y - bikeBox.min.y) * TAIL_LIGHT_HEIGHT, bikeBox.max.z + 0.02);
+}
+
+function setBrakeLight(on) {
+  tailGlow.visible = on;
+  tailLightMaterial.color.copy(on ? TAIL_LIGHT_ON : TAIL_LIGHT_OFF);
+}
+
 const wheels = []; // roues de la moto en cours
 
 // Fumée : sort du bout du pot (repère de la moto : à droite, à l'arrière)
@@ -450,6 +503,7 @@ new GLTFLoader().load(
       }
       wheels.length = 0;
       for (const wheelName of bike.wheels) wheels.push(moto.getObjectByName(wheelName));
+      if (moto.parent) placeTailLight(moto.getObjectByName(name));
 
       rider.position.copy(bike.riderPosition);
       mixer.stopAllAction();
@@ -477,8 +531,8 @@ new GLTFLoader().load(
       }
     }
 
-    selectBike(bikeName);
     player.add(moto);
+    selectBike(bikeName);
     // Copies des motos pour l'aperçu de l'écran « Moto »
     for (const [key, config] of Object.entries(BIKES)) {
       const object = moto.getObjectByName(key);
@@ -526,6 +580,7 @@ function endGame(reason = '') {
 }
 
 function restart() {
+  setBrakeLight(false);
   distance = 0;
   gameTime = 0;
   resetRoadWave();
@@ -592,17 +647,85 @@ restartButton.addEventListener('click', restart);
 let inMenu = true;
 let gameMode = null;
 
+// Ville fixe du mode Livraison, construite une seule fois (au lancement : elle sert aussi de fond au menu)
+function buildDeliveryCity() {
+  if (deliveryCity) return;
+  deliveryCity = createDeliveryCity(deliveryWorld, graph);
+  fuelCans = createFuelCans(deliveryWorld, graph);
+  deliveryPoints = createDeliveryPoints(deliveryWorld);
+  stationPoints = createDeliveryPoints(deliveryWorld);
+  guide = createGuide(deliveryWorld);
+  placeStationsIfReady();
+}
+
+// Fond du menu : survol de la ville de Livraison, comme depuis un hélicoptère. La caméra tourne lentement sur une
+// ellipse autour du centre de la carte, en regardant le sol devant elle ; la circulation roule en dessous.
+// Moto, flèches de livraison et ligne de guidage sont cachées ; le brouillard est repoussé pour voir loin.
+const MENU_FLY_RADIUS_X = 150; // m : demi-axes de l'ellipse (carte de 640 × 520 m)
+const MENU_FLY_RADIUS_Z = 110;
+const MENU_FLY_SPEED = 7; // m/s
+const MENU_FLY_HEIGHT = 60; // m (au-dessus des toits)
+const MENU_LOOK_AHEAD = 70; // m : point regardé, au sol, devant la caméra
+const MENU_FOG_NEAR = 90;
+const MENU_FOG_FAR = 190; // < camera.far (200)
+const MENU_SIDE_LANDSCAPE = 0.32; // part libre de l'écran (style.css : colonne .menu-side, rangée en portrait)
+const MENU_SIDE_PORTRAIT = 0.34;
+let menuFlyAngle = Math.random() * Math.PI * 2;
+const ground = scene.getObjectByName('ground'); // sol uni (city.js)
+const menuFocus = new THREE.Vector3(); // point regardé (repère de la carte : x, z)
+
+function showMenuScene() {
+  buildDeliveryCity();
+  challengeWorld.visible = false;
+  deliveryWorld.visible = true;
+  player.visible = false;
+  deliveryPoints.reset([]);
+  stationPoints.reset([], 'fuel');
+  guide.setObjectives([]);
+  bendUniforms.uBend.value = 0;
+  scene.fog.near = MENU_FOG_NEAR;
+  scene.fog.far = MENU_FOG_FAR;
+  applySkyColor(cotonouHours()); // ciel, brouillard et lumière selon l'heure de Cotonou, comme en jeu
+  world.position.set(0, 0, 0); // la carte est posée telle quelle : la caméra vole dans son repère
+  world.rotation.set(0, 0, 0);
+  placeMenuCamera(0);
+  traffic?.reset(menuFocus.x, menuFocus.z);
+}
+
+function placeMenuCamera(delta) {
+  const rx = MENU_FLY_RADIUS_X;
+  const rz = MENU_FLY_RADIUS_Z;
+  // Vitesse constante sur l'ellipse : l'angle avance de (distance / longueur de la tangente)
+  let tx = -rx * Math.sin(menuFlyAngle);
+  let tz = rz * Math.cos(menuFlyAngle);
+  menuFlyAngle += (MENU_FLY_SPEED * delta) / Math.hypot(tx, tz);
+  tx = -rx * Math.sin(menuFlyAngle);
+  tz = rz * Math.cos(menuFlyAngle);
+  const length = Math.hypot(tx, tz);
+  const x = MAP_WIDTH / 2 + rx * Math.cos(menuFlyAngle);
+  const z = MAP_HEIGHT / 2 + rz * Math.sin(menuFlyAngle);
+  camera.position.set(x, MENU_FLY_HEIGHT, z);
+  ground?.position.set(x, -0.03, z); // le sol uni suit la caméra (600 m de côté)
+  menuFocus.set(x + (tx / length) * MENU_LOOK_AHEAD, 0, z + (tz / length) * MENU_LOOK_AHEAD);
+  camera.lookAt(menuFocus);
+  // Le panneau du menu couvre la droite (ordinateur : 68 %) ou le bas (téléphone : 66 %) : le centre de la vue
+  // (point regardé) est décalé au milieu de la partie libre de l'écran
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  if (camera.aspect <= 1) camera.setViewOffset(w, h, 0, (0.5 - MENU_SIDE_PORTRAIT / 2) * h, w, h);
+  else camera.setViewOffset(w, h, (0.5 - MENU_SIDE_LANDSCAPE / 2) * w, 0, w, h);
+}
+
 function startGame(mode) {
   gameMode = mode;
   const delivery = mode === 'delivery';
-  if (delivery && !deliveryCity) {
-    deliveryCity = createDeliveryCity(deliveryWorld, graph);
-    fuelCans = createFuelCans(deliveryWorld, graph);
-    deliveryPoints = createDeliveryPoints(deliveryWorld);
-    stationPoints = createDeliveryPoints(deliveryWorld);
-    guide = createGuide(deliveryWorld);
-    placeStationsIfReady();
-  }
+  if (delivery) buildDeliveryCity();
+  player.visible = true; // cachée pendant le survol du menu
+  camera.clearViewOffset();
+  ground?.position.set(0, -0.03, 0); // de retour sous la moto
+  scene.fog.near = FOG_NEAR;
+  scene.fog.far = FOG_FAR;
+  applySkyColor(cotonouHours()); // ciel et brouillard selon l'heure de Cotonou
   activeTrack = delivery ? network : track;
   challengeWorld.visible = !delivery;
   deliveryWorld.visible = delivery;
@@ -639,6 +762,7 @@ function showMenu() {
   restart(); // repart d'une scène propre derrière le menu
   setPaused(false);
   inMenu = true;
+  showMenuScene();
   document.body.classList.add('in-menu');
   document.body.classList.remove('in-missions');
   challengeButton.focus();
@@ -651,20 +775,32 @@ const LOCK_ICON = `<svg class="lock" viewBox="0 0 24 24" aria-hidden="true"><pat
   fill="none" stroke="#1b1b1b" stroke-width="2.5"/><rect x="4" y="10" width="16" height="12" rx="2" fill="#1b1b1b"/></svg>`;
 let currentMission = 1;
 
-function showMissions() {
+// Ville affichée dans l'écran Missions (flèches ◀ ▶ sous le titre) ; au premier affichage, celle de la dernière
+// mission débloquée
+let shownCity = 0;
+const cityLabel = document.getElementById('city-name');
+const cityPrev = document.getElementById('city-prev');
+const cityNext = document.getElementById('city-next');
+
+function showMissions(city = shownCity || missionCity(unlockedMission())) {
+  shownCity = city;
+  cityLabel.textContent = cityName(city);
+  cityPrev.disabled = city <= 1;
+  cityNext.disabled = city >= CITY_COUNT;
   const unlocked = unlockedMission();
   missionGrid.replaceChildren();
-  for (let n = 1; n <= MISSION_COUNT; n++) {
+  for (let i = 1; i <= MISSIONS_PER_CITY; i++) {
+    const n = (city - 1) * MISSIONS_PER_CITY + i; // numéro global de la mission
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'mission';
-    button.textContent = n;
+    button.innerHTML = `<span class="num">${i}</span><span class="label">Mission</span>`;
     if (n > unlocked) {
       button.disabled = true;
       button.insertAdjacentHTML('beforeend', LOCK_ICON);
-      button.setAttribute('aria-label', `Mission ${n} (verrouillée)`);
+      button.setAttribute('aria-label', `${cityName(city)}, mission ${i} (verrouillée)`);
     } else {
-      button.setAttribute('aria-label', `Mission ${n}`);
+      button.setAttribute('aria-label', `${cityName(city)}, mission ${i}`);
       button.addEventListener('click', () => {
         currentMission = n;
         startGame('delivery');
@@ -672,9 +808,13 @@ function showMissions() {
     }
     missionGrid.append(button);
   }
+  missionGrid.scrollTop = 0;
   document.body.classList.add('in-missions');
   missionGrid.querySelector('.mission:not(:disabled)')?.focus();
 }
+
+cityPrev.addEventListener('click', () => showMissions(Math.max(1, shownCity - 1)));
+cityNext.addEventListener('click', () => showMissions(Math.min(CITY_COUNT, shownCity + 1)));
 
 document.getElementById('missions-back').addEventListener('click', () => {
   document.body.classList.remove('in-missions');
@@ -685,6 +825,7 @@ document.getElementById('missions-back').addEventListener('click', () => {
 const garage = createGarage(
   document.getElementById('garage-preview'),
   document.querySelector('#garage .bikes'),
+  document.querySelector('#garage .bike-desc'),
   BIKE_CARDS,
   (name) => {
     selectBike?.(name);
@@ -694,18 +835,20 @@ const garage = createGarage(
 );
 garage.select(bikeName);
 
-document.getElementById('mode-bike').addEventListener('click', () => {
+// Écran Moto : ouvert par la vignette Moto du menu
+const bikeTile = document.getElementById('mode-bike-tile');
+bikeTile.addEventListener('click', () => {
   document.body.classList.add('in-garage');
   garage.show();
 });
 document.getElementById('garage-back').addEventListener('click', () => {
   document.body.classList.remove('in-garage');
   garage.hide();
-  document.getElementById('mode-bike').focus();
+  bikeTile.focus();
 });
 
 challengeButton.addEventListener('click', () => startGame('challenge'));
-deliveryButton.addEventListener('click', showMissions);
+deliveryButton.addEventListener('click', () => showMissions());
 menuButton.addEventListener('click', showMenu);
 
 pauseButton.addEventListener('click', () => {
@@ -1105,10 +1248,120 @@ let displayedDistance = -1;
 const timer = new THREE.Timer();
 timer.connect(document); // ignore le temps passé onglet caché
 
+// Heure de Cotonou (fuseau du Bénin, UTC+1 sans heure d'été), affichée en haut au centre (menu, écrans Missions et
+// Moto, jeu), quelle que soit l'heure de l'appareil. Mise à jour chaque seconde, hors boucle de jeu.
+// Test : ?heure=19.5 dans l'adresse impose une heure (19 h 30) à l'horloge et à la couleur du ciel.
+const clockLabel = document.getElementById('clock');
+const clockFormat = new Intl.DateTimeFormat('fr-FR', {
+  timeZone: 'Africa/Porto-Novo',
+  hour: '2-digit',
+  minute: '2-digit',
+  hourCycle: 'h23',
+});
+const forcedHour = Number.parseFloat(new URLSearchParams(location.search).get('heure'));
+
+// Heure de Cotonou en heures décimales (14 h 30 → 14,5)
+function cotonouHours() {
+  if (Number.isFinite(forcedHour)) return ((forcedHour % 24) + 24) % 24;
+  const parts = clockFormat.formatToParts(new Date());
+  const value = (type) => Number(parts.find((part) => part.type === type)?.value ?? 0);
+  return value('hour') + value('minute') / 60;
+}
+
+function updateClock() {
+  const hours = cotonouHours();
+  const h = Math.floor(hours);
+  const m = Math.floor((hours - h) * 60);
+  clockLabel.textContent = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+  applySkyColor(hours); // menu et jeu
+}
+
+// Couleur du ciel et du brouillard en jeu selon l'heure de Cotonou (lever ~6 h 15, coucher ~18 h 30 toute l'année,
+// près de l'équateur) : couleurs clés, fondues entre elles. Aussi dans le survol du menu.
+const SKY_COLOR = 0x87ceeb;
+const SKY_KEYS = [
+  [0, 0x0b1430], // nuit
+  [5, 0x0b1430],
+  [6, 0xf0a37a], // aube
+  [7.5, 0xa9d4f0],
+  [9, SKY_COLOR], // jour
+  [14.5, SKY_COLOR], // transition courte : le mélange bleu / doré tire sur le gris
+  // De 15 h à 18 h : ciel doré puis orangé (couleurs relevées sur une photo de Cotonou donnée par l'utilisateur)
+  [15, 0xf3d59c], // doré clair
+  [16.5, 0xf8c878], // doré
+  [18, 0xf3a65c], // orangé
+  [18.5, 0xe0703f], // coucher du soleil
+  [19.5, 0x2a2a55], // crépuscule
+  [21, 0x0b1430], // nuit
+  [24, 0x0b1430],
+].map(([hour, color]) => [hour, new THREE.Color(color)]);
+
+// Lumière du jour (part des intensités de jour) selon l'heure : pleine de 8 h à 16 h, faible la nuit
+const LIGHT_KEYS = [
+  [0, 0.25], // nuit
+  [5, 0.25],
+  [6.5, 0.6], // aube
+  [8, 1], // jour
+  [16, 1],
+  [18.5, 0.7], // coucher du soleil
+  [19.5, 0.4], // crépuscule
+  [21, 0.25], // nuit
+  [24, 0.25],
+];
+
+// Clé précédente et suivante de keys ([heure, valeur]) autour de hours, et position entre les deux (0..1)
+function keyBlend(keys, hours) {
+  let i = 1;
+  while (i < keys.length - 1 && keys[i][0] <= hours) i++;
+  const [h0, a] = keys[i - 1];
+  const [h1, b] = keys[i];
+  return { a, b, t: (hours - h0) / (h1 - h0) };
+}
+
+function applySkyColor(hours) {
+  const sky = keyBlend(SKY_KEYS, hours);
+  scene.fog.color.lerpColors(sky.a, sky.b, sky.t);
+  scene.background.copy(scene.fog.color); // ciel de la même couleur : les bâtiments lointains s'y fondent
+  const light = keyBlend(LIGHT_KEYS, hours);
+  const level = THREE.MathUtils.lerp(light.a, light.b, light.t);
+  hemiLight.intensity = HEMI_INTENSITY * level;
+  sun.intensity = SUN_INTENSITY * level;
+  const night = hours >= HEADLIGHT_ON || hours < HEADLIGHT_OFF;
+  headlight.intensity = night ? HEADLIGHT_INTENSITY : 0;
+  setVehicleLights(night); // phares et feux arrière des voitures
+}
+
+updateClock();
+setInterval(updateClock, 1000);
+
+// Images par seconde, affichées en haut à droite (#fps), moyenne sur FPS_INTERVAL
+const FPS_INTERVAL = 500; // ms
+const fpsLabel = document.getElementById('fps');
+let fpsFrames = 0;
+let fpsStart = 0;
+
+function updateFps(timestamp) {
+  fpsFrames++;
+  if (!fpsStart) fpsStart = timestamp;
+  const elapsed = timestamp - fpsStart;
+  if (elapsed < FPS_INTERVAL) return;
+  fpsLabel.textContent = `${Math.round((fpsFrames * 1000) / elapsed)} FPS`;
+  fpsFrames = 0;
+  fpsStart = timestamp;
+}
+
 function animate(timestamp) {
+  if (timestamp !== undefined) updateFps(timestamp);
   timer.update(timestamp);
   // Plafonné pour éviter un grand saut après un onglet resté en arrière-plan
   const delta = Math.min(timer.getDelta(), 0.1);
+
+  // Écran Moto ouvert : la ville n'est plus dessinée (canvas #game caché, fond bleu foncé) ; seul l'aperçu de la
+  // moto (garage.js, son propre renderer) tourne. Le survol et la circulation reprennent à la fermeture.
+  if (document.body.classList.contains('in-garage')) {
+    requestAnimationFrame(animate);
+    return;
+  }
 
   if (!paused && !gameOver && !inMenu) {
     // Démo : la route ondule entre virage gauche et virage droit
@@ -1173,6 +1426,8 @@ function animate(timestamp) {
       // Démarrage, reprise après un freinage (touche relâchée) ou après un bidon ramassé en roue libre
       speed = Math.min(SPEED, speed + ACCELERATION * delta);
     }
+    // Feu stop : allumé pendant les freinages
+    setBrakeLight((started && braking) || deliveryState === 'braking' || (delivery && fuel <= 0 && speed > 0));
     const step = speed * delta; // distance parcourue pendant cette image
     updateTurnHold(delta, step); // virage confirmé par un appui maintenu
 
@@ -1370,10 +1625,19 @@ function animate(timestamp) {
   }
 
   if (controls) controls.update();
-  else updateCamera(delta);
+  else if (inMenu) {
+    placeMenuCamera(delta);
+    // Circulation du survol : les voitures restent autour du point regardé et ne s'y arrêtent pas
+    if (!traffic && carModels) {
+      traffic = createTraffic(deliveryWorld, carModels, graph);
+      traffic.reset(menuFocus.x, menuFocus.z);
+    }
+    traffic?.update(delta, menuFocus.x, menuFocus.z, true);
+  } else updateCamera(delta);
 
   renderer.render(scene, camera);
   requestAnimationFrame(animate);
 }
 
+showMenuScene(); // le jeu s'ouvre sur le menu : survol de la ville
 animate();

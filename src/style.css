@@ -182,25 +182,169 @@ body {
   transform: scaleX(-1);
 }
 
-/* Menu principal : par-dessus la scène 3D (figée derrière, légèrement floutée) */
-#menu {
+/* Menu principal et écran des missions (inspirés de MineFun.io) : à gauche, la scène 3D visible (les motos s'y afficheront) ; à droite,
+   un panneau vert foncé avec le logo, le bouton Moto en haut à droite et une grille de vignettes de modes */
+#menu,
+#missions,
+#garage {
+  --tile-border: rgba(255, 255, 255, 0.35); /* bords fins des vignettes */
+  --panel-border: rgba(255, 255, 255, 0.22); /* bord fin du panneau */
   position: fixed;
   inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 24px 16px;
+  display: grid;
+  grid-template-columns: minmax(0, 32%) minmax(0, 1fr);
   box-sizing: border-box;
-  overflow-y: auto;
-  background: linear-gradient(rgba(10, 30, 50, 0.35), rgba(10, 20, 35, 0.75));
-  backdrop-filter: blur(3px);
-  -webkit-backdrop-filter: blur(3px);
   font-family: system-ui, sans-serif;
   color: #fff;
   user-select: none;
   -webkit-user-select: none;
+  pointer-events: none; /* le côté gauche laisse passer : seuls les panneaux captent les clics */
+}
+
+:is(#menu, #missions, #garage) .menu-side {
+  min-height: 0;
+}
+
+:is(#menu, #missions, #garage) .menu-main {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 12px 16px 16px;
+  box-sizing: border-box;
+  overflow-y: auto;
+  /* Toute la hauteur de l'écran (ordinateur) ; fond un peu transparent : la scène se devine derrière */
+  border-left: 1px solid var(--panel-border);
+  background: rgba(31, 61, 52, 0.85);
+  box-shadow: -6px 0 24px rgba(0, 0, 0, 0.35);
+  pointer-events: auto;
+}
+
+/* Barre du haut : logo au centre, boutons à droite */
+:is(#menu, #missions, #garage) .menu-top {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+}
+
+:is(#menu, #missions, #garage) .menu-actions {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: flex;
+  gap: 8px;
+}
+
+/* Grille des modes : vignettes carrées, nom en bas */
+#menu .modes {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+
+#menu .mode-tile {
+  position: relative;
+  aspect-ratio: 1;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--tile-border); /* bord fin, comme dans Voxel Wreck */
+  border-radius: 8px;
+  font: inherit;
+  color: #fff;
+  cursor: pointer;
+  transition: transform 0.12s, border-color 0.12s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Couleurs vives, presque unies, comme la vignette « GRAT. » de MineFun (violet #a314ec) : un peu plus claires
+   au centre, un peu plus foncées sur les bords */
+#menu .mode-tile.delivery {
+  background: radial-gradient(circle at 50% 40%, #c95cff 0%, #a314ec 55%, #8410cf 100%);
+}
+
+#menu .mode-tile.challenge {
+  background: radial-gradient(circle at 50% 40%, #5cc0ff 0%, #1d8cff 55%, #0f66dc 100%);
+}
+
+#menu .mode-tile.bike {
+  background: radial-gradient(circle at 50% 40%, #ffb347 0%, #ff7a00 55%, #d95a00 100%);
+}
+
+/* Vignette « Bientôt » (non cliquable), pour un futur mode */
+#menu .mode-tile.soon {
+  background: radial-gradient(circle at 50% 35%, #e2e2e2 0%, #b4b4b4 50%, #7d7d7d 100%);
+  cursor: default;
+}
+
+#menu .mode-tile .art {
+  position: absolute;
+  inset: 0 0 18% 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#menu .mode-tile .art img {
+  width: 64%; /* icônes recadrées au plus près (256 px, fond transparent) */
+  filter: drop-shadow(0 6px 4px rgba(0, 0, 0, 0.35));
+  transition: transform 0.15s;
+}
+
+#menu .mode-tile .label {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 22px 4px 7px;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.6));
+  font: 400 clamp(15px, 2.2vw, 20px)/1 'Anton', Impact, sans-serif;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-align: center;
+  text-shadow: 0 2px 0 #000;
+}
+
+#menu .mode-tile:not(.soon):hover,
+#menu .mode-tile:not(.soon):focus-visible {
+  transform: translateY(-3px);
+  border-color: #fff;
+  outline: none;
+}
+
+#menu .mode-tile:not(.soon):hover .art img,
+#menu .mode-tile:not(.soon):focus-visible .art img {
+  transform: scale(1.08);
+}
+
+#menu .mode-tile:not(.soon):active {
+  transform: translateY(1px);
+}
+
+/* Téléphone en portrait : la scène (motos) en haut, le panneau en dessous */
+@media (max-aspect-ratio: 1/1) {
+  #menu,
+  #missions,
+  #garage {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 34%) minmax(0, 1fr);
+  }
+
+  /* Téléphone : toute la largeur de l'écran, bordure en haut */
+  :is(#menu, #missions, #garage) .menu-main {
+    border-left: 0;
+    border-top: 1px solid var(--panel-border);
+    box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.35);
+  }
+
+  :is(#menu, #missions, #garage) .menu-top {
+    justify-content: flex-start;
+  }
+
+  #menu .modes {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 body:not(.in-menu) #menu {
@@ -220,113 +364,21 @@ body.in-menu #touch-controls {
   display: none;
 }
 
-#menu .title {
+/* Logo : blanc à contour foncé, « Racer » orange */
+#menu .title,
+#missions .title,
+#garage .title {
   margin: 0;
-  font-size: clamp(48px, 12vw, 96px);
-  font-weight: 900;
-  font-style: italic;
-  letter-spacing: -0.02em;
-  line-height: 1;
+  font: 400 clamp(30px, 5vw, 52px)/1 'Anton', Impact, sans-serif;
+  letter-spacing: 0.02em;
   color: #fff;
-  -webkit-text-stroke: 3px #1b1b1b;
+  -webkit-text-stroke: 3px #10241d;
   paint-order: stroke fill;
-  text-shadow: 0 6px 0 #1b1b1b;
+  text-shadow: 0 4px 0 #10241d;
 }
 
 #menu .title span {
-  color: #e8642a;
-}
-
-#menu .subtitle {
-  margin: 4px 0 24px;
-  font-size: 18px;
-  opacity: 0.85;
-}
-
-#menu .modes {
-  display: flex;
-  flex-direction: column; /* boutons-images empilés, sur ordinateur comme sur téléphone */
-  align-items: center;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 20px;
-  width: 100%;
-  max-width: 640px;
-}
-
-#menu .mode {
-  position: relative;
-  flex: 1 1 240px;
-  max-width: 300px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  padding: 24px 20px 22px;
-  border: 3px solid #1b1b1b;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.95);
-  box-shadow: 0 6px 0 #1b1b1b;
-  color: #1b1b1b;
-  font: inherit;
-  text-align: center;
-  cursor: pointer;
-  transition: transform 0.12s, box-shadow 0.12s, background 0.12s;
-  -webkit-tap-highlight-color: transparent;
-}
-
-#menu .mode svg {
-  width: 72px;
-  height: 72px;
-}
-
-#menu .mode .name {
-  font-size: 28px;
-  font-weight: 900;
-}
-
-#menu .mode .desc {
-  font-size: 15px;
-  line-height: 1.35;
-  opacity: 0.75;
-}
-
-#menu .mode:not(:disabled):hover,
-#menu .mode:not(:disabled):focus-visible {
-  transform: translateY(-3px);
-  box-shadow: 0 9px 0 #1b1b1b;
-  background: #fff3e8;
-  outline: none;
-}
-
-#menu .mode:not(:disabled):active {
-  transform: translateY(4px);
-  box-shadow: 0 2px 0 #1b1b1b;
-}
-
-/* Mode pas encore disponible */
-#menu .mode:disabled {
-  cursor: not-allowed;
-  background: rgba(255, 255, 255, 0.7);
-}
-
-#menu .mode:disabled svg,
-#menu .mode:disabled .name,
-#menu .mode:disabled .desc {
-  opacity: 0.45;
-}
-
-#menu .badge {
-  position: absolute;
-  top: -12px;
-  right: -8px;
-  padding: 5px 10px;
-  border: 2px solid #1b1b1b;
-  border-radius: 999px;
-  background: #ffd23f;
-  font-size: 13px;
-  font-weight: 800;
-  transform: rotate(6deg);
+  color: #ff8a3d;
 }
 
 /* Écran Game Over : Rejouer et Menu côte à côte */
@@ -447,109 +499,176 @@ body.delivery:not(.in-menu) #fuel {
   }
 }
 
-/* Écran des missions (Livraison) : par-dessus la scène, à la place du menu principal */
+/* Écran des missions (Livraison) : même mise en page que le menu principal (règles partagées plus haut),
+   à sa place quand il est ouvert */
 #missions {
-  position: fixed;
-  inset: 0;
   display: none;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 24px 16px;
-  box-sizing: border-box;
-  overflow-y: auto;
-  background: linear-gradient(rgba(10, 30, 50, 0.35), rgba(10, 20, 35, 0.75));
-  backdrop-filter: blur(3px);
-  -webkit-backdrop-filter: blur(3px);
-  font-family: system-ui, sans-serif;
-  color: #fff;
-  user-select: none;
-  -webkit-user-select: none;
 }
 
 body.in-missions #missions {
-  display: flex;
+  display: grid;
 }
 
 body.in-missions #menu {
   display: none;
 }
 
-/* Même titre que le menu principal */
-#missions .title {
+/* Bouton Retour en haut à droite (icône de fermeture, plus petite qu'en bas des écrans) */
+:is(#missions, #garage) .menu-actions .close-button {
   margin: 0;
-  font-size: clamp(40px, 10vw, 72px);
-  font-weight: 900;
-  font-style: italic;
-  line-height: 1;
-  color: #fff;
-  -webkit-text-stroke: 3px #1b1b1b;
-  paint-order: stroke fill;
-  text-shadow: 0 6px 0 #1b1b1b;
 }
 
-#missions .subtitle {
-  margin: 4px 0 20px;
-  font-size: 18px;
-  opacity: 0.85;
+:is(#missions, #garage) .menu-actions .close-button img {
+  width: 40px;
+  height: 40px;
 }
 
-/* Missions en grille de 3 colonnes, cases au style des cartes du menu principal */
-#missions .board {
-  width: min(100%, 340px);
+/* Écrans à bouton Retour en bas (Missions, Moto) : seule la grille défile, le bouton reste en bas du panneau */
+:is(#missions, #garage) .menu-main {
+  overflow: hidden;
 }
 
+:is(#missions .grid, #garage .bikes) {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  align-content: start;
+  grid-auto-rows: max-content; /* sinon les lignes se tassent pour tenir dans la hauteur et écrasent les vignettes */
+  padding: 3px 6px 10px 3px; /* place pour le soulèvement des vignettes au survol ; à droite, pour la barre */
+}
+
+/* Barre de défilement comme dans Voxel Wreck : fine, gris clair, sans rail */
+:is(#missions .grid, #garage .bikes) {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(200, 212, 206, 0.6) transparent;
+}
+
+:is(#missions .grid, #garage .bikes)::-webkit-scrollbar {
+  width: 4px;
+}
+
+:is(#missions .grid, #garage .bikes)::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+:is(#missions .grid, #garage .bikes)::-webkit-scrollbar-thumb {
+  background: rgba(200, 212, 206, 0.6);
+  border-radius: 2px;
+}
+
+/* Missions : vignettes carrées comme les modes du menu (numéro au centre, « Mission » en bas) */
 #missions .grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 18px;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+
+/* Téléphone en portrait : 3 vignettes par ligne, comme le menu */
+@media (max-aspect-ratio: 1/1) {
+  #missions .grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 .mission {
   position: relative;
   aspect-ratio: 1;
   padding: 0;
-  border: 3px solid #1b1b1b;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.95);
-  box-shadow: 0 6px 0 #1b1b1b;
-  color: #1b1b1b;
-  font: 900 italic 44px/1 system-ui, sans-serif;
+  overflow: hidden;
+  border: 1px solid var(--tile-border); /* bord fin, comme dans Voxel Wreck */
+  border-radius: 8px;
+  background: radial-gradient(circle at 50% 40%, var(--light) 0%, var(--base) 55%, var(--dark) 100%);
+  --light: #c95cff;
+  --base: #a314ec;
+  --dark: #8410cf;
+  color: #fff;
+  font: inherit;
   cursor: pointer;
-  transition: transform 0.12s, box-shadow 0.12s, background 0.12s;
+  transition: transform 0.12s, border-color 0.12s;
   -webkit-tap-highlight-color: transparent;
+}
+
+.mission .num {
+  position: absolute;
+  inset: 0 0 18% 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font: 400 clamp(44px, 7vw, 72px)/1 'Anton', Impact, sans-serif;
+  color: #fff;
+  -webkit-text-stroke: 3px #10241d;
+  paint-order: stroke fill;
+  text-shadow: 0 4px 0 #10241d;
+}
+
+.mission .label {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 22px 4px 7px;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.6));
+  font: 400 clamp(15px, 2.2vw, 20px)/1 'Anton', Impact, sans-serif;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-align: center;
+  text-shadow: 0 2px 0 #000;
 }
 
 .mission:not(:disabled):hover,
 .mission:not(:disabled):focus-visible {
   transform: translateY(-3px);
-  box-shadow: 0 9px 0 #1b1b1b;
-  background: #fff3e8;
-  color: #e8642a;
+  border-color: #fff;
   outline: none;
 }
 
 .mission:not(:disabled):active {
-  transform: translateY(4px);
-  box-shadow: 0 2px 0 #1b1b1b;
+  transform: translateY(1px);
 }
 
-/* Mission pas encore débloquée : estompée, avec un cadenas (comme la carte « Bientôt » d'origine) */
+/* Une couleur vive par mission (violet, rose, turquoise, orange, vert, puis on recommence) */
+.mission:nth-child(5n + 2) {
+  --light: #ff7cc4;
+  --base: #ff2d95;
+  --dark: #d81775;
+}
+
+.mission:nth-child(5n + 3) {
+  --light: #5ff0f2;
+  --base: #12c4d4;
+  --dark: #0b97b0;
+}
+
+.mission:nth-child(5n + 4) {
+  --light: #ffb35c;
+  --base: #ff7a1a;
+  --dark: #e05a00;
+}
+
+.mission:nth-child(5n + 5) {
+  --light: #7ff28f;
+  --base: #2ed35a;
+  --dark: #17a33f;
+}
+
+/* Mission pas encore débloquée : grise (comme la vignette « Bientôt »), avec un cadenas */
 .mission:disabled {
-  background: rgba(255, 255, 255, 0.7);
-  color: rgba(27, 27, 27, 0.35);
+  background: radial-gradient(circle at 50% 35%, #e2e2e2 0%, #b4b4b4 50%, #7d7d7d 100%);
   cursor: not-allowed;
+}
+
+.mission:disabled .num {
+  opacity: 0.55;
 }
 
 .mission .lock {
   position: absolute;
+  top: 8px;
   right: 8px;
-  bottom: 8px;
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
 }
-
 
 /* Indication de départ : la moto attend sur le trottoir que le joueur appuie sur gauche */
 #start-hint {
@@ -927,178 +1046,155 @@ body:not(.delivery) #timer { display: none; }
   display: none;
 }
 
-/* Bouton « Moto » du menu principal (sous les cartes des modes) */
-#mode-bike {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: 24px;
-  padding: 10px 26px;
-  border: 3px solid #1b1b1b;
-  border-radius: 12px;
-  background: #fff;
-  box-shadow: 0 5px 0 #1b1b1b;
-  color: #1b1b1b;
-  font: 900 italic 22px/1 system-ui, sans-serif;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-
-#mode-bike svg {
-  width: 44px;
-  height: 28px;
-}
-
-#mode-bike:hover,
-#mode-bike:focus-visible {
-  background: #fff3e8;
-  outline: none;
-}
-
-#mode-bike:active {
-  transform: translateY(4px);
-  box-shadow: 0 1px 0 #1b1b1b;
-}
-
-/* Écran « Moto » : même fond que les missions ; aperçu 3D puis cartes de choix */
+/* Écran « Moto » : même mise en page que le menu principal (règles partagées plus haut) ; l'aperçu 3D de la
+   moto occupe la partie libre (gauche, ou haut sur téléphone), le survol de la ville se voit derrière */
 #garage {
-  position: fixed;
-  inset: 0;
   display: none;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 24px 16px;
-  box-sizing: border-box;
-  overflow-y: auto;
-  background: linear-gradient(rgba(10, 30, 50, 0.35), rgba(10, 20, 35, 0.75));
-  backdrop-filter: blur(3px);
-  -webkit-backdrop-filter: blur(3px);
-  font-family: system-ui, sans-serif;
-  color: #fff;
-  user-select: none;
-  -webkit-user-select: none;
 }
 
 body.in-garage #garage {
-  display: flex;
+  display: grid;
+  background: #0d1b2e; /* bleu foncé : la ville (canvas #game) n'est pas dessinée pendant l'écran Moto */
+}
+
+body.in-garage #game {
+  visibility: hidden;
 }
 
 body.in-garage #menu {
   display: none;
 }
 
-#garage .title {
-  margin: 0;
-  font-size: clamp(40px, 10vw, 72px);
-  font-weight: 900;
-  font-style: italic;
-  line-height: 1;
-  color: #fff;
-  -webkit-text-stroke: 3px #1b1b1b;
-  paint-order: stroke fill;
-  text-shadow: 0 6px 0 #1b1b1b;
-}
-
-#garage .subtitle {
-  margin: 4px 0 8px;
-  font-size: 18px;
-  opacity: 0.85;
-}
-
 #garage-preview {
-  width: min(100%, 420px);
-  height: min(36vh, 300px);
-  flex-shrink: 0;
-}
-
-#garage .bikes {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 16px;
+  display: block;
   width: 100%;
-  max-width: 560px;
+  height: 100%;
 }
 
-.bike-card {
-  flex: 1 1 200px;
-  max-width: 260px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  padding: 16px 16px 14px;
-  border: 3px solid #1b1b1b;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.95);
-  box-shadow: 0 6px 0 #1b1b1b;
-  color: #1b1b1b;
+/* Motos : vignettes carrées comme les modes du menu (miniature 3D au centre, nom en bas) */
+#garage .bikes {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+
+@media (max-aspect-ratio: 1/1) {
+  #garage .bikes {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.bike-tile {
+  position: relative;
+  aspect-ratio: 1;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--tile-border); /* bord fin, comme dans Voxel Wreck */
+  border-radius: 8px;
+  background: radial-gradient(circle at 50% 40%, var(--light) 0%, var(--base) 55%, var(--dark) 100%);
+  --light: #5ff0f2;
+  --base: #12c4d4;
+  --dark: #0b97b0;
+  color: #fff;
   font: inherit;
   cursor: pointer;
-  transition: transform 0.12s, box-shadow 0.12s, background 0.12s;
+  transition: transform 0.12s, border-color 0.12s;
   -webkit-tap-highlight-color: transparent;
 }
 
-.bike-card .name {
-  font-size: 24px;
-  font-weight: 900;
-  font-style: italic;
+/* Une couleur vive par moto (turquoise, rose, vert, puis on recommence) */
+.bike-tile:nth-child(3n + 2) {
+  --light: #ff7cc4;
+  --base: #ff2d95;
+  --dark: #d81775;
 }
 
-.bike-card .desc {
-  font-size: 14px;
-  line-height: 1.35;
-  opacity: 0.75;
+.bike-tile:nth-child(3n + 3) {
+  --light: #7ff28f;
+  --base: #2ed35a;
+  --dark: #17a33f;
 }
 
-.bike-card:hover,
-.bike-card:focus-visible {
+.bike-tile .art {
+  position: absolute;
+  inset: 0 0 18% 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bike-tile .art img {
+  width: 86%;
+  filter: drop-shadow(0 6px 4px rgba(0, 0, 0, 0.35));
+  transition: transform 0.15s;
+}
+
+.bike-tile .art img:not([src]) {
+  visibility: hidden; /* miniature pas encore rendue (modèle en cours de chargement) */
+}
+
+.bike-tile .label {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 22px 4px 7px;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.6));
+  font: 400 clamp(15px, 2.2vw, 20px)/1 'Anton', Impact, sans-serif;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-align: center;
+  text-shadow: 0 2px 0 #000;
+}
+
+.bike-tile:hover,
+.bike-tile:focus-visible {
   transform: translateY(-3px);
-  box-shadow: 0 9px 0 #1b1b1b;
   outline: none;
 }
 
-/* Moto choisie : carte orange */
-.bike-card.selected {
-  background: #e8642a;
-  color: #fff;
+.bike-tile:hover .art img,
+.bike-tile:focus-visible .art img {
+  transform: scale(1.08);
 }
 
-.bike-card.selected .desc {
-  opacity: 0.9;
+.bike-tile:active {
+  transform: translateY(1px);
 }
 
-
-
-/* Boutons des modes (images de l'utilisateur : public/delivery button.png, public/challenge button.png,
-   152 × 45 px, texte compris) */
-#menu .mode-image {
-  padding: 0;
-  border: 0;
-  background: none;
-  cursor: pointer;
-  transition: transform 0.12s, filter 0.12s;
-  -webkit-tap-highlight-color: transparent;
+/* Moto choisie : bord blanc et coche verte en haut à droite */
+.bike-tile.selected {
+  border-color: #fff;
+  box-shadow: 0 0 0 1px #fff;
 }
 
-#menu .mode-image img {
+.bike-tile .check {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: none;
+  width: 26px;
+  height: 26px;
+}
+
+.bike-tile.selected .check {
   display: block;
-  width: min(80vw, 304px); /* 2 × la taille de l'image */
-  height: auto;
 }
 
-#menu .mode-image:hover,
-#menu .mode-image:focus-visible {
-  transform: translateY(-3px) scale(1.03);
-  filter: brightness(1.08) drop-shadow(0 6px 0 rgba(0, 0, 0, 0.35));
-  outline: none;
+/* Description de la moto choisie, sous les vignettes */
+/* Moto : la grille ne prend que la place de ses vignettes (description juste en dessous), elle ne défile que si
+   elle déborde ; la marge automatique pousse le bouton Retour en bas */
+#garage .bikes {
+  flex: 0 1 auto;
 }
 
-#menu .mode-image:active {
-  transform: translateY(2px) scale(0.98);
-  filter: brightness(0.95);
+#garage .bike-desc {
+  flex-shrink: 0;
+  margin: 10px 0 auto;
+  padding-bottom: 12px;
+  font: 600 16px/1.35 system-ui, sans-serif;
+  opacity: 0.9;
 }
 
 /* Bouton Retour des écrans Missions et Moto : icône de fermeture (public/close icon.webp). La croix y est
@@ -1129,4 +1225,142 @@ body.in-garage #menu {
 
 .close-button:active {
   transform: scale(0.95);
+}
+
+/* Images par seconde (main.js, updateFps) : tout en haut à droite, au-dessus de tous les écrans, sans gêner les clics */
+#fps {
+  position: fixed;
+  top: 0;
+  right: 0;
+  z-index: 100;
+  padding: 2px 6px;
+  border-bottom-left-radius: 6px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #7dff7d;
+  font: bold 11px/1.2 ui-monospace, monospace;
+  pointer-events: none;
+}
+
+/* Heure de Cotonou (main.js, updateClock) : en haut au centre, partout (menu, Missions, Moto, jeu) ; le chronomètre
+   de mission passe juste en dessous */
+#clock {
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  z-index: 5;
+  transform: translateX(-50%);
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  font: bold 18px/1 system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  user-select: none;
+}
+
+
+#timer {
+  top: 52px;
+}
+
+/* Bouton Retour en bas d'un panneau (écran Missions), d'après Voxel Wreck : barre vert clair, flèche + RETOUR,
+   séparée de la grille par un trait */
+.menu-footer {
+  flex-shrink: 0;
+  margin: 0 -16px;
+  padding: 12px 16px 0;
+  border-top: 2px solid rgba(255, 255, 255, 0.12);
+}
+
+.back-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  height: 52px;
+  border: 0;
+  border-radius: 8px;
+  background: #86d6a0;
+  color: #10241d;
+  font: 800 20px/1 system-ui, sans-serif;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: transform 0.12s, background 0.12s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.back-button svg {
+  width: 28px;
+  height: 28px;
+}
+
+.back-button:hover,
+.back-button:focus-visible {
+  background: #9de3b3;
+  outline: none;
+}
+
+.back-button:active {
+  transform: translateY(2px);
+}
+
+/* Écran Missions : choix de la ville sous le titre (◀ Ville 1 ▶) */
+.city-picker {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 6px;
+  border: 1px solid var(--tile-border);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.city-name {
+  font: 400 clamp(20px, 3vw, 26px)/1 'Anton', Impact, sans-serif;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-shadow: 0 2px 0 #10241d;
+}
+
+.city-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid var(--tile-border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  cursor: pointer;
+  transition: transform 0.12s, background 0.12s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.city-arrow svg {
+  width: 24px;
+  height: 24px;
+}
+
+.city-arrow:not(:disabled):hover,
+.city-arrow:not(:disabled):focus-visible {
+  background: rgba(255, 255, 255, 0.25);
+  outline: none;
+}
+
+.city-arrow:not(:disabled):active {
+  transform: scale(0.94);
+}
+
+/* Première ou dernière ville : flèche estompée */
+.city-arrow:disabled {
+  opacity: 0.3;
+  cursor: default;
 }

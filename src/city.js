@@ -47,6 +47,7 @@ function createGround(scene) {
     new THREE.PlaneGeometry(600, 600),
     new THREE.MeshStandardMaterial({ color: 0x5c5c5c, roughness: 1, metalness: 0 })
   );
+  ground.name = 'ground'; // déplacé sous la caméra pendant le survol du menu (main.js)
   ground.rotation.x = -Math.PI / 2;
   ground.position.y = -0.03; // juste sous la route
   scene.add(ground);
