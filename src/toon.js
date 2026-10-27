@@ -13,9 +13,11 @@ import { applyWorldBend } from './worldBend.js';
 // demande de l'utilisateur (octobre 2026).
 export const CARTOON = true;
 
-const TONES = [90, 170, 255]; // luminosité de chaque palier (ombre, mi-ombre, lumière), 0-255
+// Effet adouci (octobre 2026, demande de l'utilisateur ; avant : [90, 170, 255] et 0,022 m) : paliers plus proches
+// (ombres moins tranchées) et palier clair plus bas (les couleurs ne sont plus blanchies)
+const TONES = [130, 180, 220]; // luminosité de chaque palier (ombre, mi-ombre, lumière), 0-255
 const OUTLINE_COLOR = 0x111111;
-const OUTLINE_WIDTH = 0.022; // épaisseur du contour, en mètres
+const OUTLINE_WIDTH = 0.015; // épaisseur du contour, en mètres
 
 // Dégradé en paliers, lu sans lissage (NearestFilter) pour garder des limites nettes
 const gradientMap = new THREE.DataTexture(new Uint8Array(TONES), TONES.length, 1, THREE.RedFormat);
