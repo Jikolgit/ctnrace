@@ -1,0 +1,32 @@
+rules_version = '2';
+
+// Règles de sécurité Firestore de ctnRacer (à copier dans la console Firebase : Firestore Database → Règles).
+// Chaque joueur (compte anonyme ou lié) ne peut lire et écrire que sa propre sauvegarde : players/{son uid}.
+// Les champs sont vérifiés (types et valeurs raisonnables) ; tout le reste de la base est fermé.
+service cloud.firestore {
+  // Champs permis et valeurs raisonnables d'une sauvegarde
+  function validSave(data) {
+    return data.keys().hasOnly(['unlockedMission', 'bike', 'money', 'savedAt', 'updatedAt', 'fric'])
+      && data.unlockedMission is int
+      && data.unlockedMission >= 1 && data.unlockedMission <= 1000
+      && (data.bike == null || data.bike is string)
+      && data.money is int
+      && data.money >= 0 && data.money <= 100000000
+      && data.savedAt is int;
+  }
+
+  match /databases/{database}/documents {
+    match /players/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      // fric (monnaie achetée) : écrit seulement par le serveur (SDK Admin, qui ignore ces règles) ; le navigateur
+      // ne peut ni le créer ni le changer
+      allow create: if request.auth != null && request.auth.uid == uid
+        && validSave(request.resource.data)
+        && request.resource.data.get('fric', 0) == 0;
+      allow update: if request.auth != null && request.auth.uid == uid
+        && validSave(request.resource.data)
+        && request.resource.data.get('fric', 0) == resource.data.get('fric', 0);
+      allow delete: if false;
+    }
+  }
+}

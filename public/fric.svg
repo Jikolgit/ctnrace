@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Pièce de Fric (monnaie du jeu, nom provisoire) : disque doré à contour marine, tranche plus foncée, « F » -->
+  <circle cx="32" cy="34" r="27" fill="#c77700" stroke="#0f1530" stroke-width="4" />
+  <circle cx="32" cy="30" r="27" fill="#ffc21a" stroke="#0f1530" stroke-width="4" />
+  <circle cx="32" cy="30" r="19" fill="none" stroke="#e39a00" stroke-width="3" />
+  <path d="M26 19h15v6H33v4h7v6h-7v9h-7z" fill="#fff6d0" stroke="#0f1530" stroke-width="3" stroke-linejoin="round" />
+  <ellipse cx="21" cy="17" rx="5" ry="3" fill="#fff" opacity="0.7" transform="rotate(-35 21 17)" />
+</svg>

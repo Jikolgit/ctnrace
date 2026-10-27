@@ -29,9 +29,10 @@ import { placeStations } from './stations.js';
 import { createGuide } from './guide.js';
 import { createTraffic } from './traffic.js';
 import { extractVehicles, setVehicleLights } from './vehicles.js';
-import { glowMaterial, glowDisc } from './glow.js';
+import { createStreetLights } from './streetLights.js';
 import { createCameraTuner } from './cameraTuner.js';
-import { DELIVERY_REWARD, FUEL_PRICE, getMoney, addMoney } from './wallet.js';
+import { DELIVERY_REWARD, FUEL_PRICE, getMoney, addMoney, setMoney } from './wallet.js';
+import { FRIC_PACKS, formatFric, onFricChange, setFric } from './fric.js';
 import { STATIONS, MAP_WIDTH, MAP_HEIGHT } from './deliveryMap.js';
 import { atlas } from './atlas.js';
 import { createGarage, savedBike, saveBike } from './garage.js';
@@ -277,10 +278,19 @@ function refreshGuide() {
   else guide.setObjectives(onBoard.filter((_, i) => deliveryPoints.isActive(i)));
 }
 let stationTemplate = null; // modèle StationEssence (models.glb), une fois chargé
+let lampTemplate = null; // lampadaire (models.glb), gabarit des lampadaires de la ville
+let streetLights = null; // lampadaires du terre-plein des grandes routes (streetLights.js)
 let stationsPlaced = false;
 
 // Pose les bâtiments des stations dès que la ville et le modèle sont prêts (l'un ou l'autre peut arriver en
 // premier : chargement du GLB / premier lancement du mode Livraison)
+// Lampadaires : placés quand la ville et le modèle sont prêts tous les deux, allumés selon l'heure
+function placeLampsIfReady() {
+  if (streetLights || !deliveryCity || !lampTemplate) return;
+  streetLights = createStreetLights(deliveryWorld, lampTemplate, deliveryCity.userData.lampSpots);
+  applySkyColor(cotonouHours());
+}
+
 function placeStationsIfReady() {
   if (stationsPlaced || !deliveryCity || !stationTemplate) return;
   placeStations(deliveryWorld, stationTemplate);
@@ -380,40 +390,43 @@ scene.add(player);
 // Phare de la moto, allumé de HEADLIGHT_ON (20 h) à HEADLIGHT_OFF (6 h), heure de Cotonou : cône de lumière vers
 // l'avant (-Z), dans le groupe du joueur (suit les changements de couloir et l'inclinaison). Toujours présent,
 // intensité 0 le jour : allumer ou éteindre une lumière ne recompile pas les matériaux.
-const HEADLIGHT_INTENSITY = 40;
+const HEADLIGHT_INTENSITY = 20; // réduit de 40 à 20 (octobre 2026, demande de l'utilisateur)
 const HEADLIGHT_ON = 20;
 const HEADLIGHT_OFF = 6;
+// Lampadaires de la ville allumés de LAMP_ON (19 h) à LAMP_OFF (6 h)
+const LAMP_ON = 19;
+const LAMP_OFF = 6;
 const headlight = new THREE.SpotLight(0xfff2d0, 0, 45, 0.42, 0.5, 1);
 headlight.position.set(0, 1.1, -0.9);
 headlight.target.position.set(0, 0, -18);
 player.add(headlight, headlight.target);
 
-// Feu arrière (stop) de la moto : petit disque rouge sombre, qui s'illumine (rouge vif + halo) quand la moto freine
-// (frein maintenu, arrêt à un point de livraison, panne d'essence). Placé à l'arrière de la moto choisie, d'après
-// sa boîte englobante (placeTailLight).
-const tailLightMaterial = applyWorldBend(new THREE.MeshBasicMaterial({ color: 0x5a0d0d }));
-const tailLight = new THREE.Mesh(new THREE.CircleGeometry(0.06, 16), tailLightMaterial);
-const tailGlow = glowDisc(glowMaterial(0xff1a10), 0.6);
-tailGlow.visible = false;
-tailLight.add(tailGlow);
-tailGlow.position.z = 0.01;
-player.add(tailLight);
-const TAIL_LIGHT_HEIGHT = 0.6; // part de la hauteur de la moto (rétroviseurs compris)
-const TAIL_LIGHT_OFF = new THREE.Color(0x5a0d0d);
-const TAIL_LIGHT_ON = new THREE.Color(0xff2a1a);
-const bikeBox = new THREE.Box3();
+// Feux de la moto : pièces « bike_N_front_light » et « …back_light » du GLB, qui émettent leur propre lumière
+// (emissive). Phare avant allumé la nuit ; feu arrière faible la nuit et vif pendant les freinages (feu stop :
+// frein maintenu, arrêt à un point de livraison, panne d'essence), de jour comme de nuit.
+const BIKE_HEADLIGHT_GLOW = 1.6;
+const BIKE_TAIL_NIGHT = 0.5;
+const BIKE_TAIL_BRAKE = 2;
+let bikeHeadlightMaterial = null; // créés au chargement du GLB (versions cartoon de l'atlas)
+let bikeTaillightMaterial = null;
+let lightsAtNight = false;
+let brakeLightOn = false;
 
-function placeTailLight(object) {
-  player.updateMatrixWorld(true);
-  bikeBox.setFromObject(object);
-  player.worldToLocal(bikeBox.min);
-  player.worldToLocal(bikeBox.max);
-  tailLight.position.set(0, bikeBox.min.y + (bikeBox.max.y - bikeBox.min.y) * TAIL_LIGHT_HEIGHT, bikeBox.max.z + 0.02);
+const BIKE_TAIL_BRAKE_TINT = new THREE.Color(0xff3020); // le jour, la pièce claire est aussi teintée en rouge
+const WHITE = new THREE.Color(0xffffff);
+
+function updateBikeLights() {
+  if (bikeHeadlightMaterial) bikeHeadlightMaterial.emissiveIntensity = lightsAtNight ? BIKE_HEADLIGHT_GLOW : 0;
+  if (bikeTaillightMaterial) {
+    bikeTaillightMaterial.emissiveIntensity = brakeLightOn ? BIKE_TAIL_BRAKE : lightsAtNight ? BIKE_TAIL_NIGHT : 0;
+    bikeTaillightMaterial.color.copy(brakeLightOn ? BIKE_TAIL_BRAKE_TINT : WHITE);
+  }
 }
 
 function setBrakeLight(on) {
-  tailGlow.visible = on;
-  tailLightMaterial.color.copy(on ? TAIL_LIGHT_ON : TAIL_LIGHT_OFF);
+  if (on === brakeLightOn) return;
+  brakeLightOn = on;
+  updateBikeLights();
 }
 
 const wheels = []; // roues de la moto en cours
@@ -429,11 +442,16 @@ const atlasMaterial = applyWorldBend(
   new THREE.MeshStandardMaterial({ map: atlas, roughness: 0.65, metalness: 0 })
 );
 const toonAtlasMaterial = toToon(new THREE.MeshStandardMaterial({ map: atlas })); // ancienne moto
+// Roues de la MotoCub (bike_1) : pièces sans UV dans le GLB (elles prendraient la couleur du coin de l'atlas),
+// en noir uni à la place
+const BIKE_1_WHEELS = /^(MotoCub_Roue_Avant|bike_1_Roue_Arriere)$/;
+const toonWheelMaterial = toToon(new THREE.MeshStandardMaterial({ color: 0x1c1c1c }));
 
 // Motos jouables : chacune a sa pose de pilote (animation du GLB) et sa position de pilote
 const BIKES = {
-  Moto: {
-    wheels: ['Moto_Wheel_Front', 'Moto_Wheel_Rear'],
+  bike_2: {
+    // ancienne moto (« Moto » avant octobre 2026)
+    wheels: ['bike_2_Wheel_Front', 'bike_2_Wheel_Rear'],
     wheelRadius: 0.31,
     spinSign: -1,
     rotationY: 0,
@@ -441,8 +459,9 @@ const BIKES = {
     riderPosition: new THREE.Vector3(0, 0.133, 0.355),
     ride: 'Ride',
   },
-  MotoCub: {
-    wheels: ['MotoCub_Roue_Avant', 'MotoCub_Roue_Arriere'],
+  bike_1: {
+    // MotoCub (« MotoCub » avant octobre 2026)
+    wheels: ['MotoCub_Roue_Avant', 'bike_1_Roue_Arriere'],
     wheelRadius: 0.265,
     spinSign: 1, // la MotoCub est retournée : l'axe local des roues est inversé
     rotationY: Math.PI, // modélisée avant vers +Z : on la retourne vers la route (-Z)
@@ -451,11 +470,11 @@ const BIKES = {
     ride: 'Ride_MotoCub',
   },
 };
-const DEFAULT_BIKE = 'MotoCub';
+const DEFAULT_BIKE = 'bike_1';
 // Écran « Moto » du menu : nom affiché et description de chaque moto
 const BIKE_CARDS = [
-  { name: 'MotoCub', label: 'MotoCub', desc: 'Petite moto rouge, maniable en ville.' },
-  { name: 'Moto', label: 'Moto classique', desc: 'La première moto du jeu.' },
+  { name: 'bike_1', label: 'MotoCub', desc: 'Petite moto rouge, maniable en ville.' },
+  { name: 'bike_2', label: 'Moto classique', desc: 'La première moto du jeu.' },
 ];
 let bikeName = savedBike(Object.keys(BIKES)) ?? DEFAULT_BIKE;
 let bike = BIKES[bikeName];
@@ -485,7 +504,15 @@ new GLTFLoader().load(
       stationTemplate = station;
       placeStationsIfReady();
     }
-    for (const unused of ['ChateauEau_Vedoko', 'Cylinder']) moto.getObjectByName(unused)?.removeFromParent();
+    // Lampadaire : retiré de la scène du joueur, gardé comme gabarit des lampadaires de la ville (streetLights.js)
+    lampTemplate = moto.getObjectByName('lampadaire') ?? null;
+    if (lampTemplate) {
+      lampTemplate.removeFromParent();
+      lampTemplate.position.set(0, 0, 0);
+      placeLampsIfReady();
+    }
+    // Pas encore utilisés : retirés, sinon ils suivraient la moto
+    for (const unused of ['ChateauEau_Vedoko', 'Cylinder', 'Empty.001']) moto.getObjectByName(unused)?.removeFromParent();
 
     const rider = moto.getObjectByName('Character_Rig');
     const mixer = new THREE.AnimationMixer(moto);
@@ -503,7 +530,6 @@ new GLTFLoader().load(
       }
       wheels.length = 0;
       for (const wheelName of bike.wheels) wheels.push(moto.getObjectByName(wheelName));
-      if (moto.parent) placeTailLight(moto.getObjectByName(name));
 
       rider.position.copy(bike.riderPosition);
       mixer.stopAllAction();
@@ -516,15 +542,28 @@ new GLTFLoader().load(
 
     // Pièces des motos en style cartoon (aplats + contour noir, voir toon.js) ; pilote inchangé.
     // Les maillages sont listés d'abord : addOutline ajoute des enfants pendant le parcours.
+    // Feux : versions cartoon de l'atlas qui émettent une lumière (intensité réglée par updateBikeLights)
+    bikeHeadlightMaterial = toToon(new THREE.MeshStandardMaterial({ map: atlas, emissive: 0xfff2d0 }));
+    bikeTaillightMaterial = toToon(new THREE.MeshStandardMaterial({ map: atlas, emissive: 0xff2a1a }));
+    updateBikeLights();
+    const bikeMeshes = new Set();
+    for (const key of Object.keys(BIKES)) {
+      moto.getObjectByName(key)?.traverse((child) => {
+        if (child.isMesh) bikeMeshes.add(child);
+      });
+    }
     const meshes = [];
     moto.traverse((child) => {
       if (child.isMesh) meshes.push(child);
     });
     for (const child of meshes) {
-      if (child.name.startsWith('MotoCub') || child.name.startsWith('Moto_')) {
-        // Motos : atlas bikeTXT (le GLB est exporté sans matériaux), en cartoon. La MotoCub a sa palette dans
-        // l'atlas : ses pièces doivent avoir des UV dessus (sinon elles prennent la couleur du coin de l'atlas)
-        child.material = toonAtlasMaterial;
+      if (bikeMeshes.has(child)) {
+        // Motos : atlas bikeTXT (le GLB est exporté sans matériaux), en cartoon. Leurs pièces doivent avoir des UV
+        // sur leur palette de l'atlas (sinon elles prennent la couleur du coin de l'atlas)
+        if (/front_light/i.test(child.name)) child.material = bikeHeadlightMaterial;
+        else if (/back_light/i.test(child.name)) child.material = bikeTaillightMaterial;
+        else if (BIKE_1_WHEELS.test(child.name)) child.material = toonWheelMaterial;
+        else child.material = toonAtlasMaterial;
         addOutline(child);
       } else {
         child.material = atlasMaterial; // pilote : atlas bikeTXT
@@ -656,6 +695,7 @@ function buildDeliveryCity() {
   stationPoints = createDeliveryPoints(deliveryWorld);
   guide = createGuide(deliveryWorld);
   placeStationsIfReady();
+  placeLampsIfReady();
 }
 
 // Fond du menu : survol de la ville de Livraison, comme depuis un hélicoptère. La caméra tourne lentement sur une
@@ -819,6 +859,41 @@ cityNext.addEventListener('click', () => showMissions(Math.min(CITY_COUNT, shown
 document.getElementById('missions-back').addEventListener('click', () => {
   document.body.classList.remove('in-missions');
   deliveryButton.focus();
+});
+
+// Solde de Fric affiché en haut du menu et de la Boutique
+const fricAmounts = document.querySelectorAll('.fric-amount');
+onFricChange((value) => {
+  for (const label of fricAmounts) label.textContent = formatFric(value);
+});
+
+// Boutique : packs de Fric à acheter avec de l'argent réel, payés avec FedaPay (buyPack, plus bas)
+const shopButton = document.getElementById('mode-shop');
+const shopNote = document.querySelector('#shop .shop-note');
+const packList = document.querySelector('#shop .packs');
+for (const pack of FRIC_PACKS) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'pack-tile';
+  button.setAttribute('aria-label', `${formatFric(pack.fric)} Fric pour ${formatFric(pack.price)} FCFA`);
+  button.innerHTML = `<span class="coins"><img src="/fric.svg" alt="" /><img src="/fric.svg" alt="" /><img src="/fric.svg" alt="" /></span>
+    <span class="amount">${formatFric(pack.fric)}</span><span class="unit">Fric</span>
+    <span class="price">${formatFric(pack.price)} FCFA</span>`;
+  button.addEventListener('click', () => buyPack(pack));
+  packList.append(button);
+}
+function showShopNote(text) {
+  shopNote.textContent = text;
+  shopNote.hidden = false;
+}
+shopButton.addEventListener('click', () => {
+  shopNote.hidden = true;
+  document.body.classList.add('in-shop');
+  packList.querySelector('.pack-tile')?.focus();
+});
+document.getElementById('shop-back').addEventListener('click', () => {
+  document.body.classList.remove('in-shop');
+  shopButton.focus();
 });
 
 // Écran « Moto » : choix de la moto (appliqué tout de suite, gardé pour les parties suivantes)
@@ -1329,6 +1404,11 @@ function applySkyColor(hours) {
   const night = hours >= HEADLIGHT_ON || hours < HEADLIGHT_OFF;
   headlight.intensity = night ? HEADLIGHT_INTENSITY : 0;
   setVehicleLights(night); // phares et feux arrière des voitures
+  streetLights?.setOn(hours >= LAMP_ON || hours < LAMP_OFF);
+  if (night !== lightsAtNight) {
+    lightsAtNight = night;
+    updateBikeLights(); // phare et feu arrière de la moto
+  }
 }
 
 updateClock();
@@ -1638,6 +1718,136 @@ function animate(timestamp) {
   renderer.render(scene, camera);
   requestAnimationFrame(animate);
 }
+
+// Sauvegarde des joueurs dans Firebase (cloudSave.js : compte anonyme, document Firestore players/{uid}). Chargée à
+// part pour ne pas retarder le démarrage ; sans réseau, le jeu garde sa sauvegarde du navigateur (localStorage).
+// Si la sauvegarde du serveur est plus récente, elle remplace celle du navigateur : argent, moto, missions.
+function restoreSave(data) {
+  setMoney(data.money);
+  showMoney();
+  const name = savedBike(Object.keys(BIKES));
+  if (name && name !== bikeName) {
+    bikeName = name;
+    selectBike?.(name);
+    garage.select(name);
+  }
+  if (document.body.classList.contains('in-missions')) showMissions();
+}
+// Compte du joueur (bouton en haut du menu) : anonyme au départ, à lier à Google pour ne pas perdre sa
+// sauvegarde et ses Fric (navigateur vidé, autre appareil). Messages dans #account-note.
+const accountButton = document.getElementById('account-button');
+const accountNote = document.getElementById('account-note');
+let account = { linked: false };
+let accountNoteTimer = 0;
+function showAccountNote(text, duration = 6000) {
+  accountNote.textContent = text;
+  accountNote.hidden = false;
+  clearTimeout(accountNoteTimer);
+  if (duration) accountNoteTimer = setTimeout(() => (accountNote.hidden = true), duration);
+}
+function showAccount(info) {
+  account = info;
+  accountButton.classList.toggle('linked', info.linked);
+  const photo = accountButton.querySelector('.account-photo');
+  const initial = accountButton.querySelector('.account-initial');
+  photo.hidden = !(info.linked && info.photo);
+  if (info.linked && info.photo) photo.src = info.photo;
+  initial.hidden = !info.linked || Boolean(info.photo);
+  initial.textContent = (info.name || info.email || '?').charAt(0).toUpperCase();
+  accountButton.title = info.linked ? `Connecté avec Google : ${info.email}` : 'Se connecter avec Google';
+}
+// Messages des erreurs de connexion Google les plus courantes
+const GOOGLE_ERRORS = {
+  'auth/popup-closed-by-user': 'Connexion annulée.',
+  'auth/cancelled-popup-request': 'Connexion annulée.',
+  'auth/popup-blocked': 'La fenêtre de connexion a été bloquée : autorise les fenêtres pop-up pour ce site, puis réessaie.',
+  'auth/operation-not-allowed': 'La connexion Google n’est pas encore activée pour ce jeu.',
+  'auth/unauthorized-domain': 'Ce site n’est pas encore autorisé pour la connexion Google.',
+  'auth/network-request-failed': 'Pas de connexion internet : réessaie plus tard.',
+  'auth/web-storage-unsupported': 'Ce navigateur bloque la connexion : ouvre le jeu dans Chrome ou Safari.',
+};
+accountButton.addEventListener('click', async () => {
+  if (account.linked) {
+    showAccountNote(`Connecté avec Google (${account.email}) : ta progression et tes Fric sont sauvegardés sur ce compte.`);
+    return;
+  }
+  // cloudApi plutôt que « await cloud » : la fenêtre Google doit s'ouvrir sans attente après le clic, sinon
+  // le navigateur la bloque (Safari surtout)
+  const api = cloudApi;
+  if (!api) return showAccountNote('Sauvegarde pas encore prête : réessaie dans quelques secondes.');
+  showAccountNote('Connexion à Google…', 0);
+  try {
+    const result = await api.linkGoogle((fric) =>
+      window.confirm(
+        'Ce compte Google a déjà une partie (sur un autre appareil). La charger ? La progression de cet appareil sera remplacée' +
+          (fric > 0 ? ` et les ${formatFric(fric)} Fric de cet appareil resteront sur l’ancien compte.` : '.')
+      )
+    );
+    if (result === 'linked') showAccountNote('Compte Google lié : ta progression et tes Fric sont maintenant sauvegardés.');
+    else if (result === 'switched') showAccountNote('Partie du compte Google chargée.');
+    else showAccountNote('Connexion annulée : tu restes sur la partie de cet appareil.');
+  } catch (error) {
+    console.warn('Connexion Google impossible', error.code ?? error);
+    showAccountNote(GOOGLE_ERRORS[error.code] ?? `Connexion impossible pour le moment (${error.code ?? error.message}).`);
+  }
+});
+
+// cloud : { idToken, reloadFric, linkGoogle } (cloudSave.js), ou null si Firebase n'a pas pu se charger
+let cloudApi = null; // même chose, une fois chargé
+const cloud = import('./cloudSave.js')
+  .then(({ startCloudSave }) => (cloudApi = startCloudSave(restoreSave, setFric, showAccount)))
+  .catch((error) => {
+    console.warn('Sauvegarde Firebase indisponible', error);
+    return null;
+  });
+
+// Appel d'une fonction serveur de la Boutique (api/*.js sur Vercel), avec le jeton Firebase du joueur
+async function shopRequest(path, body) {
+  const api = await cloud;
+  const token = await api?.idToken();
+  if (!token) throw new Error('Connexion au compte impossible');
+  const response = await fetch(path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify(body),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error ?? `Erreur ${response.status}`);
+  return data;
+}
+
+// Achat d'un pack : le serveur crée le paiement FedaPay, le joueur part sur la page de paiement (même onglet)
+async function buyPack(pack) {
+  showShopNote(`Ouverture du paiement : ${formatFric(pack.fric)} Fric pour ${formatFric(pack.price)} FCFA…`);
+  try {
+    const { url } = await shopRequest('/api/create-payment', { packId: pack.id });
+    window.location.href = url;
+  } catch (error) {
+    showShopNote(`Paiement impossible pour le moment (${error.message}). Réessaie plus tard.`);
+  }
+}
+
+// Retour de la page de paiement FedaPay (?paiement=fedapay&id=…&status=…) : la Boutique s'ouvre, le serveur
+// vérifie la transaction auprès de FedaPay et crédite les Fric, puis le solde est relu
+async function checkPaymentReturn() {
+  const params = new URLSearchParams(location.search);
+  if (params.get('paiement') !== 'fedapay') return;
+  history.replaceState(null, '', location.pathname); // adresse propre (pas de nouvelle vérification au rechargement)
+  const id = params.get('id');
+  document.body.classList.add('in-shop');
+  if (!id) return showShopNote('Paiement annulé.');
+  showShopNote('Paiement en cours de vérification…');
+  try {
+    const result = await shopRequest('/api/confirm-payment', { id });
+    await (await cloud)?.reloadFric();
+    if (result.credited) showShopNote(`Paiement réussi : +${formatFric(result.fric)} Fric !`);
+    else if (result.status === 'pending') showShopNote('Paiement en attente : tes Fric arriveront dès sa validation.');
+    else showShopNote("Paiement non abouti : aucun montant n'a été crédité.");
+  } catch (error) {
+    showShopNote(`Vérification impossible pour le moment (${error.message}). Tes Fric arriveront dès que le paiement sera confirmé.`);
+  }
+}
+checkPaymentReturn();
 
 showMenuScene(); // le jeu s'ouvre sur le menu : survol de la ville
 animate();
