@@ -851,8 +851,7 @@ onFricChange((value) => {
   for (const label of fricAmounts) label.textContent = formatFric(value);
 });
 
-// Boutique : packs de Fric à acheter avec de l'argent réel. Le paiement (FedaPay) n'est pas encore branché : un
-// pack choisi affiche seulement un message.
+// Boutique : packs de Fric à acheter avec de l'argent réel, payés avec FedaPay (buyPack, plus bas)
 const shopButton = document.getElementById('mode-shop');
 const shopNote = document.querySelector('#shop .shop-note');
 const packList = document.querySelector('#shop .packs');
@@ -864,11 +863,12 @@ for (const pack of FRIC_PACKS) {
   button.innerHTML = `<span class="coins"><img src="/fric.svg" alt="" /><img src="/fric.svg" alt="" /><img src="/fric.svg" alt="" /></span>
     <span class="amount">${formatFric(pack.fric)}</span><span class="unit">Fric</span>
     <span class="price">${formatFric(pack.price)} FCFA</span>`;
-  button.addEventListener('click', () => {
-    shopNote.textContent = `Paiement bientôt disponible : ${formatFric(pack.fric)} Fric pour ${formatFric(pack.price)} FCFA (Mobile Money ou carte, avec FedaPay).`;
-    shopNote.hidden = false;
-  });
+  button.addEventListener('click', () => buyPack(pack));
   packList.append(button);
+}
+function showShopNote(text) {
+  shopNote.textContent = text;
+  shopNote.hidden = false;
 }
 shopButton.addEventListener('click', () => {
   shopNote.hidden = true;
@@ -1716,9 +1716,61 @@ function restoreSave(data) {
   }
   if (document.body.classList.contains('in-missions')) showMissions();
 }
-import('./cloudSave.js')
+// cloud : { idToken, reloadFric } (cloudSave.js), ou null si Firebase n'a pas pu se charger
+const cloud = import('./cloudSave.js')
   .then(({ startCloudSave }) => startCloudSave(restoreSave, setFric))
-  .catch((error) => console.warn('Sauvegarde Firebase indisponible', error));
+  .catch((error) => {
+    console.warn('Sauvegarde Firebase indisponible', error);
+    return null;
+  });
+
+// Appel d'une fonction serveur de la Boutique (api/*.js sur Vercel), avec le jeton Firebase du joueur
+async function shopRequest(path, body) {
+  const api = await cloud;
+  const token = await api?.idToken();
+  if (!token) throw new Error('Connexion au compte impossible');
+  const response = await fetch(path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify(body),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error ?? `Erreur ${response.status}`);
+  return data;
+}
+
+// Achat d'un pack : le serveur crée le paiement FedaPay, le joueur part sur la page de paiement (même onglet)
+async function buyPack(pack) {
+  showShopNote(`Ouverture du paiement : ${formatFric(pack.fric)} Fric pour ${formatFric(pack.price)} FCFA…`);
+  try {
+    const { url } = await shopRequest('/api/create-payment', { packId: pack.id });
+    window.location.href = url;
+  } catch (error) {
+    showShopNote(`Paiement impossible pour le moment (${error.message}). Réessaie plus tard.`);
+  }
+}
+
+// Retour de la page de paiement FedaPay (?paiement=fedapay&id=…&status=…) : la Boutique s'ouvre, le serveur
+// vérifie la transaction auprès de FedaPay et crédite les Fric, puis le solde est relu
+async function checkPaymentReturn() {
+  const params = new URLSearchParams(location.search);
+  if (params.get('paiement') !== 'fedapay') return;
+  history.replaceState(null, '', location.pathname); // adresse propre (pas de nouvelle vérification au rechargement)
+  const id = params.get('id');
+  document.body.classList.add('in-shop');
+  if (!id) return showShopNote('Paiement annulé.');
+  showShopNote('Paiement en cours de vérification…');
+  try {
+    const result = await shopRequest('/api/confirm-payment', { id });
+    await (await cloud)?.reloadFric();
+    if (result.credited) showShopNote(`Paiement réussi : +${formatFric(result.fric)} Fric !`);
+    else if (result.status === 'pending') showShopNote('Paiement en attente : tes Fric arriveront dès sa validation.');
+    else showShopNote("Paiement non abouti : aucun montant n'a été crédité.");
+  } catch (error) {
+    showShopNote(`Vérification impossible pour le moment (${error.message}). Tes Fric arriveront dès que le paiement sera confirmé.`);
+  }
+}
+checkPaymentReturn();
 
 showMenuScene(); // le jeu s'ouvre sur le menu : survol de la ville
 animate();

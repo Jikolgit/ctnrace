@@ -48,6 +48,29 @@ export function startCloudSave(onRestore, onFric) {
   let playerDoc = null;
   let timer = 0;
 
+  // Relit le solde de Fric (après un achat : le serveur l'a modifié)
+  async function reloadFric() {
+    if (!playerDoc) return;
+    try {
+      onFric((await getDoc(playerDoc)).data()?.fric ?? 0);
+    } catch (error) {
+      console.warn('Lecture du solde de Fric impossible', error.code ?? error);
+    }
+  }
+
+  // Jeton d'identité du joueur, pour les fonctions serveur (achats) ; attend la connexion (10 s au plus)
+  const userReady = new Promise((resolve) => {
+    const stop = onAuthStateChanged(auth, (user) => {
+      if (!user) return;
+      stop();
+      resolve(user);
+    });
+  });
+  async function idToken() {
+    const user = await Promise.race([userReady, new Promise((resolve) => setTimeout(resolve, 10000, null))]);
+    return user ? user.getIdToken() : null;
+  }
+
   async function upload() {
     timer = 0;
     if (!playerDoc) return;
@@ -109,4 +132,5 @@ export function startCloudSave(onRestore, onFric) {
     }
   });
 
+  return { idToken, reloadFric };
 }
