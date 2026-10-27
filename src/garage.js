@@ -17,9 +17,13 @@ const CHECK_ICON = `<svg class="check" viewBox="0 0 24 24" aria-hidden="true"><c
   stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 
 // Moto gardée d'une partie à l'autre (null si aucune ou inconnue)
+// Motos renommées dans models.glb (octobre 2026) : un ancien choix gardé reste valable
+const RENAMED = { MotoCub: 'bike_1', Moto: 'bike_2' };
+
 export function savedBike(names) {
   try {
-    const name = localStorage.getItem(STORAGE_KEY);
+    const stored = localStorage.getItem(STORAGE_KEY);
+    const name = RENAMED[stored] ?? stored;
     return names.includes(name) ? name : null;
   } catch {
     return null;

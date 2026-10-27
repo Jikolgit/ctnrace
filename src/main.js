@@ -29,7 +29,6 @@ import { placeStations } from './stations.js';
 import { createGuide } from './guide.js';
 import { createTraffic } from './traffic.js';
 import { extractVehicles, setVehicleLights } from './vehicles.js';
-import { glowMaterial, glowDisc } from './glow.js';
 import { createCameraTuner } from './cameraTuner.js';
 import { DELIVERY_REWARD, FUEL_PRICE, getMoney, addMoney } from './wallet.js';
 import { STATIONS, MAP_WIDTH, MAP_HEIGHT } from './deliveryMap.js';
@@ -277,6 +276,7 @@ function refreshGuide() {
   else guide.setObjectives(onBoard.filter((_, i) => deliveryPoints.isActive(i)));
 }
 let stationTemplate = null; // modèle StationEssence (models.glb), une fois chargé
+let lampTemplate = null; // lampadaire (models.glb), pas encore placé dans la ville
 let stationsPlaced = false;
 
 // Pose les bâtiments des stations dès que la ville et le modèle sont prêts (l'un ou l'autre peut arriver en
@@ -388,32 +388,32 @@ headlight.position.set(0, 1.1, -0.9);
 headlight.target.position.set(0, 0, -18);
 player.add(headlight, headlight.target);
 
-// Feu arrière (stop) de la moto : petit disque rouge sombre, qui s'illumine (rouge vif + halo) quand la moto freine
-// (frein maintenu, arrêt à un point de livraison, panne d'essence). Placé à l'arrière de la moto choisie, d'après
-// sa boîte englobante (placeTailLight).
-const tailLightMaterial = applyWorldBend(new THREE.MeshBasicMaterial({ color: 0x5a0d0d }));
-const tailLight = new THREE.Mesh(new THREE.CircleGeometry(0.06, 16), tailLightMaterial);
-const tailGlow = glowDisc(glowMaterial(0xff1a10), 0.6);
-tailGlow.visible = false;
-tailLight.add(tailGlow);
-tailGlow.position.z = 0.01;
-player.add(tailLight);
-const TAIL_LIGHT_HEIGHT = 0.6; // part de la hauteur de la moto (rétroviseurs compris)
-const TAIL_LIGHT_OFF = new THREE.Color(0x5a0d0d);
-const TAIL_LIGHT_ON = new THREE.Color(0xff2a1a);
-const bikeBox = new THREE.Box3();
+// Feux de la moto : pièces « bike_N_front_light » et « …back_light » du GLB, qui émettent leur propre lumière
+// (emissive). Phare avant allumé la nuit ; feu arrière faible la nuit et vif pendant les freinages (feu stop :
+// frein maintenu, arrêt à un point de livraison, panne d'essence), de jour comme de nuit.
+const BIKE_HEADLIGHT_GLOW = 1.6;
+const BIKE_TAIL_NIGHT = 0.5;
+const BIKE_TAIL_BRAKE = 2;
+let bikeHeadlightMaterial = null; // créés au chargement du GLB (versions cartoon de l'atlas)
+let bikeTaillightMaterial = null;
+let lightsAtNight = false;
+let brakeLightOn = false;
 
-function placeTailLight(object) {
-  player.updateMatrixWorld(true);
-  bikeBox.setFromObject(object);
-  player.worldToLocal(bikeBox.min);
-  player.worldToLocal(bikeBox.max);
-  tailLight.position.set(0, bikeBox.min.y + (bikeBox.max.y - bikeBox.min.y) * TAIL_LIGHT_HEIGHT, bikeBox.max.z + 0.02);
+const BIKE_TAIL_BRAKE_TINT = new THREE.Color(0xff3020); // le jour, la pièce claire est aussi teintée en rouge
+const WHITE = new THREE.Color(0xffffff);
+
+function updateBikeLights() {
+  if (bikeHeadlightMaterial) bikeHeadlightMaterial.emissiveIntensity = lightsAtNight ? BIKE_HEADLIGHT_GLOW : 0;
+  if (bikeTaillightMaterial) {
+    bikeTaillightMaterial.emissiveIntensity = brakeLightOn ? BIKE_TAIL_BRAKE : lightsAtNight ? BIKE_TAIL_NIGHT : 0;
+    bikeTaillightMaterial.color.copy(brakeLightOn ? BIKE_TAIL_BRAKE_TINT : WHITE);
+  }
 }
 
 function setBrakeLight(on) {
-  tailGlow.visible = on;
-  tailLightMaterial.color.copy(on ? TAIL_LIGHT_ON : TAIL_LIGHT_OFF);
+  if (on === brakeLightOn) return;
+  brakeLightOn = on;
+  updateBikeLights();
 }
 
 const wheels = []; // roues de la moto en cours
@@ -432,8 +432,9 @@ const toonAtlasMaterial = toToon(new THREE.MeshStandardMaterial({ map: atlas }))
 
 // Motos jouables : chacune a sa pose de pilote (animation du GLB) et sa position de pilote
 const BIKES = {
-  Moto: {
-    wheels: ['Moto_Wheel_Front', 'Moto_Wheel_Rear'],
+  bike_2: {
+    // ancienne moto (« Moto » avant octobre 2026)
+    wheels: ['bike_2_Wheel_Front', 'bike_2_Wheel_Rear'],
     wheelRadius: 0.31,
     spinSign: -1,
     rotationY: 0,
@@ -441,8 +442,9 @@ const BIKES = {
     riderPosition: new THREE.Vector3(0, 0.133, 0.355),
     ride: 'Ride',
   },
-  MotoCub: {
-    wheels: ['MotoCub_Roue_Avant', 'MotoCub_Roue_Arriere'],
+  bike_1: {
+    // MotoCub (« MotoCub » avant octobre 2026)
+    wheels: ['MotoCub_Roue_Avant', 'bike_1_Roue_Arriere'],
     wheelRadius: 0.265,
     spinSign: 1, // la MotoCub est retournée : l'axe local des roues est inversé
     rotationY: Math.PI, // modélisée avant vers +Z : on la retourne vers la route (-Z)
@@ -451,11 +453,11 @@ const BIKES = {
     ride: 'Ride_MotoCub',
   },
 };
-const DEFAULT_BIKE = 'MotoCub';
+const DEFAULT_BIKE = 'bike_1';
 // Écran « Moto » du menu : nom affiché et description de chaque moto
 const BIKE_CARDS = [
-  { name: 'MotoCub', label: 'MotoCub', desc: 'Petite moto rouge, maniable en ville.' },
-  { name: 'Moto', label: 'Moto classique', desc: 'La première moto du jeu.' },
+  { name: 'bike_1', label: 'MotoCub', desc: 'Petite moto rouge, maniable en ville.' },
+  { name: 'bike_2', label: 'Moto classique', desc: 'La première moto du jeu.' },
 ];
 let bikeName = savedBike(Object.keys(BIKES)) ?? DEFAULT_BIKE;
 let bike = BIKES[bikeName];
@@ -485,7 +487,17 @@ new GLTFLoader().load(
       stationTemplate = station;
       placeStationsIfReady();
     }
-    for (const unused of ['ChateauEau_Vedoko', 'Cylinder']) moto.getObjectByName(unused)?.removeFromParent();
+    // Lampadaire : retiré de la scène du joueur, gardé comme gabarit (à placer plus tard dans la ville)
+    lampTemplate = moto.getObjectByName('lampadaire') ?? null;
+    if (lampTemplate) {
+      lampTemplate.removeFromParent();
+      lampTemplate.position.set(0, 0, 0);
+      lampTemplate.traverse((child) => {
+        if (child.isMesh) child.material = atlasMaterial;
+      });
+    }
+    // Pas encore utilisés : retirés, sinon ils suivraient la moto
+    for (const unused of ['ChateauEau_Vedoko', 'Cylinder', 'Empty.001']) moto.getObjectByName(unused)?.removeFromParent();
 
     const rider = moto.getObjectByName('Character_Rig');
     const mixer = new THREE.AnimationMixer(moto);
@@ -503,7 +515,6 @@ new GLTFLoader().load(
       }
       wheels.length = 0;
       for (const wheelName of bike.wheels) wheels.push(moto.getObjectByName(wheelName));
-      if (moto.parent) placeTailLight(moto.getObjectByName(name));
 
       rider.position.copy(bike.riderPosition);
       mixer.stopAllAction();
@@ -516,15 +527,27 @@ new GLTFLoader().load(
 
     // Pièces des motos en style cartoon (aplats + contour noir, voir toon.js) ; pilote inchangé.
     // Les maillages sont listés d'abord : addOutline ajoute des enfants pendant le parcours.
+    // Feux : versions cartoon de l'atlas qui émettent une lumière (intensité réglée par updateBikeLights)
+    bikeHeadlightMaterial = toToon(new THREE.MeshStandardMaterial({ map: atlas, emissive: 0xfff2d0 }));
+    bikeTaillightMaterial = toToon(new THREE.MeshStandardMaterial({ map: atlas, emissive: 0xff2a1a }));
+    updateBikeLights();
+    const bikeMeshes = new Set();
+    for (const key of Object.keys(BIKES)) {
+      moto.getObjectByName(key)?.traverse((child) => {
+        if (child.isMesh) bikeMeshes.add(child);
+      });
+    }
     const meshes = [];
     moto.traverse((child) => {
       if (child.isMesh) meshes.push(child);
     });
     for (const child of meshes) {
-      if (child.name.startsWith('MotoCub') || child.name.startsWith('Moto_')) {
-        // Motos : atlas bikeTXT (le GLB est exporté sans matériaux), en cartoon. La MotoCub a sa palette dans
-        // l'atlas : ses pièces doivent avoir des UV dessus (sinon elles prennent la couleur du coin de l'atlas)
-        child.material = toonAtlasMaterial;
+      if (bikeMeshes.has(child)) {
+        // Motos : atlas bikeTXT (le GLB est exporté sans matériaux), en cartoon. Leurs pièces doivent avoir des UV
+        // sur leur palette de l'atlas (sinon elles prennent la couleur du coin de l'atlas)
+        if (/front_light/i.test(child.name)) child.material = bikeHeadlightMaterial;
+        else if (/back_light/i.test(child.name)) child.material = bikeTaillightMaterial;
+        else child.material = toonAtlasMaterial;
         addOutline(child);
       } else {
         child.material = atlasMaterial; // pilote : atlas bikeTXT
@@ -1329,6 +1352,10 @@ function applySkyColor(hours) {
   const night = hours >= HEADLIGHT_ON || hours < HEADLIGHT_OFF;
   headlight.intensity = night ? HEADLIGHT_INTENSITY : 0;
   setVehicleLights(night); // phares et feux arrière des voitures
+  if (night !== lightsAtNight) {
+    lightsAtNight = night;
+    updateBikeLights(); // phare et feu arrière de la moto
+  }
 }
 
 updateClock();

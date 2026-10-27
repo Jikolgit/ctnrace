@@ -1,5 +1,4 @@
-import * as THREE from 'three';
-import { glowMaterial, glowDisc } from './glow.js';
+import { applyWorldBend } from './worldBend.js';
 
 // Véhicules de la ville (models.glb) : car_1, car_2, car_3. Ils roulent dans les deux modes (obstacles.js en
 // Défis, traffic.js en Livraison), mélangés pour varier la circulation. Chaque modèle a l'avant vers -Z,
@@ -12,7 +11,7 @@ import { glowMaterial, glowDisc } from './glow.js';
 // Les couleurs viennent de l'atlas bikeTXT.jpg (UV posés par l'utilisateur sur ses palettes).
 
 export const VEHICLES = [
-  { name: 'car_1', halfWidth: 0.82, front: 2.15, back: 2.3, wheelRadius: 0.36 }, // Toyota RAV4
+  { name: 'car_1', halfWidth: 1.0, front: 1.85, back: 1.9, wheelRadius: 0.31 }, // refaite en octobre 2026 : 2,3 × 3,9 m
   { name: 'car_2', halfWidth: 1.3, front: 2.05, back: 2.3, wheelRadius: 0.37 }, // 3,0 × 4,6 m
   { name: 'car_3', halfWidth: 1.4, front: 2.05, back: 2.75, wheelRadius: 0.52, turnSpeed: 3 }, // camion, 6 roues, 3,2 × 5,0 m
 ];
@@ -26,42 +25,49 @@ export function extractVehicles(root, material) {
     if (!object) continue;
     object.removeFromParent();
     object.position.set(0, 0, 0); // placés côte à côte dans Blender
+    // Feux : pièces « <nom>_front_light » et « <nom>_back_light » du modèle (casse indifférente), qui brillent la
+    // nuit (setVehicleLights) ; le reste prend l'atlas
     object.traverse((child) => {
-      if (child.isMesh) child.material = material;
+      if (!child.isMesh) return;
+      if (/front_light/i.test(child.name)) child.material = headlightMaterial(material);
+      else if (/back_light/i.test(child.name)) child.material = taillightMaterial(material);
+      else child.material = material;
     });
-    addLights(object);
     models.push({ ...vehicle, object });
   }
   return models;
 }
 
-// Feux des voitures, allumés la nuit (setVehicleLights) : deux phares blancs à l'avant (-Z), deux feux rouges à
-// l'arrière (+Z), placés d'après la boîte englobante du modèle. Matériaux partagés par tous les clones :
-// les allumer ou les éteindre ne touche qu'un drapeau.
-const headlightMaterial = glowMaterial(0xfff4d6);
-const taillightMaterial = glowMaterial(0xff2a1a);
-headlightMaterial.visible = taillightMaterial.visible = false;
-const HEADLIGHT_SIZE = 0.55; // m : diamètre du halo
-const TAILLIGHT_SIZE = 0.4;
-const box = new THREE.Box3();
+// Matériaux des feux, partagés par tous les clones : l'atlas, plus une lumière émise (emissive) dont l'intensité
+// est nulle le jour. Allumer les feux ne change qu'un nombre (pas de recompilation des shaders).
+const HEADLIGHT_COLOR = 0xfff2d0;
+const TAILLIGHT_COLOR = 0xff2a1a;
+const HEADLIGHT_GLOW = 1.6; // intensité la nuit
+const TAILLIGHT_GLOW = 1.2;
+let headlights = null;
+let taillights = null;
 
-function addLights(object) {
-  object.updateMatrixWorld(true);
-  box.setFromObject(object);
-  const y = box.min.y + (box.max.y - box.min.y) * 0.32; // hauteur des phares
-  const x = (box.max.x - box.min.x) / 2 - 0.35;
-  for (const side of [-1, 1]) {
-    const front = glowDisc(headlightMaterial, HEADLIGHT_SIZE, -1);
-    front.position.set(side * x, y, box.min.z - 0.03);
-    const rear = glowDisc(taillightMaterial, TAILLIGHT_SIZE, 1);
-    rear.position.set(side * x, y, box.max.z + 0.03);
-    object.add(front, rear);
-  }
+function glowingCopy(material, color) {
+  const copy = applyWorldBend(material.clone()); // clone() ne garde pas onBeforeCompile : courbure remise
+  copy.emissive.set(color);
+  copy.emissiveIntensity = 0;
+  return copy;
+}
+
+function headlightMaterial(material) {
+  headlights ??= glowingCopy(material, HEADLIGHT_COLOR);
+  return headlights;
+}
+
+function taillightMaterial(material) {
+  taillights ??= glowingCopy(material, TAILLIGHT_COLOR);
+  return taillights;
 }
 
 // Phares et feux arrière de toutes les voitures (les deux modes)
 export function setVehicleLights(on) {
-  headlightMaterial.visible = taillightMaterial.visible = on;
+  if (headlights) headlights.emissiveIntensity = on ? HEADLIGHT_GLOW : 0;
+  if (taillights) taillights.emissiveIntensity = on ? TAILLIGHT_GLOW : 0;
 }
 
 // Clone d'un modèle, avec la liste de ses roues (pour les faire tourner)
