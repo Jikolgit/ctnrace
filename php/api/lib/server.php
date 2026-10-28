@@ -369,6 +369,12 @@ function clean_settings($input): array
         if (!array_key_exists($key, $input)) continue;
         $value = $input[$key];
         if ($setting['type'] === 'boolean' && is_bool($value)) $clean[$key] = $value;
+        if ($setting['type'] === 'text' && is_string($value) && preg_match('//u', $value)) {
+            // Une ligne, sans caractères de contrôle ; longueur en caractères (comme cleanSettings du jeu)
+            $text = trim(preg_replace('/\s+/u', ' ', $value));
+            $length = preg_match_all('/./su', $text);
+            if ($text !== '' && $length <= $setting['maxLength'] && !preg_match('/\p{Cc}/u', $text)) $clean[$key] = $text;
+        }
         if ($setting['type'] === 'hour') {
             if ($value === null) $clean[$key] = null;
             elseif ((is_int($value) || is_float($value)) && $value >= 0 && $value < 24) $clean[$key] = round($value * 60) / 60;

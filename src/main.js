@@ -33,6 +33,7 @@ import { createTraffic } from './traffic.js';
 import { extractVehicles, setVehicleLights } from './vehicles.js';
 import { createStreetLights } from './streetLights.js';
 import { settings } from './settings.js';
+import { splitGameName } from './gameSettings.js';
 import { createCameraTuner } from './cameraTuner.js';
 import { getMoney, addMoney, setMoney } from './wallet.js';
 import { FRIC_PACKS, formatFric, setFric } from './fric.js';
@@ -1876,6 +1877,19 @@ async function checkPaymentReturn() {
   }
 }
 if (SHOP_ENABLED) checkPaymentReturn();
+
+// Nom du jeu choisi dans l'admin (réglage gameName ; « ctnRacer » = nom de développement) : logo du menu, écran de
+// chargement et onglet du navigateur
+function showGameName(name) {
+  const [first, second] = splitGameName(name);
+  for (const title of document.querySelectorAll('#menu .title, #loader .loader-title')) {
+    title.textContent = first;
+    if (second) title.appendChild(document.createElement('span')).textContent = second;
+    title.classList.remove('pending');
+  }
+  document.title = name;
+}
+showGameName(settings.gameName);
 
 showMenuScene(); // le jeu s'ouvre sur le menu : survol de la ville
 animate();

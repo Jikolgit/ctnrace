@@ -43,6 +43,11 @@ function buildFields(values) {
       label.innerHTML = `<input type="checkbox" name="${setting.key}" /> ${setting.label}`;
       label.querySelector('input').checked = value;
       fields.append(label);
+    } else if (setting.type === 'text') {
+      const label = document.createElement('label');
+      label.innerHTML = `${setting.label}<br /><input type="text" name="${setting.key}" required maxlength="${setting.maxLength}" size="32" />`;
+      label.querySelector('input').value = value;
+      fields.append(label);
     } else if (setting.type === 'hour') {
       const box = document.createElement('fieldset');
       box.innerHTML = `<legend>${setting.label}</legend>
@@ -136,6 +141,7 @@ function readFields() {
   const values = {};
   for (const setting of SETTINGS) {
     if (setting.type === 'boolean') values[setting.key] = settingsForm.elements[setting.key].checked;
+    else if (setting.type === 'text') values[setting.key] = settingsForm.elements[setting.key].value.trim();
     else if (setting.type === 'hour') {
       const fixed = settingsForm.elements[`${setting.key}-mode`].value === 'fixed';
       const time = settingsForm.elements[setting.key].value;

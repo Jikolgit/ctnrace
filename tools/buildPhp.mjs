@@ -12,7 +12,7 @@ const out = new URL('dist-php/', root);
 cpSync(new URL('php/', root), out, { recursive: true });
 const shared = {
   fricPacks: FRIC_PACKS,
-  settings: SETTINGS.map(({ key, type }) => ({ key, type })),
+  settings: SETTINGS.map(({ key, type, maxLength }) => ({ key, type, maxLength })),
   defaults: DEFAULT_SETTINGS,
   maxDeliveries: MAX_DELIVERIES,
   maxReward: MAX_REWARD,

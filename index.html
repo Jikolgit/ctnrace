@@ -33,6 +33,9 @@
         paint-order: stroke fill;
         text-shadow: 0 5px 0 #10241d;
       }
+      #loader .loader-title.pending {
+        visibility: hidden; /* nom pas encore connu (première visite) : affiché par main.js */
+      }
       #loader .loader-title span {
         color: #ff8a3d;
       }
@@ -68,6 +71,21 @@
       // la suite à partir de là (data-js)
       (function () {
         var loader = document.getElementById('loader');
+        // Nom du jeu (réglage de l'admin) : dernière valeur reçue sur cet appareil (copie de src/settings.js), sinon
+        // caché jusqu'à la réponse du serveur, pour ne pas montrer le nom de développement. Coupe : splitGameName.
+        var title = loader.querySelector('.loader-title');
+        var name = null;
+        try {
+          name = JSON.parse(localStorage.getItem('ctnrace-settings')).gameName;
+        } catch (e) {}
+        if (typeof name === 'string' && name.trim()) {
+          name = name.trim();
+          var cut = name.lastIndexOf(' ') + 1;
+          if (!cut) for (var i = 1; i < name.length; i++) if (/\p{Lu}/u.test(name[i])) cut = i;
+          title.textContent = cut ? name.slice(0, cut) : name;
+          if (cut) title.appendChild(document.createElement('span')).textContent = name.slice(cut);
+          document.title = name;
+        } else title.classList.add('pending');
         var fill = loader.querySelector('.loader-fill');
         var text = loader.querySelector('.loader-text');
         var start = Date.now();
