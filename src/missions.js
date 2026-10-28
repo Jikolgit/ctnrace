@@ -25,12 +25,12 @@ const missionSettings = (n) => settings.missions[n - 1];
 // Mission désactivée dans l'admin : affichée « indisponible », non jouable, sautée par la progression
 export const missionEnabled = (n) => missionSettings(n).enabled;
 
-// Mission n telle qu'elle se joue : { pickup, deliveries, reward, timeLimit }.
+// Mission n telle qu'elle se joue : { pickup, deliveries, reward, fuelPrice, timeLimit }.
 //  - deliveries : les N premiers points de la mission (N choisi dans l'admin), complétés si besoin par d'autres
 //    points connus (DELIVERY_POOL, sans doublon) ;
 //  - pickup : point de chargement si l'admin demande d'aller chercher les produits (celui de la mission, sinon
 //    DEFAULT_PICKUP) ; absent si les produits sont déjà chargés au départ ;
-//  - reward : Fric gagnés par produit livré.
+//  - reward : Fric gagnés par produit livré ; fuelPrice : prix du plein à la station essence.
 export function missionData(n) {
   const base = baseMission(n);
   const config = missionSettings(n);
@@ -43,6 +43,7 @@ export function missionData(n) {
     pickup: config.loaded ? null : (base.pickup ?? DEFAULT_PICKUP),
     deliveries,
     reward: config.reward,
+    fuelPrice: config.fuelPrice,
     timeLimit: base.timeLimit,
   };
 }

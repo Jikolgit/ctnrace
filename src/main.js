@@ -34,7 +34,7 @@ import { extractVehicles, setVehicleLights } from './vehicles.js';
 import { createStreetLights } from './streetLights.js';
 import { settings } from './settings.js';
 import { createCameraTuner } from './cameraTuner.js';
-import { FUEL_PRICE, getMoney, addMoney, setMoney } from './wallet.js';
+import { getMoney, addMoney, setMoney } from './wallet.js';
 import { FRIC_PACKS, formatFric, setFric } from './fric.js';
 import { STATIONS, MAP_WIDTH, MAP_HEIGHT } from './deliveryMap.js';
 import { atlas } from './atlas.js';
@@ -1655,13 +1655,13 @@ function animate(timestamp) {
         ignoredStation = -1;
       }
       const station = stationPoints.update(gameTime, minimapPoint.x, minimapPoint.z, ignoredStation);
-      if (station >= 0 && started && !deliveryState && getMoney() < FUEL_PRICE) {
+      if (station >= 0 && started && !deliveryState && getMoney() < missionData(currentMission).fuelPrice) {
         // Pas assez d'argent : pas de plein (la moto continue) ; message une seule fois par passage
         ignoredStation = station;
-        showNotice(`Pas assez de Fric pour le plein (${FUEL_PRICE} Fric)`);
+        showNotice(`Pas assez de Fric pour le plein (${missionData(currentMission).fuelPrice} Fric)`);
       } else if (station >= 0 && started && !deliveryState) {
         // Plein payé à l'arrivée sur le point
-        addMoney(-FUEL_PRICE);
+        addMoney(-missionData(currentMission).fuelPrice);
         showMoney(true);
         stopKind = 'fuel';
         stationIndex = station;

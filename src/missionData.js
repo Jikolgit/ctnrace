@@ -68,6 +68,7 @@ export const baseMission = (n) => MISSIONS[n - 1] ?? MISSIONS[0];
 // produits (DEFAULT_PICKUP), et réserve de points de livraison : tous ceux des missions écrites, sans doublon,
 // pour compléter une mission dont l'admin augmente le nombre de livraisons.
 export const DEFAULT_REWARD = 50; // Fric par produit livré
+export const DEFAULT_FUEL_PRICE = 20; // Fric le plein à la station essence
 export const DEFAULT_PICKUP = { name: 'Marché Dantokpa', road: 'Rue Bel Air', at: 470, side: -1 };
 export const DELIVERY_POOL = [
   ...new Map(MISSIONS.filter(Boolean).flatMap((m) => m.deliveries).map((d) => [d.name, d])).values(),
@@ -75,8 +76,14 @@ export const DELIVERY_POOL = [
 export const MAX_DELIVERIES = DELIVERY_POOL.length;
 
 // Réglages par défaut de la mission n : active, nombre de livraisons et départ (produits déjà chargés ou à aller
-// chercher) tels qu'écrits ci-dessus
+// chercher) tels qu'écrits ci-dessus, gain par livraison et prix du plein
 export const missionDefaults = (n) => {
   const mission = baseMission(n);
-  return { enabled: true, deliveries: mission.deliveries.length, reward: DEFAULT_REWARD, loaded: !mission.pickup };
+  return {
+    enabled: true,
+    deliveries: mission.deliveries.length,
+    reward: DEFAULT_REWARD,
+    fuelPrice: DEFAULT_FUEL_PRICE,
+    loaded: !mission.pickup,
+  };
 };

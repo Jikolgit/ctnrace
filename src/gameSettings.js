@@ -7,7 +7,7 @@ import { MISSION_COUNT, MAX_DELIVERIES, missionDefaults } from './missionData.js
 // Pour ajouter un réglage : une ligne dans SETTINGS (clé, libellé, type, valeur par défaut), puis l'utiliser dans le
 // jeu via `settings.<clé>` (src/settings.js). Types : 'boolean' (case à cocher), 'hour' (null = heure réelle de
 // Cotonou, sinon heure fixe en heures décimales : 19,5 = 19 h 30), 'missions' (tableau des MISSION_COUNT missions :
-// { enabled, deliveries (1 à MAX_DELIVERIES), reward (Fric par produit livré), loaded (produits déjà chargés au
+// { enabled, deliveries (1 à MAX_DELIVERIES), reward (Fric par produit livré), fuelPrice (Fric le plein), loaded (produits déjà chargés au
 // départ, sinon à aller chercher au point de chargement) }, tableau dans la page admin).
 export const SETTINGS = [
   { key: 'cartoon', label: 'Effet cartoon des motos (aplats de lumière + contour noir)', type: 'boolean', default: true },
@@ -45,6 +45,7 @@ export function cleanSettings(input) {
           enabled: typeof mission.enabled === 'boolean' ? mission.enabled : defaults.enabled,
           deliveries: isInt(mission.deliveries, 1, MAX_DELIVERIES) ? mission.deliveries : defaults.deliveries,
           reward: isInt(mission.reward, 0, MAX_REWARD) ? mission.reward : defaults.reward,
+          fuelPrice: isInt(mission.fuelPrice, 0, MAX_REWARD) ? mission.fuelPrice : defaults.fuelPrice,
           loaded: typeof mission.loaded === 'boolean' ? mission.loaded : defaults.loaded,
         };
       });

@@ -52,11 +52,11 @@ function buildFields(values) {
       box.querySelector(`[name="${setting.key}"]`).value = toTime(fixed ? value : 12);
       fields.append(box);
     } else if (setting.type === 'missions') {
-      // Tableau : une ligne par mission (active, nombre de livraisons, Fric par livraison, départ)
+      // Tableau : une ligne par mission (active, nombre de livraisons, Fric par livraison, prix du plein, départ)
       const box = document.createElement('fieldset');
       box.innerHTML = `<legend>${setting.label}</legend>
         <div class="table"><table>
-          <thead><tr><th>Mission</th><th>Active</th><th>Livraisons</th><th>Fric / livraison</th><th>Départ</th></tr></thead>
+          <thead><tr><th>Mission</th><th>Active</th><th>Livraisons</th><th>Fric / livraison</th><th>Prix du plein</th><th>Départ</th></tr></thead>
           <tbody></tbody>
         </table></div>`;
       const body = box.querySelector('tbody');
@@ -67,6 +67,7 @@ function buildFields(values) {
           <td><input type="checkbox" name="m${n}-enabled" /></td>
           <td><input type="number" name="m${n}-deliveries" min="1" max="${MAX_DELIVERIES}" step="1" required /></td>
           <td><input type="number" name="m${n}-reward" min="0" max="100000" step="1" required /></td>
+          <td><input type="number" name="m${n}-fuelPrice" min="0" max="100000" step="1" required /></td>
           <td><select name="m${n}-loaded">
             <option value="loaded">Produits déjà chargés</option>
             <option value="pickup">À aller chercher</option>
@@ -74,6 +75,7 @@ function buildFields(values) {
         row.querySelector(`[name="m${n}-enabled"]`).checked = mission.enabled;
         row.querySelector(`[name="m${n}-deliveries"]`).value = mission.deliveries;
         row.querySelector(`[name="m${n}-reward"]`).value = mission.reward;
+        row.querySelector(`[name="m${n}-fuelPrice"]`).value = mission.fuelPrice;
         row.querySelector(`[name="m${n}-loaded"]`).value = mission.loaded ? 'loaded' : 'pickup';
         body.append(row);
       });
@@ -97,6 +99,7 @@ function readFields() {
           enabled: field('enabled').checked,
           deliveries: Number(field('deliveries').value),
           reward: Number(field('reward').value),
+          fuelPrice: Number(field('fuelPrice').value),
           loaded: field('loaded').value === 'loaded',
         };
       });
