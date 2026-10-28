@@ -1,71 +1,51 @@
 import { SAVE_KEYS, requestSave } from './saveQueue.js';
+import { settings } from './settings.js';
+import { MISSION_COUNT, baseMission, DEFAULT_PICKUP, DELIVERY_POOL } from './missionData.js';
 
 // Mode Livraison : missions numérotées. Terminer une mission débloque la suivante.
 // La progression (dernière mission débloquée) est gardée dans le navigateur (localStorage) ; si le
 // stockage est indisponible (navigation privée...), seule la mission 1 est ouverte.
+// Données des missions : missionData.js ; réglages de chaque mission (active, nombre de livraisons, gain, départ
+// chargé ou non) : interface admin, réglage « missions » (gameSettings.js), appliqués ici.
+export {
+  CITY_COUNT,
+  MISSIONS_PER_CITY,
+  MISSION_COUNT,
+  BIKE_CAPACITY,
+  cityName,
+  missionCity,
+  missionInCity,
+} from './missionData.js';
 
-// Les missions se font dans plusieurs villes (CITY_COUNT), MISSIONS_PER_CITY chacune. Numérotation globale :
-// missions 1 à 10 = ville 1, 11 à 20 = ville 2, etc. (affichées 1 à 10 dans chaque ville). La progression suit
-// cet ordre : la ville 2 s'ouvre quand la dernière mission de la ville 1 est terminée. Pour l'instant, toutes
-// les missions se jouent dans la même ville (Ségbeya / Kpondehou).
-export const CITY_COUNT = 3;
-export const MISSIONS_PER_CITY = 10;
-export const MISSION_COUNT = CITY_COUNT * MISSIONS_PER_CITY;
-export const cityName = (city) => `Ville ${city}`;
-// Ville d'une mission (numéro global) et son numéro dans la ville
-export const missionCity = (n) => Math.ceil(n / MISSIONS_PER_CITY);
-export const missionInCity = (n) => ((n - 1) % MISSIONS_PER_CITY) + 1;
 const STORAGE_KEY = SAVE_KEYS.unlockedMission;
 
-// Capacité de la moto : nombre maximal de produits transportés à la fois. Une mission qui en compte plus
-// demande plusieurs allers-retours au point de chargement. (Plus tard : motos à débloquer, plus grandes.)
-export const BIKE_CAPACITY = 3;
+// Réglages de l'admin pour la mission n
+const missionSettings = (n) => settings.missions[n - 1];
 
-// Contenu des missions. pickup (facultatif) : point de chargement où l'on prend les produits avant de
-// pouvoir livrer (sans pickup, les produits sont déjà chargés au départ : mission 1, l'introduction).
-// timeLimit (facultatif) : délai en secondes pour tout livrer, sinon Game Over.
-// Chaque point (chargement ou livraison) est au bord d'une rue de deliveryMap.js :
-//  - road : nom de la rue ; at : position le long de la rue (y pour une rue verticale, x pour une horizontale) ;
-//  - side : côté du trottoir où l'on livre (rue verticale : -1 ouest, +1 est ; horizontale : -1 nord, +1 sud).
-// Garder les points à une vingtaine de mètres au moins des carrefours (place pour freiner).
-const MISSIONS = [
-  {
-    // Mission 1 (introduction) : les 2 produits sont déjà chargés au départ
-    deliveries: [
-      { name: 'Ferrari Lounge', road: 'Rue 1520', at: 392, side: -1 }, // entre Rue 1614 et la ruelle
-      { name: 'Hôtel Mavilla', road: 'Rue 1402', at: 405, side: -1 },
-    ],
-  },
-  {
-    // Mission 2 : charger les 3 produits au Marché Dantokpa, puis les livrer dans le nord et l'est du quartier
-    pickup: { name: 'Marché Dantokpa', road: 'Rue Bel Air', at: 470, side: -1 },
-    deliveries: [
-      { name: 'Nora Hôtel', road: 'Rue 1650', at: 200, side: 1 },
-      { name: 'Boutique Kpondehou', road: 'Rue 1460', at: 300, side: 1 },
-      { name: 'Akpakpa', road: 'Rue 1180', at: 440, side: -1 },
-    ],
-  },
-  {
-    // Mission 3 : 4 produits pour une moto de 3 places : un second passage à l'entrepôt est nécessaire
-    pickup: { name: 'Entrepôt Ségbeya', road: 'Rue 1310', at: 300, side: 1 },
-    deliveries: [
-      { name: 'Pharmacie Senade', road: 'Rue 1614', at: 360, side: -1 },
-      { name: 'École Kpondehou', road: 'Rue 1460', at: 190, side: -1 },
-      { name: 'Boulangerie Ayelawadje', road: 'Rue 1180', at: 320, side: 1 },
-      { name: 'Résidence Royale', road: 'Rue 1660', at: 450, side: 1 },
-    ],
-  },
-  null, // mission 4 : pas encore écrite (reprend la mission 1)
-  {
-    // Mission 5 : 1 produit urgent, chargé au Marché Dantokpa et livré à Akpakpa en moins de 2 minutes
-    pickup: { name: 'Marché Dantokpa', road: 'Rue Bel Air', at: 470, side: -1 },
-    deliveries: [{ name: 'Akpakpa', road: 'Rue 1180', at: 440, side: -1 }],
-    timeLimit: 120,
-  },
-];
+// Mission désactivée dans l'admin : affichée « indisponible », non jouable, sautée par la progression
+export const missionEnabled = (n) => missionSettings(n).enabled;
 
-// Données de la mission n (les missions pas encore écrites reprennent la mission 1)
-export const missionData = (n) => MISSIONS[n - 1] ?? MISSIONS[0];
+// Mission n telle qu'elle se joue : { pickup, deliveries, reward, timeLimit }.
+//  - deliveries : les N premiers points de la mission (N choisi dans l'admin), complétés si besoin par d'autres
+//    points connus (DELIVERY_POOL, sans doublon) ;
+//  - pickup : point de chargement si l'admin demande d'aller chercher les produits (celui de la mission, sinon
+//    DEFAULT_PICKUP) ; absent si les produits sont déjà chargés au départ ;
+//  - reward : Fric gagnés par produit livré.
+export function missionData(n) {
+  const base = baseMission(n);
+  const config = missionSettings(n);
+  const deliveries = base.deliveries.slice(0, config.deliveries);
+  for (const spot of DELIVERY_POOL) {
+    if (deliveries.length >= config.deliveries) break;
+    if (!deliveries.some((d) => d.name === spot.name)) deliveries.push(spot);
+  }
+  return {
+    pickup: config.loaded ? null : (base.pickup ?? DEFAULT_PICKUP),
+    deliveries,
+    reward: config.reward,
+    timeLimit: base.timeLimit,
+  };
+}
 
 // Numéro de la dernière mission débloquée (1 au minimum)
 export function unlockedMission() {
@@ -77,11 +57,22 @@ export function unlockedMission() {
   }
 }
 
-// À appeler quand la mission n est terminée : débloque la mission n + 1
+// Mission n jouable : active, et débloquée. Les missions désactivées ne bloquent pas la suite : la progression les
+// saute (si l'admin désactive la mission où en est le joueur, la suivante active s'ouvre)
+export function missionPlayable(n) {
+  if (!missionEnabled(n)) return false;
+  let reach = unlockedMission();
+  while (reach < MISSION_COUNT && !missionEnabled(reach)) reach++;
+  return n <= reach;
+}
+
+// À appeler quand la mission n est terminée : débloque la mission active suivante
 export function completeMission(n) {
-  if (n + 1 <= unlockedMission() || n >= MISSION_COUNT) return;
+  let next = n + 1;
+  while (next < MISSION_COUNT && !missionEnabled(next)) next++;
+  if (next <= unlockedMission() || n >= MISSION_COUNT) return;
   try {
-    localStorage.setItem(STORAGE_KEY, String(n + 1));
+    localStorage.setItem(STORAGE_KEY, String(next));
     requestSave(); // copie dans Firebase (cloudSave.js)
   } catch {
     // stockage indisponible : la progression n'est pas gardée

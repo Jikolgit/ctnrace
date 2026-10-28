@@ -23,6 +23,8 @@ import {
   unlockedMission,
   completeMission,
   missionData,
+  missionEnabled,
+  missionPlayable,
 } from './missions.js';
 import { createDeliveryPoints } from './deliveryPoints.js';
 import { placeStations } from './stations.js';
@@ -32,7 +34,7 @@ import { extractVehicles, setVehicleLights } from './vehicles.js';
 import { createStreetLights } from './streetLights.js';
 import { settings } from './settings.js';
 import { createCameraTuner } from './cameraTuner.js';
-import { DELIVERY_REWARD, FUEL_PRICE, getMoney, addMoney, setMoney } from './wallet.js';
+import { FUEL_PRICE, getMoney, addMoney, setMoney } from './wallet.js';
 import { FRIC_PACKS, formatFric, setFric } from './fric.js';
 import { STATIONS, MAP_WIDTH, MAP_HEIGHT } from './deliveryMap.js';
 import { atlas } from './atlas.js';
@@ -660,9 +662,10 @@ function restart() {
       deliveryPoints.reset([pickup], 'pickup');
       setCargo(0);
     } else {
-      // Produits déjà chargés (mission 1) : les points de livraison sont affichés tout de suite
-      onBoard = deliveries.slice(0, BIKE_CAPACITY);
-      toLoad = deliveries.slice(BIKE_CAPACITY);
+      // Produits déjà chargés au départ (réglage de la mission dans l'admin) : tous à bord, même au-delà de
+      // BIKE_CAPACITY ; les points de livraison sont affichés tout de suite
+      onBoard = deliveries.slice();
+      toLoad = [];
       deliveryPoints.reset(onBoard);
       setCargo(onBoard.length);
     }
@@ -785,8 +788,9 @@ function finishMission() {
   gameOver = true; // fige la partie (Entrée relance la mission, comme après un Game Over)
   guide?.setObjectives([]); // plus d'objectif : la ligne disparaît
   completeMission(currentMission);
-  const total = missionData(currentMission).deliveries.length;
-  missionSummary.textContent = `${total} produits livrés en ${Math.floor(distance)} m : +${formatFric(total * DELIVERY_REWARD)} Fric.`;
+  const { deliveries, reward } = missionData(currentMission);
+  const total = deliveries.length;
+  missionSummary.textContent = `${total} produits livrés en ${Math.floor(distance)} m : +${formatFric(total * reward)} Fric.`;
   missionPanel.hidden = false;
   startHint.hidden = true;
   updateArrows();
@@ -828,7 +832,6 @@ function showMissions(city = shownCity || missionCity(unlockedMission())) {
   cityLabel.textContent = cityName(city);
   cityPrev.disabled = city <= 1;
   cityNext.disabled = city >= CITY_COUNT;
-  const unlocked = unlockedMission();
   missionGrid.replaceChildren();
   for (let i = 1; i <= MISSIONS_PER_CITY; i++) {
     const n = (city - 1) * MISSIONS_PER_CITY + i; // numéro global de la mission
@@ -836,7 +839,13 @@ function showMissions(city = shownCity || missionCity(unlockedMission())) {
     button.type = 'button';
     button.className = 'mission';
     button.innerHTML = `<span class="num">${i}</span><span class="label">Mission</span>`;
-    if (n > unlocked) {
+    if (!missionEnabled(n)) {
+      // Désactivée dans l'interface admin : grise, sans cadenas, non jouable
+      button.disabled = true;
+      button.classList.add('off');
+      button.querySelector('.label').textContent = 'Indisponible';
+      button.setAttribute('aria-label', `${cityName(city)}, mission ${i} (indisponible)`);
+    } else if (!missionPlayable(n)) {
       button.disabled = true;
       button.insertAdjacentHTML('beforeend', LOCK_ICON);
       button.setAttribute('aria-label', `${cityName(city)}, mission ${i} (verrouillée)`);
@@ -1474,8 +1483,8 @@ function animate(timestamp) {
           refreshGuide();
           showStartHint(parkedSide, 'repartir', canParkedUturn());
         } else {
-          // Produit livré : DELIVERY_REWARD $
-          addMoney(DELIVERY_REWARD);
+          // Produit livré : gain de la mission (réglable dans l'admin)
+          addMoney(missionData(currentMission).reward);
           showMoney(true);
           setCargo(cargo - 1);
           if (cargo === 0 && toLoad.length === 0) finishMission();

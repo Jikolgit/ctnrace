@@ -2,13 +2,27 @@
 // (src/settings.js), la page admin (admin/admin.js) et les fonctions serveur (api/config.js, api/admin.js) : pas
 // d'accès au navigateur ni à Node ici.
 //
+import { MISSION_COUNT, MAX_DELIVERIES, missionDefaults } from './missionData.js';
+
 // Pour ajouter un réglage : une ligne dans SETTINGS (clé, libellé, type, valeur par défaut), puis l'utiliser dans le
 // jeu via `settings.<clé>` (src/settings.js). Types : 'boolean' (case à cocher), 'hour' (null = heure réelle de
-// Cotonou, sinon heure fixe en heures décimales : 19,5 = 19 h 30).
+// Cotonou, sinon heure fixe en heures décimales : 19,5 = 19 h 30), 'missions' (tableau des MISSION_COUNT missions :
+// { enabled, deliveries (1 à MAX_DELIVERIES), reward (Fric par produit livré), loaded (produits déjà chargés au
+// départ, sinon à aller chercher au point de chargement) }, tableau dans la page admin).
 export const SETTINGS = [
   { key: 'cartoon', label: 'Effet cartoon des motos (aplats de lumière + contour noir)', type: 'boolean', default: true },
   { key: 'hour', label: 'Heure du jeu (ciel, brouillard, lampadaires, phares)', type: 'hour', default: null },
+  {
+    key: 'missions',
+    label: 'Missions (mode Livraison)',
+    type: 'missions',
+    default: Array.from({ length: MISSION_COUNT }, (_, i) => missionDefaults(i + 1)),
+  },
 ];
+
+export { MAX_DELIVERIES };
+const MAX_REWARD = 100000;
+const isInt = (value, min, max) => Number.isInteger(value) && value >= min && value <= max;
 
 export const DEFAULT_SETTINGS = Object.fromEntries(SETTINGS.map((setting) => [setting.key, setting.default]));
 
@@ -22,6 +36,18 @@ export function cleanSettings(input) {
     if (setting.type === 'hour') {
       if (value === null) clean[setting.key] = null;
       else if (typeof value === 'number' && value >= 0 && value < 24) clean[setting.key] = Math.round(value * 60) / 60;
+    }
+    if (setting.type === 'missions') {
+      // Mission par mission, champ par champ : une valeur absente ou invalide garde sa valeur par défaut
+      clean[setting.key] = setting.default.map((defaults, i) => {
+        const mission = Array.isArray(value) && value[i] && typeof value[i] === 'object' ? value[i] : {};
+        return {
+          enabled: typeof mission.enabled === 'boolean' ? mission.enabled : defaults.enabled,
+          deliveries: isInt(mission.deliveries, 1, MAX_DELIVERIES) ? mission.deliveries : defaults.deliveries,
+          reward: isInt(mission.reward, 0, MAX_REWARD) ? mission.reward : defaults.reward,
+          loaded: typeof mission.loaded === 'boolean' ? mission.loaded : defaults.loaded,
+        };
+      });
     }
   }
   return clean;

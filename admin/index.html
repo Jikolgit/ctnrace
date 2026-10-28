@@ -7,7 +7,7 @@
     <title>ctnRacer – Admin</title>
     <style>
       body {
-        max-width: 560px;
+        max-width: 760px;
         margin: 0 auto;
         padding: 16px;
         font: 16px/1.5 system-ui, sans-serif;
@@ -23,6 +23,22 @@
       input,
       select {
         font: inherit;
+      }
+      .table {
+        overflow-x: auto;
+      }
+      table {
+        border-collapse: collapse;
+      }
+      th,
+      td {
+        padding: 4px 6px;
+        border-bottom: 1px solid #ddd;
+        text-align: left;
+        white-space: nowrap;
+      }
+      input[type='number'] {
+        width: 5em;
       }
       [hidden] {
         display: none;

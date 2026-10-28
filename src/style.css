@@ -669,6 +669,15 @@ body.in-missions #menu {
   opacity: 0.55;
 }
 
+/* Mission désactivée dans l'interface admin : plus sombre, « Indisponible » au lieu de « Mission » */
+.mission.off {
+  background: radial-gradient(circle at 50% 35%, #8a8a8a 0%, #5e5e5e 55%, #3c3c3c 100%);
+}
+
+.mission.off .num {
+  opacity: 0.3;
+}
+
 .mission .lock {
   position: absolute;
   top: 8px;

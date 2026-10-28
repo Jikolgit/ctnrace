@@ -1,10 +1,10 @@
-// Mode Livraison : argent du joueur (dollars), gardé d'une partie à l'autre dans le navigateur (localStorage),
-// comme la progression des missions.
+// Mode Livraison : argent du joueur (Fric), gardé d'une partie à l'autre dans le navigateur (localStorage),
+// comme la progression des missions. Le gain par produit livré se règle mission par mission dans l'interface admin
+// (missions.js, missionData(n).reward).
 import { SAVE_KEYS, requestSave } from './saveQueue.js';
 
 const STORAGE_KEY = SAVE_KEYS.money;
 
-export const DELIVERY_REWARD = 50; // Fric par produit livré
 export const FUEL_PRICE = 20; // Fric le plein à la station essence
 
 let money = 0;
