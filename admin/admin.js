@@ -1,5 +1,5 @@
 import { SETTINGS, MAX_DELIVERIES } from '../src/gameSettings.js';
-import { cityName, missionCity, missionInCity } from '../src/missionData.js';
+import { CITY_COUNT, MISSIONS_PER_CITY, cityName, missionCity, missionInCity } from '../src/missionData.js';
 
 // Interface admin (/admin) : connexion, puis un champ par réglage (src/gameSettings.js), Sauvegarder et Retour au
 // jeu. Toutes les vérifications se font sur le serveur (api/admin.js) : les identifiants sont gardés en mémoire le
@@ -9,6 +9,8 @@ const settingsForm = document.getElementById('settings');
 const fields = document.getElementById('fields');
 const message = document.getElementById('message');
 let credentials = null;
+let missionValues = []; // réglages des missions, modifiés dans la boîte de dialogue
+const openCities = new Set(); // villes dépliées (gardées quand la liste est reconstruite après une sauvegarde)
 
 const show = (text) => (message.textContent = text);
 
@@ -52,37 +54,83 @@ function buildFields(values) {
       box.querySelector(`[name="${setting.key}"]`).value = toTime(fixed ? value : 12);
       fields.append(box);
     } else if (setting.type === 'missions') {
-      // Tableau : une ligne par mission (active, nombre de livraisons, Fric par livraison, prix du plein, départ)
+      // Une ligne par ville, qui se déplie pour montrer ses missions ; un clic sur une mission ouvre la boîte de
+      // dialogue de ses réglages (openMission)
+      missionValues = value.map((mission) => ({ ...mission }));
       const box = document.createElement('fieldset');
-      box.innerHTML = `<legend>${setting.label}</legend>
-        <div class="table"><table>
-          <thead><tr><th>Mission</th><th>Active</th><th>Livraisons</th><th>Fric / livraison</th><th>Prix du plein</th><th>Départ</th></tr></thead>
-          <tbody></tbody>
-        </table></div>`;
-      const body = box.querySelector('tbody');
-      value.forEach((mission, i) => {
-        const n = i + 1;
-        const row = document.createElement('tr');
-        row.innerHTML = `<td>${cityName(missionCity(n))} – ${missionInCity(n)}</td>
-          <td><input type="checkbox" name="m${n}-enabled" /></td>
-          <td><input type="number" name="m${n}-deliveries" min="1" max="${MAX_DELIVERIES}" step="1" required /></td>
-          <td><input type="number" name="m${n}-reward" min="0" max="100000" step="1" required /></td>
-          <td><input type="number" name="m${n}-fuelPrice" min="0" max="100000" step="1" required /></td>
-          <td><select name="m${n}-loaded">
-            <option value="loaded">Produits déjà chargés</option>
-            <option value="pickup">À aller chercher</option>
-          </select></td>`;
-        row.querySelector(`[name="m${n}-enabled"]`).checked = mission.enabled;
-        row.querySelector(`[name="m${n}-deliveries"]`).value = mission.deliveries;
-        row.querySelector(`[name="m${n}-reward"]`).value = mission.reward;
-        row.querySelector(`[name="m${n}-fuelPrice"]`).value = mission.fuelPrice;
-        row.querySelector(`[name="m${n}-loaded"]`).value = mission.loaded ? 'loaded' : 'pickup';
-        body.append(row);
-      });
+      box.innerHTML = `<legend>${setting.label}</legend>`;
+      for (let city = 1; city <= CITY_COUNT; city++) {
+        const details = document.createElement('details');
+        details.className = 'city';
+        details.open = openCities.has(city);
+        details.addEventListener('toggle', () => (details.open ? openCities.add(city) : openCities.delete(city)));
+        details.innerHTML = `<summary>${cityName(city)}</summary><div class="mission-list"></div>`;
+        const list = details.querySelector('.mission-list');
+        for (let i = 1; i <= MISSIONS_PER_CITY; i++) {
+          const n = (city - 1) * MISSIONS_PER_CITY + i;
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'mission-button';
+          button.innerHTML = `<strong>Mission ${i}</strong><small>${missionSummary(missionValues[n - 1])}</small>`;
+          button.classList.toggle('off', !missionValues[n - 1].enabled);
+          button.addEventListener('click', () => openMission(n));
+          list.append(button);
+        }
+        box.append(details);
+      }
       fields.append(box);
     }
   }
 }
+
+// Résumé d'une mission sous son nom
+function missionSummary(mission) {
+  if (!mission.enabled) return 'Désactivée';
+  return `${mission.deliveries} livraison${mission.deliveries > 1 ? 's' : ''} · ${mission.reward} Fric`;
+}
+
+// Boîte de dialogue d'une mission : ses réglages, Sauvegarder (enregistre tout de suite pour tous les joueurs)
+// ou Annuler (ferme sans rien changer)
+const dialog = document.getElementById('mission-dialog');
+const dialogForm = dialog.querySelector('form');
+const dialogMessage = dialog.querySelector('.dialog-message');
+dialogForm.elements.deliveries.max = MAX_DELIVERIES;
+let editedMission = 0;
+
+function openMission(n) {
+  editedMission = n;
+  const mission = missionValues[n - 1];
+  dialog.querySelector('h2').textContent = `${cityName(missionCity(n))} – Mission ${missionInCity(n)}`;
+  dialogForm.elements.enabled.checked = mission.enabled;
+  dialogForm.elements.deliveries.value = mission.deliveries;
+  dialogForm.elements.reward.value = mission.reward;
+  dialogForm.elements.fuelPrice.value = mission.fuelPrice;
+  dialogForm.elements.loaded.value = mission.loaded ? 'loaded' : 'pickup';
+  dialogMessage.textContent = '';
+  dialog.showModal();
+}
+
+dialog.querySelector('.cancel').addEventListener('click', () => dialog.close());
+
+dialogForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const previous = missionValues[editedMission - 1];
+  missionValues[editedMission - 1] = {
+    enabled: dialogForm.elements.enabled.checked,
+    deliveries: Number(dialogForm.elements.deliveries.value),
+    reward: Number(dialogForm.elements.reward.value),
+    fuelPrice: Number(dialogForm.elements.fuelPrice.value),
+    loaded: dialogForm.elements.loaded.value === 'loaded',
+  };
+  dialogMessage.textContent = 'Enregistrement…';
+  try {
+    await save();
+    dialog.close();
+  } catch (error) {
+    missionValues[editedMission - 1] = previous; // rien n'a changé sur le serveur
+    dialogMessage.textContent = `Échec : ${error.message}`;
+  }
+});
 
 function readFields() {
   const values = {};
@@ -93,16 +141,7 @@ function readFields() {
       const time = settingsForm.elements[setting.key].value;
       values[setting.key] = fixed && time ? fromTime(time) : null;
     } else if (setting.type === 'missions') {
-      values[setting.key] = setting.default.map((_, i) => {
-        const field = (name) => settingsForm.elements[`m${i + 1}-${name}`];
-        return {
-          enabled: field('enabled').checked,
-          deliveries: Number(field('deliveries').value),
-          reward: Number(field('reward').value),
-          fuelPrice: Number(field('fuelPrice').value),
-          loaded: field('loaded').value === 'loaded',
-        };
-      });
+      values[setting.key] = missionValues; // modifiées dans la boîte de dialogue
     }
   }
   return values;
@@ -124,8 +163,8 @@ loginForm.addEventListener('submit', async (event) => {
   }
 });
 
-settingsForm.addEventListener('submit', async (event) => {
-  event.preventDefault();
+// Enregistre tous les réglages (formulaire + missions) pour tous les joueurs ; lève une erreur en cas d'échec
+async function save() {
   show('Enregistrement…');
   try {
     const { settings } = await request({ settings: readFields() });
@@ -133,5 +172,11 @@ settingsForm.addEventListener('submit', async (event) => {
     show(`Enregistré à ${new Date().toLocaleTimeString('fr-FR')}.`);
   } catch (error) {
     show(`Échec : ${error.message}`);
+    throw error;
   }
+}
+
+settingsForm.addEventListener('submit', (event) => {
+  event.preventDefault();
+  save().catch(() => {}); // message déjà affiché
 });

@@ -7,7 +7,7 @@
     <title>ctnRacer – Admin</title>
     <style>
       body {
-        max-width: 760px;
+        max-width: 560px;
         margin: 0 auto;
         padding: 16px;
         font: 16px/1.5 system-ui, sans-serif;
@@ -24,21 +24,60 @@
       select {
         font: inherit;
       }
-      .table {
-        overflow-x: auto;
-      }
-      table {
-        border-collapse: collapse;
-      }
-      th,
-      td {
-        padding: 4px 6px;
-        border-bottom: 1px solid #ddd;
-        text-align: left;
-        white-space: nowrap;
-      }
       input[type='number'] {
         width: 5em;
+      }
+      /* Missions : une ligne par ville, dépliable ; missions en boutons */
+      details.city {
+        margin: 6px 0;
+        border: 1px solid #ccc;
+        border-radius: 8px;
+      }
+      details.city summary {
+        padding: 10px 12px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      .mission-list {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+        gap: 8px;
+        padding: 0 12px 12px;
+      }
+      .mission-button {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 2px;
+        padding: 8px 10px;
+        border: 1px solid #bbb;
+        border-radius: 8px;
+        background: #f6f6f6;
+        text-align: left;
+        cursor: pointer;
+      }
+      .mission-button:hover {
+        border-color: #333;
+      }
+      .mission-button small {
+        color: #555;
+      }
+      .mission-button.off {
+        opacity: 0.55;
+      }
+      dialog {
+        width: min(420px, calc(100vw - 32px));
+        border: 1px solid #999;
+        border-radius: 10px;
+      }
+      dialog h2 {
+        margin-top: 0;
+        font-size: 1.2em;
+      }
+      .dialog-buttons {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
       }
       [hidden] {
         display: none;
@@ -63,6 +102,29 @@
         <a href="/">Retour au jeu</a>
       </p>
     </form>
+
+    <!-- Réglages d'une mission (admin.js : openMission) -->
+    <dialog id="mission-dialog">
+      <form>
+        <h2></h2>
+        <label><input type="checkbox" name="enabled" /> Mission active</label>
+        <label>Nombre de livraisons <input type="number" name="deliveries" min="1" step="1" required /></label>
+        <label>Fric par livraison <input type="number" name="reward" min="0" max="100000" step="1" required /></label>
+        <label>Prix du plein (Fric) <input type="number" name="fuelPrice" min="0" max="100000" step="1" required /></label>
+        <label
+          >Départ
+          <select name="loaded">
+            <option value="loaded">Produits déjà chargés</option>
+            <option value="pickup">À aller chercher au point de chargement</option>
+          </select>
+        </label>
+        <p class="dialog-message" role="status"></p>
+        <p class="dialog-buttons">
+          <button type="button" class="cancel">Annuler</button>
+          <button type="submit">Sauvegarder</button>
+        </p>
+      </form>
+    </dialog>
 
     <p id="message" role="status"></p>
     <p><small>Les changements s'appliquent à tous les joueurs au prochain lancement du jeu (rechargement de la page).</small></p>
