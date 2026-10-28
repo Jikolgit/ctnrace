@@ -2,3 +2,6 @@ node_modules/
 dist/
 # sauvegardes automatiques de Blender
 *.blend1
+dist-php/
+# configuration secrète des fonctions PHP (modèle : php/api/lib/ctnrace-config.example.php)
+ctnrace-config.php

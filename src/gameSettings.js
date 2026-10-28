@@ -21,7 +21,7 @@ export const SETTINGS = [
 ];
 
 export { MAX_DELIVERIES };
-const MAX_REWARD = 100000;
+export const MAX_REWARD = 100000;
 const isInt = (value, min, max) => Number.isInteger(value) && value >= min && value <= max;
 
 export const DEFAULT_SETTINGS = Object.fromEntries(SETTINGS.map((setting) => [setting.key, setting.default]));

@@ -1,0 +1,19 @@
+# Hébergement PHP (Apache, cPanel...) du jeu ctnRacer : fichiers du jeu + fonctions serveur dans api/
+Options -Indexes
+DirectoryIndex index.html index.php
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  # En-tête Authorization transmis à PHP (jeton du joueur pour les paiements ; certains serveurs le retirent)
+  RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+  # Outils internes et configuration : interdits
+  RewriteRule ^api/lib(/|$) - [F,L]
+  # Adresses du jeu sans « .php » : /api/config → api/config.php
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteRule ^api/([a-z-]+)/?$ api/$1.php [L,QSA]
+</IfModule>
+
+# Types des fichiers du jeu
+AddType model/gltf-binary .glb
+AddType image/webp .webp
+AddType image/svg+xml .svg
