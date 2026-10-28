@@ -11,12 +11,14 @@ import { FRIC_PACKS } from '../../src/fric.js';
 
 export { FRIC_PACKS };
 
-let ready = null;
+let ready = null; // Firebase + FedaPay (Boutique)
+let firebaseReady = null; // Firebase seul (réglages du jeu, interface admin)
 
 // Erreur de configuration : message affichable (aucune valeur secrète dedans)
 class SetupError extends Error {}
 
-async function prepare() {
+// Firebase Admin seul : { auth, db, FieldValue, project }
+async function prepareFirebase() {
   // Clé de compte de service Firebase (JSON). Si la clé privée a été collée avec de vrais retours à la ligne au
   // lieu de « \n », on les remet en « \n » avant de lire le JSON.
   const raw = (process.env.FIREBASE_SERVICE_ACCOUNT ?? '').trim();
@@ -38,36 +40,35 @@ async function prepare() {
   }
   account.private_key = account.private_key.replace(/\\n/g, '\n');
 
-  const secretKey = (process.env.FEDAPAY_SECRET_KEY ?? '').trim();
-  if (!/^sk_(sandbox|live)_/.test(secretKey)) {
-    throw new SetupError('Variable FEDAPAY_SECRET_KEY absente ou invalide (doit commencer par sk_sandbox_ ou sk_live_)');
-  }
-
   const { initializeApp, getApps, cert } = await step('chargement de firebase-admin/app', () => import('firebase-admin/app'));
   const { getAuth } = await step('chargement de firebase-admin/auth', () => import('firebase-admin/auth'));
   const { getFirestore, FieldValue } = await step('chargement de firebase-admin/firestore', () =>
     import('firebase-admin/firestore')
   );
-  const fedapay = await step('chargement de fedapay', () => import('fedapay'));
-  const { FedaPay, Transaction } = fedapay.FedaPay ? fedapay : fedapay.default; // module CommonJS
-
-  // Firebase Admin : ignore les règles de sécurité (seul le serveur peut écrire le champ fric)
+  // Firebase Admin : ignore les règles de sécurité (seul le serveur peut écrire le champ fric et les réglages)
   await step('clé de compte de service Firebase', () => {
     if (!getApps().length) initializeApp({ credential: cert(account) });
   });
+  return { auth: getAuth(), db: getFirestore(), FieldValue, project: account.project_id };
+}
+
+// Firebase + FedaPay (Boutique)
+async function prepare() {
+  const base = await firebase();
+  const secretKey = (process.env.FEDAPAY_SECRET_KEY ?? '').trim();
+  if (!/^sk_(sandbox|live)_/.test(secretKey)) {
+    throw new SetupError('Variable FEDAPAY_SECRET_KEY absente ou invalide (doit commencer par sk_sandbox_ ou sk_live_)');
+  }
+
+  const fedapay = await step('chargement de fedapay', () => import('fedapay'));
+  const { FedaPay, Transaction } = fedapay.FedaPay ? fedapay : fedapay.default; // module CommonJS
+
   // FedaPay : environnement d'essai ou réel selon la clé
   await step('réglage de FedaPay', () => {
     FedaPay.setApiKey(secretKey);
     FedaPay.setEnvironment(secretKey.startsWith('sk_live_') ? 'live' : 'sandbox');
   });
-  return {
-    auth: getAuth(),
-    db: getFirestore(),
-    FieldValue,
-    Transaction,
-    mode: secretKey.startsWith('sk_live_') ? 'live' : 'sandbox',
-    project: account.project_id,
-  };
+  return { ...base, Transaction, mode: secretKey.startsWith('sk_live_') ? 'live' : 'sandbox' };
 }
 
 // Étape de la préparation : en cas d'échec, erreur de configuration qui nomme l'étape (message d'erreur de la
@@ -78,6 +79,15 @@ async function step(label, fn) {
   } catch (error) {
     throw new SetupError(`${label} : ${String(error?.message ?? error).slice(0, 200)}`);
   }
+}
+
+// Firebase prêt : { auth, db, FieldValue, project } (préparé une fois, gardé entre les demandes)
+export function firebase() {
+  firebaseReady ??= prepareFirebase().catch((error) => {
+    firebaseReady = null; // nouvel essai à la prochaine demande
+    throw error;
+  });
+  return firebaseReady;
 }
 
 // Outils prêts : { auth, db, FieldValue, Transaction } (préparés une fois, gardés entre les demandes)

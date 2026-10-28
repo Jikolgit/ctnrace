@@ -30,6 +30,7 @@ import { createGuide } from './guide.js';
 import { createTraffic } from './traffic.js';
 import { extractVehicles, setVehicleLights } from './vehicles.js';
 import { createStreetLights } from './streetLights.js';
+import { settings } from './settings.js';
 import { createCameraTuner } from './cameraTuner.js';
 import { DELIVERY_REWARD, FUEL_PRICE, getMoney, addMoney, setMoney } from './wallet.js';
 import { FRIC_PACKS, formatFric, setFric } from './fric.js';
@@ -1342,7 +1343,9 @@ const clockFormat = new Intl.DateTimeFormat('fr-FR', {
   minute: '2-digit',
   hourCycle: 'h23',
 });
-const forcedHour = Number.parseFloat(new URLSearchParams(location.search).get('heure'));
+// Sinon, heure fixe choisie dans l'interface admin (/admin, réglage « hour » : null = heure réelle)
+const urlHour = Number.parseFloat(new URLSearchParams(location.search).get('heure'));
+const forcedHour = Number.isFinite(urlHour) ? urlHour : (settings.hour ?? NaN);
 
 // Heure de Cotonou en heures décimales (14 h 30 → 14,5)
 function cotonouHours() {

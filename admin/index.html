@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>ctnRacer – Admin</title>
+    <style>
+      body {
+        max-width: 560px;
+        margin: 0 auto;
+        padding: 16px;
+        font: 16px/1.5 system-ui, sans-serif;
+      }
+      label {
+        display: block;
+        margin: 10px 0;
+      }
+      fieldset {
+        margin: 12px 0;
+      }
+      button,
+      input,
+      select {
+        font: inherit;
+      }
+      [hidden] {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>ctnRacer – Admin</h1>
+
+    <!-- Connexion : identifiants vérifiés par le serveur (api/admin.js) -->
+    <form id="login">
+      <label>Nom d'utilisateur <input name="user" autocomplete="username" required /></label>
+      <label>Mot de passe <input name="password" type="password" autocomplete="current-password" required /></label>
+      <button type="submit">Se connecter</button>
+    </form>
+
+    <!-- Réglages du jeu (liste dans src/gameSettings.js), enregistrés pour tous les joueurs -->
+    <form id="settings" hidden>
+      <div id="fields"></div>
+      <p>
+        <button type="submit">Sauvegarder</button>
+        <a href="/">Retour au jeu</a>
+      </p>
+    </form>
+
+    <p id="message" role="status"></p>
+    <p><small>Les changements s'appliquent à tous les joueurs au prochain lancement du jeu (rechargement de la page).</small></p>
+
+    <script type="module" src="./admin.js"></script>
+  </body>
+</html>

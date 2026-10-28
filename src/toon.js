@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { applyWorldBend } from './worldBend.js';
+import { settings } from './settings.js';
 
 // Effet cartoon (moto) :
 //  - éclairage en aplats (MeshToonMaterial) : la lumière est découpée en TONES paliers nets
@@ -9,9 +10,9 @@ import { applyWorldBend } from './worldBend.js';
 //    dont on n'affiche que les faces arrière (« inverted hull ») ; elle dépasse autour de la pièce
 //    et dessine un trait.
 
-// Interrupteur de l'effet (false : rendu normal MeshStandardMaterial, sans contour). Désactivé puis remis à la
-// demande de l'utilisateur (octobre 2026).
-export const CARTOON = true;
+// Interrupteur de l'effet (false : rendu normal MeshStandardMaterial, sans contour), réglé dans l'interface admin
+// (/admin, réglage « cartoon » de gameSettings.js ; actif par défaut).
+export const CARTOON = settings.cartoon;
 
 // Effet adouci (octobre 2026, demande de l'utilisateur ; avant : [90, 170, 255] et 0,022 m) : paliers plus proches
 // (ombres moins tranchées) et palier clair plus bas (les couleurs ne sont plus blanchies)
