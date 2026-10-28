@@ -38,6 +38,7 @@ import { getMoney, addMoney, setMoney } from './wallet.js';
 import { FRIC_PACKS, formatFric, setFric } from './fric.js';
 import { STATIONS, MAP_WIDTH, MAP_HEIGHT } from './deliveryMap.js';
 import { atlas } from './atlas.js';
+import { glbLoading, hideLoadingScreen } from './loadingScreen.js';
 import { createGarage, savedBike, saveBike } from './garage.js';
 
 const canvas = document.getElementById('game');
@@ -585,10 +586,30 @@ new GLTFLoader().load(
       obstacles = createObstacles(challengeWorld, vehicles, track);
       carModels = vehicles;
     }
+    modelsReady = true;
+    hideLoaderWhenReady();
   },
-  undefined,
-  (error) => console.error('Impossible de charger models.glb', error)
+  glbLoading,
+  (error) => {
+    console.error('Impossible de charger models.glb', error);
+    hideLoadingScreen(); // le menu s'affiche quand même
+  }
 );
+
+// Écran de chargement retiré quand tout est prêt : modèles, textures (atlas…), police du menu ; les shaders sont
+// compilés avant le fondu (sinon la première image du menu se fige un instant)
+let modelsReady = false;
+let texturesReady = false;
+THREE.DefaultLoadingManager.onLoad = () => {
+  texturesReady = true;
+  hideLoaderWhenReady();
+};
+async function hideLoaderWhenReady() {
+  if (!modelsReady || !texturesReady) return;
+  await document.fonts.ready;
+  await renderer.compileAsync(scene, camera).catch(() => {});
+  requestAnimationFrame(() => requestAnimationFrame(hideLoadingScreen)); // après deux images dessinées
+}
 
 // Pause : le jeu se fige et le panneau Pause (Reprendre / Menu principal) remplace le bouton Pause
 let paused = false;

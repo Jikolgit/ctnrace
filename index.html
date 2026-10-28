@@ -4,8 +4,82 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ctnRacer</title>
+    <!-- Écran de chargement : styles ici (et non dans style.css, chargé avec le code) pour qu'il couvre la page dès le
+         premier affichage, avant les boutons du menu -->
+    <style>
+      #loader {
+        position: fixed;
+        inset: 0;
+        z-index: 1000;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 22px;
+        background: radial-gradient(circle at 50% 40%, #2c5a4c, #10241d);
+        color: #fff;
+        font: 600 15px/1 system-ui, sans-serif;
+        transition: opacity 0.6s ease;
+      }
+      #loader.done {
+        opacity: 0;
+        pointer-events: none;
+      }
+      #loader .loader-title {
+        margin: 0;
+        font: 400 clamp(44px, 9vw, 84px)/1 'Anton', Impact, sans-serif;
+        letter-spacing: 0.02em;
+        -webkit-text-stroke: 3px #10241d;
+        paint-order: stroke fill;
+        text-shadow: 0 5px 0 #10241d;
+      }
+      #loader .loader-title span {
+        color: #ff8a3d;
+      }
+      #loader .loader-bar {
+        width: min(320px, 70vw);
+        height: 14px;
+        padding: 3px;
+        border-radius: 10px;
+        background: #10241d;
+        box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.22);
+      }
+      #loader .loader-fill {
+        width: 0;
+        height: 100%;
+        border-radius: 7px;
+        background: linear-gradient(#ffb070, #ff8a3d);
+      }
+      #loader .loader-text {
+        margin: 0;
+        opacity: 0.8;
+        font-variant-numeric: tabular-nums;
+      }
+    </style>
   </head>
   <body class="in-menu">
+    <div id="loader" role="progressbar" aria-label="Chargement du jeu" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+      <h1 class="loader-title">ctn<span>Racer</span></h1>
+      <div class="loader-bar"><div class="loader-fill"></div></div>
+      <p class="loader-text">Chargement… 0 %</p>
+    </div>
+    <script>
+      // Pendant le téléchargement du code du jeu, la barre avance déjà un peu (jusqu'à 15 %) ; loadingScreen.js prend
+      // la suite à partir de là (data-js)
+      (function () {
+        var loader = document.getElementById('loader');
+        var fill = loader.querySelector('.loader-fill');
+        var text = loader.querySelector('.loader-text');
+        var start = Date.now();
+        (function grow() {
+          if (loader.dataset.js) return;
+          var progress = 15 * (1 - Math.exp((start - Date.now()) / 2500));
+          fill.style.width = progress + '%';
+          text.textContent = 'Chargement… ' + Math.round(progress) + ' %';
+          requestAnimationFrame(grow);
+        })();
+      })();
+    </script>
     <canvas id="game"></canvas>
     <div id="menu">
       <!-- Côté gauche : les motos s'y afficheront (vide pour l'instant, la scène 3D reste visible derrière) -->

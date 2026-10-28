@@ -63,6 +63,7 @@ docs/idees-gameplay.md  idées de gameplay de l'utilisateur, à noter au fil des
 tools/drawDeliveryMap.mjs  dessine le plan du réseau dans docs/reseau-livraison.svg (node tools/drawDeliveryMap.mjs)
 admin/index.html, admin/admin.js  interface admin (/admin, voir « Interface admin ») ; src/gameSettings.js liste des réglages (partagée jeu / admin / serveur) ; src/settings.js réglages lus au lancement (/api/config) ; api/config.js, api/admin.js ; vite.config.js (2 pages) ; vercel.json (/admin)
 src/streetLights.js mode Livraison : lampadaires du terre-plein des grandes routes (modèle `lampadaire`), lampe allumée et tache de lumière au sol la nuit
+src/loadingScreen.js écran de chargement (#loader, HTML + styles + petit script dans index.html : visible dès l'ouverture) : barre de progression (models.glb 85 %, autres textures), retiré en fondu (0,6 s) quand modèles, textures et police sont prêts et les shaders compilés (`hideLoaderWhenReady`, main.js)
 src/smoke.js        fumée d'échappement : pool de sprites (dans la scène, pas dans `world` : repère de la caméra)
 src/worldBend.js    effet de courbure du monde (vertex shader) : applyWorldBend(material), bendUniforms
 src/atlas.js        texture partagée bikeTXT.jpg + position des pavés dans l'atlas
