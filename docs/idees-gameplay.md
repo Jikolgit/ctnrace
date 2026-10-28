@@ -50,3 +50,14 @@ sauf mention contraire (« ✅ fait »).
 - À préciser : ce qui fait échouer la mission (véhicule perdu de vue, trop loin, trop près, collision), si le
   véhicule roule plus vite ou fait des détours, ce qu'on fait à l'arrivée (livrer, récupérer un colis…),
   ligne de guidage absente pendant la filature.
+
+### Boîtes de récompense aléatoire (gacha)
+
+- Un **système de récompenses aléatoires (gacha)** : des **boîtes à ramasser pendant les livraisons** (en roulant
+  dessus, comme les bidons d'essence) ; chaque boîte donne une récompense tirée au hasard.
+- À préciser : contenu possible des boîtes (Fric, essence, motos ou pièces de moto, objets cosmétiques…) et
+  chances de chaque récompense (raretés), ouverture tout de suite ou plus tard (dans le menu, avec une animation),
+  nombre de boîtes par mission et emplacements (fixes ou au hasard), boîtes achetables en Fric ou non, réglages
+  dans l'interface admin (chances, contenu).
+- À garder en tête : si des boîtes s'achètent avec de l'argent réel, certains pays et magasins d'applications
+  demandent d'**afficher les chances** de chaque récompense.
