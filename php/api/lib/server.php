@@ -1,7 +1,8 @@
 <?php
 // Outils communs des fonctions serveur PHP (version PHP des fonctions Vercel du dossier api/ : même comportement).
 // Aucune bibliothèque externe : appels directs aux API de Google (Firebase : jetons, Firestore) et de FedaPay, avec
-// les extensions curl et openssl de PHP (présentes sur presque tous les hébergements). PHP 7.4 ou plus.
+// les extensions curl et openssl de PHP (présentes sur presque tous les hébergements). Code compatible PHP 7.4 ou
+// plus, mais n'utiliser qu'une version de PHP à jour (failles PHP2Shell d'octobre 2026 : voir docs/hebergement-php.md).
 // Ce dossier (api/lib) est fermé aux visiteurs (.htaccess) : il ne contient que des fonctions.
 //
 // Réglages secrets (jamais dans le dépôt) : variables d'environnement de l'hébergeur si possible, sinon le fichier

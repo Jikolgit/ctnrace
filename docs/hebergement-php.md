@@ -3,8 +3,25 @@
 Le jeu et ses 5 fonctions serveur (paiements FedaPay, réglages de l'interface admin) existent en deux versions :
 - **Vercel** (dossier `api/`, Node.js) : utilisée aujourd'hui sur ctnrace.vercel.app ;
 - **PHP** (dossier `php/`) : pour un hébergement web classique. Aucune bibliothèque à installer (ni Composer) :
-  il faut seulement **PHP 7.4 ou plus** avec les extensions **curl** et **openssl** (présentes presque partout),
-  et un serveur **Apache** (fichier `.htaccess`).
+  il faut seulement une **version de PHP à jour** (voir « Sécurité : version de PHP » ci-dessous) avec les extensions
+  **curl** et **openssl** (présentes presque partout), et un serveur **Apache** (fichier `.htaccess`).
+
+## Sécurité : version de PHP
+
+Le code des fonctions marche à partir de PHP 7.4, mais **seule une version de PHP à jour est sûre**. En octobre 2026,
+deux failles graves de PHP lui-même (« PHP2Shell », CVE-2026-109618 et CVE-2026-109619, déjà exploitées par des
+pirates) permettent de prendre le contrôle d'un serveur sans mot de passe, quel que soit le code du site. Elles sont
+corrigées dans **PHP 8.2.35, 8.3.36, 8.4.27 et 8.5.12** ; PHP 8.1 et plus ancien ne reçoivent plus de correctifs.
+
+- Dans cPanel (« Sélectionner une version de PHP »), choisir **PHP 8.3.36 ou plus récent** (ou 8.4.27, 8.5.12…),
+  **jamais 8.1 ou plus ancien**.
+- Sur un hébergement mutualisé, c'est l'hébergeur qui installe les mises à jour de PHP : lui demander s'il a appliqué
+  ces correctifs, et suivre ses annonces de sécurité.
+- Faille CVE-2026-115560 (annoncée le 23 octobre 2026, pas encore corrigée) : elle ne touche qu'un réglage des
+  sessions PHP ; les fonctions du jeu n'utilisent pas les sessions. Le contournement conseillé
+  (`session.upload_progress.enabled=0`) est sans effet sur le jeu : l'hébergeur peut l'appliquer.
+- Vérifier les numéros de version sur php.net (rubrique sécurité) au moment de l'installation : de nouvelles
+  versions corrigées sortent régulièrement.
 
 ## 1. Construire
 
