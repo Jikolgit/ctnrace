@@ -66,7 +66,7 @@ const challengeButton = document.getElementById('mode-challenge');
 const deliveryButton = document.getElementById('mode-delivery');
 const minimap = createMinimap(document.getElementById('minimap'));
 const fuelGauge = document.getElementById('fuel');
-createSpeedometer(); // compteur de vitesse (bas gauche, au-dessus du bouton ◀)
+if (settings.speedometer) createSpeedometer(); // compteur de vitesse (bas gauche, au-dessus du bouton ◀), réglage de l'admin
 const fuelLevel = fuelGauge.querySelector('.level');
 const fuelValue = fuelGauge.querySelector('.value');
 const gameOverReason = document.getElementById('gameover-reason');

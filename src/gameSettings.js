@@ -18,6 +18,7 @@ export const SETTINGS = [
     maxLength: 30,
   },
   { key: 'cartoon', label: 'Effet cartoon des motos (aplats de lumière + contour noir)', type: 'boolean', default: true },
+  { key: 'speedometer', label: 'Compteur de vitesse (en bas à gauche pendant la partie)', type: 'boolean', default: true },
   { key: 'hour', label: 'Heure du jeu (ciel, brouillard, lampadaires, phares)', type: 'hour', default: null },
   {
     key: 'missions',
