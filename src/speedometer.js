@@ -66,7 +66,8 @@ export function createSpeedometer() {
   el('polygon', { points: `${CX - 2},${CY + 10} ${CX + 2},${CY + 10} ${CX},${CY - 78}`, fill: '#fff' }, needle);
   el('circle', { cx: CX, cy: CY, r: 6, fill: '#fff' }, svg);
 
-  document.body.appendChild(root);
+  // Placé avant les boutons tactiles : les panneaux qui suivent dans la page (Pause, fin de mission...) passent par-dessus
+  document.body.insertBefore(root, document.getElementById('touch-controls'));
   return root;
 }
 
