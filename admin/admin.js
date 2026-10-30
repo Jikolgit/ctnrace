@@ -186,3 +186,15 @@ settingsForm.addEventListener('submit', (event) => {
   event.preventDefault();
   save().catch(() => {}); // message déjà affiché
 });
+
+// Bouton vers le visualiseur des modèles 3D du jeu (page /modeles, voir modeles/viewer.js), sous Sauvegarder et
+// Retour au jeu
+const modelsButton = document.createElement('button');
+modelsButton.type = 'button';
+modelsButton.textContent = 'Voir les modèles 3D';
+modelsButton.addEventListener('click', () => {
+  location.href = '/modeles/';
+});
+const modelsRow = document.createElement('p');
+modelsRow.append(modelsButton);
+settingsForm.append(modelsRow);
