@@ -41,6 +41,7 @@ import { STATIONS, MAP_WIDTH, MAP_HEIGHT } from './deliveryMap.js';
 import { atlas } from './atlas.js';
 import { glbLoading, hideLoadingScreen } from './loadingScreen.js';
 import { createGarage, savedBike, saveBike } from './garage.js';
+import { createSpeedometer, updateSpeedometer } from './speedometer.js';
 
 const canvas = document.getElementById('game');
 const distanceDisplay = document.getElementById('distance');
@@ -65,6 +66,7 @@ const challengeButton = document.getElementById('mode-challenge');
 const deliveryButton = document.getElementById('mode-delivery');
 const minimap = createMinimap(document.getElementById('minimap'));
 const fuelGauge = document.getElementById('fuel');
+createSpeedometer(); // compteur de vitesse (bas gauche, au-dessus du bouton ◀)
 const fuelLevel = fuelGauge.querySelector('.level');
 const fuelValue = fuelGauge.querySelector('.value');
 const gameOverReason = document.getElementById('gameover-reason');
@@ -1534,6 +1536,7 @@ function animate(timestamp) {
     }
     // Feu stop : allumé pendant les freinages
     setBrakeLight((started && braking) || deliveryState === 'braking' || (delivery && fuel <= 0 && speed > 0));
+    updateSpeedometer(speed * 3.6); // m/s → km/h
     const step = speed * delta; // distance parcourue pendant cette image
     updateTurnHold(delta, step); // virage confirmé par un appui maintenu
 
