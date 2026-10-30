@@ -1,0 +1,1643 @@
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #000;
+}
+
+#hud {
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  font: bold 24px/1 system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  user-select: none;
+}
+
+#pause {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  padding: 8px 14px;
+  border: 0;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  font: bold 18px/1 system-ui, sans-serif;
+  cursor: pointer;
+}
+
+#pause:hover {
+  background: rgba(0, 0, 0, 0.7);
+}
+
+#gameover,
+#pause-menu {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+  font-family: system-ui, sans-serif;
+  color: #fff;
+}
+
+#gameover[hidden],
+#pause-menu[hidden] {
+  display: none;
+}
+
+#gameover .panel,
+#pause-menu .panel {
+  padding: 28px 40px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.7);
+  text-align: center;
+}
+
+#gameover h1,
+#pause-menu h1 {
+  margin: 0 0 12px;
+  font-size: 44px;
+}
+
+#gameover p {
+  margin: 0 0 20px;
+  font-size: 22px;
+  font-variant-numeric: tabular-nums;
+}
+
+#gameover .hint,
+#pause-menu .hint {
+  margin: 12px 0 0;
+  font-size: 14px;
+  opacity: 0.7;
+}
+
+#restart,
+#resume {
+  padding: 10px 24px;
+  border: 0;
+  border-radius: 8px;
+  background: #e8642a;
+  color: #fff;
+  font: bold 20px/1 system-ui, sans-serif;
+  cursor: pointer;
+}
+
+#restart:hover,
+#resume:hover {
+  background: #ff7a3d;
+}
+
+#game {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Boutons tactiles : visibles uniquement sur les écrans tactiles (mobile, tablette) */
+#touch-controls {
+  display: none;
+}
+
+@media (hover: none) and (pointer: coarse) {
+  #touch-controls {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: calc(24px + env(safe-area-inset-bottom));
+    display: flex;
+    justify-content: space-between;
+    padding: 0 24px;
+    pointer-events: none; /* seuls les boutons captent le toucher */
+  }
+}
+
+#touch-controls button {
+  width: 84px;
+  height: 84px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  font: bold 34px/1 system-ui, sans-serif;
+  pointer-events: auto;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#touch-controls button:active {
+  background: rgba(232, 100, 42, 0.8);
+}
+
+/* Flèches de virage : clignotent à l'approche d'un carrefour (la gauche est l'image retournée) */
+#turn-arrows {
+  position: fixed;
+  top: 18%;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  gap: 40px;
+  pointer-events: none;
+}
+
+/* Flèche grise tant qu'on ne maintient pas un bouton de virage ; pendant l'appui, la flèche en couleur (posée
+   par-dessus) se découvre de la queue vers la pointe (--hold : 0 → 1, mis à jour par main.js à chaque image).
+   Le masque suit la flèche retournée (gauche) ou tournée (demi-tour). */
+.turn-arrow {
+  display: grid;
+  width: min(22vw, 140px);
+}
+
+.turn-arrow[hidden] {
+  display: none;
+}
+
+.turn-arrow img {
+  grid-area: 1 / 1; /* les deux images l'une sur l'autre */
+  width: 100%;
+}
+
+.turn-arrow .base {
+  filter: grayscale(1) brightness(0.9);
+}
+
+.turn-arrow .fill {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(var(--hold, 0) * 100%), transparent calc(var(--hold, 0) * 100%));
+  mask-image: linear-gradient(to right, #000 calc(var(--hold, 0) * 100%), transparent calc(var(--hold, 0) * 100%));
+}
+
+#arrow-left {
+  transform: scaleX(-1);
+}
+
+/* Menu principal et écran des missions (inspirés de MineFun.io) : à gauche, la scène 3D visible (les motos s'y afficheront) ; à droite,
+   un panneau vert foncé avec le logo, le bouton Moto en haut à droite et une grille de vignettes de modes */
+#menu,
+#missions,
+#garage,
+#shop {
+  --tile-border: rgba(255, 255, 255, 0.35); /* bords fins des vignettes */
+  --panel-border: rgba(255, 255, 255, 0.22); /* bord fin du panneau */
+  position: fixed;
+  inset: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 32%) minmax(0, 1fr);
+  box-sizing: border-box;
+  font-family: system-ui, sans-serif;
+  color: #fff;
+  user-select: none;
+  -webkit-user-select: none;
+  pointer-events: none; /* le côté gauche laisse passer : seuls les panneaux captent les clics */
+}
+
+:is(#menu, #missions, #garage, #shop) .menu-side {
+  min-height: 0;
+}
+
+:is(#menu, #missions, #garage, #shop) .menu-main {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 12px 16px 16px;
+  box-sizing: border-box;
+  overflow-y: auto;
+  /* Toute la hauteur de l'écran (ordinateur) ; fond un peu transparent : la scène se devine derrière */
+  border-left: 1px solid var(--panel-border);
+  background: rgba(31, 61, 52, 0.85);
+  box-shadow: -6px 0 24px rgba(0, 0, 0, 0.35);
+  pointer-events: auto;
+}
+
+/* Barre du haut : logo au centre, boutons à droite */
+:is(#menu, #missions, #garage, #shop) .menu-top {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+}
+
+:is(#menu, #missions, #garage, #shop) .menu-actions {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: flex;
+  gap: 8px;
+}
+
+/* Grille des modes : vignettes carrées, nom en bas */
+#menu .modes {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+
+#menu .mode-tile {
+  position: relative;
+  aspect-ratio: 1;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--tile-border); /* bord fin, comme dans Voxel Wreck */
+  border-radius: 8px;
+  font: inherit;
+  color: #fff;
+  cursor: pointer;
+  transition: transform 0.12s, border-color 0.12s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Couleurs vives, presque unies, comme la vignette « GRAT. » de MineFun (violet #a314ec) : un peu plus claires
+   au centre, un peu plus foncées sur les bords */
+#menu .mode-tile.delivery {
+  background: radial-gradient(circle at 50% 40%, #c95cff 0%, #a314ec 55%, #8410cf 100%);
+}
+
+#menu .mode-tile.challenge {
+  background: radial-gradient(circle at 50% 40%, #5cc0ff 0%, #1d8cff 55%, #0f66dc 100%);
+}
+
+#menu .mode-tile.bike {
+  background: radial-gradient(circle at 50% 40%, #ffb347 0%, #ff7a00 55%, #d95a00 100%);
+}
+
+#menu .mode-tile.shop {
+  background: radial-gradient(circle at 50% 40%, #7ff28f 0%, #2ed35a 55%, #17a33f 100%);
+}
+
+/* Vignette « Bientôt » (non cliquable), pour un futur mode */
+#menu .mode-tile.soon {
+  background: radial-gradient(circle at 50% 35%, #e2e2e2 0%, #b4b4b4 50%, #7d7d7d 100%);
+  cursor: default;
+}
+
+#menu .mode-tile .art {
+  position: absolute;
+  inset: 0 0 18% 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#menu .mode-tile .art img {
+  width: 64%; /* icônes recadrées au plus près (256 px, fond transparent) */
+  filter: drop-shadow(0 6px 4px rgba(0, 0, 0, 0.35));
+  transition: transform 0.15s;
+}
+
+#menu .mode-tile .label {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 22px 4px 7px;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.6));
+  font: 400 clamp(15px, 2.2vw, 20px)/1 'Anton', Impact, sans-serif;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-align: center;
+  text-shadow: 0 2px 0 #000;
+}
+
+#menu .mode-tile:not(.soon):hover,
+#menu .mode-tile:not(.soon):focus-visible {
+  transform: translateY(-3px);
+  border-color: #fff;
+  outline: none;
+}
+
+#menu .mode-tile:not(.soon):hover .art img,
+#menu .mode-tile:not(.soon):focus-visible .art img {
+  transform: scale(1.08);
+}
+
+#menu .mode-tile:not(.soon):active {
+  transform: translateY(1px);
+}
+
+/* Téléphone en portrait : la scène (motos) en haut, le panneau en dessous */
+@media (max-aspect-ratio: 1/1) {
+  #menu,
+  #missions,
+  #garage,
+  #shop {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 34%) minmax(0, 1fr);
+  }
+
+  /* Téléphone : toute la largeur de l'écran, bordure en haut */
+  :is(#menu, #missions, #garage, #shop) .menu-main {
+    border-left: 0;
+    border-top: 1px solid var(--panel-border);
+    box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.35);
+  }
+
+  :is(#menu, #missions, #garage, #shop) .menu-top {
+    justify-content: flex-start;
+  }
+
+  #menu .modes {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+body:not(.in-menu) #menu {
+  display: none;
+}
+
+/* Pendant le menu : pas de HUD, de bouton pause, de flèches ni de boutons tactiles */
+body.in-menu #hud,
+body.in-menu #pause,
+body.in-menu #turn-arrows,
+body.in-menu #touch-controls {
+  display: none;
+}
+
+/* Pendant la pause : le panneau Pause remplace le bouton Pause */
+#pause[hidden] {
+  display: none;
+}
+
+/* Logo : blanc à contour foncé, « Racer » orange */
+#menu .title,
+#missions .title,
+#garage .title,
+#shop .title {
+  margin: 0;
+  font: 400 clamp(30px, 5vw, 52px)/1 'Anton', Impact, sans-serif;
+  letter-spacing: 0.02em;
+  color: #fff;
+  -webkit-text-stroke: 3px #10241d;
+  paint-order: stroke fill;
+  text-shadow: 0 4px 0 #10241d;
+}
+
+#menu .title span {
+  color: #ff8a3d;
+}
+
+/* Écran Game Over : Rejouer et Menu côte à côte */
+#gameover .actions,
+#pause-menu .actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}
+
+#to-menu,
+#pause-to-menu {
+  padding: 10px 24px;
+  border: 0;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  font: bold 20px/1 system-ui, sans-serif;
+  cursor: pointer;
+}
+
+#to-menu:hover,
+#pause-to-menu:hover {
+  background: rgba(255, 255, 255, 0.28);
+}
+
+/* Carte du quartier (Livraison) : seulement dans le panneau Pause, au-dessus des boutons */
+#minimap {
+  display: none;
+  width: min(80vw, 420px, calc((100vh - 240px) / 0.83));
+  height: auto;
+  margin: 0 auto 18px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-radius: 10px;
+  background: rgba(20, 26, 32, 0.85);
+}
+
+body.delivery #minimap {
+  display: block;
+}
+
+/* Jauge d'essence du mode Livraison : verticale, sous le compteur de distance (coin supérieur gauche) */
+#fuel {
+  position: fixed;
+  top: 68px;
+  left: 16px;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 8px 6px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+  user-select: none;
+}
+
+body.delivery:not(.in-menu) #fuel {
+  display: flex;
+}
+
+#fuel img {
+  width: 34px;
+  height: 34px;
+}
+
+#fuel .bar {
+  position: relative;
+  width: 18px;
+  height: clamp(60px, 20vh, 140px); /* plus courte sur un écran peu haut : ne touche pas la mini-carte */
+  border: 2px solid #1b1b1b;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.2);
+  overflow: hidden;
+}
+
+/* Niveau : hauteur réglée par main.js (transform scaleY), du bas vers le haut */
+#fuel .level {
+  position: absolute;
+  inset: 0;
+  background: #4caf50;
+  transform-origin: bottom;
+  transition: background-color 0.3s;
+}
+
+#fuel.medium .level {
+  background: #f5a623;
+}
+
+#fuel.low .level {
+  background: #e53935;
+  animation: fuel-blink 0.5s steps(2, jump-none) infinite alternate;
+}
+
+#fuel .value {
+  color: #fff;
+  font: bold 14px/1 system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Bidon ramassé : la jauge grossit un instant */
+#fuel.refuel {
+  animation: fuel-pop 0.4s ease-out;
+}
+
+@keyframes fuel-blink {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0.35;
+  }
+}
+
+@keyframes fuel-pop {
+  50% {
+    transform: scale(1.15);
+  }
+}
+
+/* Écran des missions (Livraison) : même mise en page que le menu principal (règles partagées plus haut),
+   à sa place quand il est ouvert */
+#missions {
+  display: none;
+}
+
+body.in-missions #missions {
+  display: grid;
+}
+
+body.in-missions #menu {
+  display: none;
+}
+
+/* Bouton Retour en haut à droite (icône de fermeture, plus petite qu'en bas des écrans) */
+:is(#missions, #garage) .menu-actions .close-button {
+  margin: 0;
+}
+
+:is(#missions, #garage) .menu-actions .close-button img {
+  width: 40px;
+  height: 40px;
+}
+
+/* Écrans à bouton Retour en bas (Missions, Moto) : seule la grille défile, le bouton reste en bas du panneau */
+:is(#missions, #garage, #shop) .menu-main {
+  overflow: hidden;
+}
+
+:is(#missions .grid, #garage .bikes, #shop .packs) {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  align-content: start;
+  grid-auto-rows: max-content; /* sinon les lignes se tassent pour tenir dans la hauteur et écrasent les vignettes */
+  padding: 3px 6px 10px 3px; /* place pour le soulèvement des vignettes au survol ; à droite, pour la barre */
+}
+
+/* Barre de défilement comme dans Voxel Wreck : fine, gris clair, sans rail */
+:is(#missions .grid, #garage .bikes, #shop .packs) {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(200, 212, 206, 0.6) transparent;
+}
+
+:is(#missions .grid, #garage .bikes, #shop .packs)::-webkit-scrollbar {
+  width: 4px;
+}
+
+:is(#missions .grid, #garage .bikes, #shop .packs)::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+:is(#missions .grid, #garage .bikes, #shop .packs)::-webkit-scrollbar-thumb {
+  background: rgba(200, 212, 206, 0.6);
+  border-radius: 2px;
+}
+
+/* Missions : vignettes carrées comme les modes du menu (numéro au centre, « Mission » en bas) */
+#missions .grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+
+/* Téléphone en portrait : 3 vignettes par ligne, comme le menu */
+@media (max-aspect-ratio: 1/1) {
+  #missions .grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.mission {
+  position: relative;
+  aspect-ratio: 1;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--tile-border); /* bord fin, comme dans Voxel Wreck */
+  border-radius: 8px;
+  background: radial-gradient(circle at 50% 40%, var(--light) 0%, var(--base) 55%, var(--dark) 100%);
+  --light: #c95cff;
+  --base: #a314ec;
+  --dark: #8410cf;
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+  transition: transform 0.12s, border-color 0.12s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mission .num {
+  position: absolute;
+  inset: 0 0 18% 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font: 400 clamp(44px, 7vw, 72px)/1 'Anton', Impact, sans-serif;
+  color: #fff;
+  -webkit-text-stroke: 3px #10241d;
+  paint-order: stroke fill;
+  text-shadow: 0 4px 0 #10241d;
+}
+
+.mission .label {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 22px 4px 7px;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.6));
+  font: 400 clamp(15px, 2.2vw, 20px)/1 'Anton', Impact, sans-serif;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-align: center;
+  text-shadow: 0 2px 0 #000;
+}
+
+.mission:not(:disabled):hover,
+.mission:not(:disabled):focus-visible {
+  transform: translateY(-3px);
+  border-color: #fff;
+  outline: none;
+}
+
+.mission:not(:disabled):active {
+  transform: translateY(1px);
+}
+
+/* Une couleur vive par mission (violet, rose, turquoise, orange, vert, puis on recommence) */
+.mission:nth-child(5n + 2) {
+  --light: #ff7cc4;
+  --base: #ff2d95;
+  --dark: #d81775;
+}
+
+.mission:nth-child(5n + 3) {
+  --light: #5ff0f2;
+  --base: #12c4d4;
+  --dark: #0b97b0;
+}
+
+.mission:nth-child(5n + 4) {
+  --light: #ffb35c;
+  --base: #ff7a1a;
+  --dark: #e05a00;
+}
+
+.mission:nth-child(5n + 5) {
+  --light: #7ff28f;
+  --base: #2ed35a;
+  --dark: #17a33f;
+}
+
+/* Mission pas encore débloquée : grise (comme la vignette « Bientôt »), avec un cadenas */
+.mission:disabled {
+  background: radial-gradient(circle at 50% 35%, #e2e2e2 0%, #b4b4b4 50%, #7d7d7d 100%);
+  cursor: not-allowed;
+}
+
+.mission:disabled .num {
+  opacity: 0.55;
+}
+
+/* Mission désactivée dans l'interface admin : plus sombre, « Indisponible » au lieu de « Mission » */
+.mission.off {
+  background: radial-gradient(circle at 50% 35%, #8a8a8a 0%, #5e5e5e 55%, #3c3c3c 100%);
+}
+
+.mission.off .num {
+  opacity: 0.3;
+}
+
+.mission .lock {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 24px;
+  height: 24px;
+}
+
+/* Indication de départ : la moto attend sur le trottoir que le joueur appuie sur gauche */
+#start-hint {
+  position: fixed;
+  left: 50%;
+  bottom: 22%;
+  transform: translateX(-50%);
+  padding: 10px 20px;
+  border: 3px solid #1b1b1b;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 4px 0 #1b1b1b;
+  color: #1b1b1b;
+  font: bold 20px/1 system-ui, sans-serif;
+  white-space: nowrap;
+  pointer-events: none;
+  animation: hint-pulse 0.9s ease-in-out infinite alternate;
+}
+
+#start-hint[hidden],
+body.in-menu #start-hint {
+  display: none;
+}
+
+#start-hint span {
+  color: #e8642a;
+}
+
+/* Clavier : flèche ←, écran tactile : bouton ◀ */
+#start-hint .key-touch {
+  display: none;
+}
+
+@media (hover: none) and (pointer: coarse) {
+  #start-hint .key-keyboard {
+    display: none;
+  }
+
+  #start-hint .key-touch {
+    display: inline;
+  }
+}
+
+@keyframes hint-pulse {
+  to {
+    transform: translateX(-50%) scale(1.06);
+  }
+}
+
+/* Compteur de produits transportés (Livraison) : [colis] [nombre], au-dessus de la jauge d'essence */
+#cargo {
+  position: fixed;
+  top: 68px;
+  left: 16px;
+  display: none;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px 6px 8px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  font: bold 24px/1 system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  user-select: none;
+}
+
+body.delivery:not(.in-menu) #cargo {
+  display: flex;
+}
+
+#cargo svg {
+  width: 30px;
+  height: 30px;
+}
+
+/* La jauge d'essence descend sous le compteur de produits */
+#fuel {
+  top: 120px;
+}
+
+/* Livraison en cours : petite jauge qui se vide en 2 s, au-dessus de la moto */
+#unloading {
+  position: fixed;
+  left: 50%;
+  top: 34%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px 12px;
+  border: 3px solid #1b1b1b;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 4px 0 #1b1b1b;
+  color: #1b1b1b;
+  font: bold 18px/1 system-ui, sans-serif;
+  pointer-events: none;
+}
+
+#unloading[hidden],
+body.in-menu #unloading {
+  display: none;
+}
+
+#unloading .bar {
+  width: 160px;
+  height: 14px;
+  border: 2px solid #1b1b1b;
+  border-radius: 7px;
+  background: #e8e2d8;
+  overflow: hidden;
+}
+
+#unloading .level {
+  width: 100%;
+  height: 100%;
+  background: #e8642a;
+  transform-origin: left;
+}
+
+/* Fin de mission : même panneau que le Game Over */
+#mission-complete {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+  font-family: system-ui, sans-serif;
+  color: #fff;
+}
+
+#mission-complete[hidden] {
+  display: none;
+}
+
+#mission-complete .panel {
+  padding: 28px 40px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.7);
+  text-align: center;
+}
+
+#mission-complete h1 {
+  margin: 0 0 12px;
+  font-size: 44px;
+  color: #ffd23f;
+}
+
+#mission-complete p {
+  margin: 0 0 20px;
+  font-size: 20px;
+}
+
+#mission-complete .actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}
+
+#complete-missions {
+  padding: 10px 24px;
+  border: 0;
+  border-radius: 8px;
+  background: #e8642a;
+  color: #fff;
+  font: bold 20px/1 system-ui, sans-serif;
+  cursor: pointer;
+}
+
+#complete-missions:hover {
+  background: #ff7a3d;
+}
+
+#complete-menu {
+  padding: 10px 24px;
+  border: 0;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  font: bold 20px/1 system-ui, sans-serif;
+  cursor: pointer;
+}
+
+#complete-menu:hover {
+  background: rgba(255, 255, 255, 0.28);
+}
+
+/* Demi-tour : flèche en U (public/arrow-uturn.svg) entre les flèches de virage ; elle se remplit de gauche à
+   droite, comme le chemin de la moto (montée, arc, descente) */
+#turn-arrows #arrow-uturn {
+  width: min(18vw, 110px);
+}
+
+/* Demi-tour vers la gauche : flèche retournée (le remplissage part alors de la droite, toujours dans le sens du
+   demi-tour) */
+#turn-arrows #arrow-uturn.to-left {
+  transform: scaleX(-1);
+}
+
+
+/* Bouton tactile STOP (frein, à maintenir) entre ◀ et ▶ ; bouton ▼ (demi-tour) juste au-dessus, affiché
+   seulement quand le demi-tour est possible */
+#touch-controls {
+  align-items: flex-end;
+}
+
+#touch-controls #brake {
+  font-size: 18px;
+  letter-spacing: 0.04em;
+}
+
+#touch-controls #brake:active {
+  background: rgba(214, 40, 40, 0.85);
+}
+
+#touch-controls #down {
+  position: absolute;
+  left: 50%;
+  bottom: calc(84px + 12px);
+  width: 64px;
+  height: 64px;
+  margin-left: -32px;
+  background: rgba(232, 100, 42, 0.85);
+  font-size: 26px;
+}
+
+#touch-controls #down[hidden] {
+  display: none;
+}
+
+/* Regarder derrière (maintenu) : au-dessus du bouton droit, seulement quand la moto est garée sur le trottoir */
+#touch-controls #look-back {
+  position: absolute;
+  right: 24px;
+  bottom: calc(84px + 80px); /* au-dessus de l'indication de départ */
+  width: 84px;
+  height: 52px;
+  border-radius: 26px;
+  font-size: 14px;
+  letter-spacing: 0.04em;
+}
+
+#touch-controls #look-back[hidden] {
+  display: none;
+}
+
+/* Écrans tactiles : l'indication de départ passe au-dessus de la mini-carte (elle-même au-dessus des boutons) */
+@media (hover: none) and (pointer: coarse) {
+  #start-hint {
+    bottom: calc(24px + 84px + 20px + env(safe-area-inset-bottom)); /* au-dessus des boutons tactiles */
+  }
+}
+
+/* Argent (Livraison) : remplace le compteur de distance dans le HUD ; la distance est dans le panneau Pause */
+#money {
+  display: none;
+  color: #ffd84a;
+}
+
+body.delivery #hud #distance {
+  display: none;
+}
+
+body.delivery #hud #money {
+  display: inline-block;
+}
+
+/* Fric gagnés en livrant : pièce + nombre */
+#money img {
+  width: 1.15em;
+  height: 1.15em;
+  margin-right: 6px;
+  vertical-align: -0.2em;
+}
+
+/* Boutique et connexion Google désactivées pour le moment (main.js : SHOP_ENABLED, ONLINE_ENABLED) */
+:is(.mode-tile, .account-button)[hidden] {
+  display: none;
+}
+
+#money.pop {
+  animation: fuel-pop 0.4s ease-out;
+}
+
+#pause-distance {
+  margin: 0 0 12px;
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.85;
+}
+
+/* Message bref (pas assez d'argent...) */
+#notice {
+  position: fixed;
+  left: 50%;
+  top: 24%;
+  transform: translateX(-50%);
+  padding: 10px 18px;
+  border: 3px solid #1b1b1b;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 4px 0 #1b1b1b;
+  color: #1b1b1b;
+  font: bold 18px/1.2 system-ui, sans-serif;
+  text-align: center;
+  pointer-events: none;
+}
+
+#notice[hidden],
+body.in-menu #notice {
+  display: none;
+}
+
+/* Délai de la mission (Livraison) : en haut au centre */
+#timer {
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 8px 16px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  font: bold 26px/1 system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+#timer.urgent {
+  color: #ff5a4a;
+}
+
+#timer[hidden],
+body.in-menu #timer {
+  display: none;
+}
+body:not(.delivery) #timer { display: none; }
+
+/* Réglage de la caméra (développement, adresse avec ?camera) */
+#camera-tuner {
+  position: fixed;
+  top: 64px;
+  right: 8px;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: min(260px, 60vw);
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.7);
+  color: #fff;
+  font: 12px/1.2 system-ui, sans-serif;
+}
+
+#camera-tuner pre {
+  margin: 0 0 4px;
+  font: bold 12px/1.4 ui-monospace, monospace;
+  color: #ffd84a;
+  white-space: pre-wrap;
+  user-select: text;
+}
+
+#camera-tuner label {
+  display: flex;
+  flex-direction: column;
+}
+
+#camera-tuner input {
+  width: 100%;
+}
+
+#camera-tuner button {
+  margin-top: 4px;
+  padding: 6px;
+  border: 0;
+  border-radius: 6px;
+  background: #e8642a;
+  color: #fff;
+  font: bold 12px system-ui, sans-serif;
+}
+
+#camera-tuner.collapsed label,
+#camera-tuner.collapsed button:last-child {
+  display: none;
+}
+
+/* Écran « Moto » : même mise en page que le menu principal (règles partagées plus haut) ; l'aperçu 3D de la
+   moto occupe la partie libre (gauche, ou haut sur téléphone), le survol de la ville se voit derrière */
+#garage {
+  display: none;
+}
+
+body.in-garage #garage {
+  display: grid;
+  background: #0d1b2e; /* bleu foncé : la ville (canvas #game) n'est pas dessinée pendant l'écran Moto */
+}
+
+body.in-garage #game {
+  visibility: hidden;
+}
+
+body.in-garage #menu {
+  display: none;
+}
+
+#garage-preview {
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: auto; /* la moto se tourne et se zoome à la souris / au doigt (garage.js) */
+  touch-action: none;
+  cursor: grab;
+}
+
+#garage-preview:active {
+  cursor: grabbing;
+}
+
+/* Motos : vignettes carrées comme les modes du menu (miniature 3D au centre, nom en bas) */
+#garage .bikes {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+
+@media (max-aspect-ratio: 1/1) {
+  #garage .bikes {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.bike-tile {
+  position: relative;
+  aspect-ratio: 1;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--tile-border); /* bord fin, comme dans Voxel Wreck */
+  border-radius: 8px;
+  background: radial-gradient(circle at 50% 40%, var(--light) 0%, var(--base) 55%, var(--dark) 100%);
+  --light: #5ff0f2;
+  --base: #12c4d4;
+  --dark: #0b97b0;
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+  transition: transform 0.12s, border-color 0.12s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Une couleur vive par moto (turquoise, rose, vert, puis on recommence) */
+.bike-tile:nth-child(3n + 2) {
+  --light: #ff7cc4;
+  --base: #ff2d95;
+  --dark: #d81775;
+}
+
+.bike-tile:nth-child(3n + 3) {
+  --light: #7ff28f;
+  --base: #2ed35a;
+  --dark: #17a33f;
+}
+
+.bike-tile .art {
+  position: absolute;
+  inset: 0 0 18% 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bike-tile .art img {
+  width: 86%;
+  filter: drop-shadow(0 6px 4px rgba(0, 0, 0, 0.35));
+  transition: transform 0.15s;
+}
+
+.bike-tile .art img:not([src]) {
+  visibility: hidden; /* miniature pas encore rendue (modèle en cours de chargement) */
+}
+
+.bike-tile .label {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 22px 4px 7px;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.6));
+  font: 400 clamp(15px, 2.2vw, 20px)/1 'Anton', Impact, sans-serif;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-align: center;
+  text-shadow: 0 2px 0 #000;
+}
+
+.bike-tile:hover,
+.bike-tile:focus-visible {
+  transform: translateY(-3px);
+  outline: none;
+}
+
+.bike-tile:hover .art img,
+.bike-tile:focus-visible .art img {
+  transform: scale(1.08);
+}
+
+.bike-tile:active {
+  transform: translateY(1px);
+}
+
+/* Moto choisie : bord blanc et coche verte en haut à droite */
+.bike-tile.selected {
+  border-color: #fff;
+  box-shadow: 0 0 0 1px #fff;
+}
+
+.bike-tile .check {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: none;
+  width: 26px;
+  height: 26px;
+}
+
+.bike-tile.selected .check {
+  display: block;
+}
+
+/* Description de la moto choisie, sous les vignettes */
+/* Moto : la grille ne prend que la place de ses vignettes (description juste en dessous), elle ne défile que si
+   elle déborde ; la marge automatique pousse le bouton Retour en bas */
+#garage .bikes {
+  flex: 0 1 auto;
+}
+
+#garage .bike-desc {
+  flex-shrink: 0;
+  margin: 10px 0 auto;
+  padding-bottom: 12px;
+  font: 600 16px/1.35 system-ui, sans-serif;
+  opacity: 0.9;
+}
+
+/* Bouton Retour des écrans Missions et Moto : icône de fermeture (public/close icon.webp). La croix y est
+   découpée (transparente) : un disque blanc derrière la fait apparaître en blanc, sans laisser voir le décor */
+.close-button {
+  margin-top: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: #fff;
+  cursor: pointer;
+  transition: transform 0.12s, filter 0.12s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.close-button img {
+  display: block;
+  width: 64px;
+  height: 64px;
+}
+
+.close-button:hover,
+.close-button:focus-visible {
+  transform: scale(1.08);
+  filter: brightness(1.08);
+  outline: none;
+}
+
+.close-button:active {
+  transform: scale(0.95);
+}
+
+/* Images par seconde (main.js, updateFps) : tout en haut à droite, au-dessus de tous les écrans, sans gêner les clics */
+
+/* Heure de Cotonou (main.js, updateClock) : en haut au centre, partout (menu, Missions, Moto, jeu) ; le chronomètre
+   de mission passe juste en dessous */
+#clock {
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  z-index: 5;
+  transform: translateX(-50%);
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  font: bold 18px/1 system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  user-select: none;
+}
+
+
+#timer {
+  top: 52px;
+}
+
+/* Bouton Retour en bas d'un panneau (écran Missions), d'après Voxel Wreck : barre vert clair, flèche + RETOUR,
+   séparée de la grille par un trait */
+.menu-footer {
+  flex-shrink: 0;
+  margin: 0 -16px;
+  padding: 12px 16px 0;
+  border-top: 2px solid rgba(255, 255, 255, 0.12);
+}
+
+.back-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  height: 52px;
+  border: 0;
+  border-radius: 8px;
+  background: #86d6a0;
+  color: #10241d;
+  font: 800 20px/1 system-ui, sans-serif;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: transform 0.12s, background 0.12s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.back-button svg {
+  width: 28px;
+  height: 28px;
+}
+
+.back-button:hover,
+.back-button:focus-visible {
+  background: #9de3b3;
+  outline: none;
+}
+
+.back-button:active {
+  transform: translateY(2px);
+}
+
+/* Écran Missions : choix de la ville sous le titre (◀ Ville 1 ▶) */
+.city-picker {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 6px;
+  border: 1px solid var(--tile-border);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.city-name {
+  font: 400 clamp(20px, 3vw, 26px)/1 'Anton', Impact, sans-serif;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-shadow: 0 2px 0 #10241d;
+}
+
+.city-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid var(--tile-border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  cursor: pointer;
+  transition: transform 0.12s, background 0.12s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.city-arrow svg {
+  width: 24px;
+  height: 24px;
+}
+
+.city-arrow:not(:disabled):hover,
+.city-arrow:not(:disabled):focus-visible {
+  background: rgba(255, 255, 255, 0.25);
+  outline: none;
+}
+
+.city-arrow:not(:disabled):active {
+  transform: scale(0.94);
+}
+
+/* Première ou dernière ville : flèche estompée */
+.city-arrow:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+/* Solde de Fric (monnaie du jeu, nom provisoire) en haut à droite du menu et de la boutique */
+.fric-balance {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 12px 0 6px;
+  border: 1px solid var(--tile-border);
+  border-radius: 18px;
+  background: rgba(0, 0, 0, 0.35);
+  font: 400 20px/1 'Anton', Impact, sans-serif;
+  letter-spacing: 0.03em;
+  color: #ffd84a;
+  text-shadow: 0 2px 0 #10241d;
+}
+
+.fric-balance img {
+  width: 28px;
+  height: 28px;
+}
+
+/* Bouton du compte (menu principal) : « G Connexion » tant que le compte est anonyme, photo (ou initiale) avec
+   une pastille verte une fois lié à Google */
+.account-button {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 12px 0 8px;
+  border: 1px solid var(--tile-border);
+  border-radius: 18px;
+  background: #fff;
+  font: 700 14px/1 system-ui, sans-serif;
+  color: #1f1f1f;
+  cursor: pointer;
+}
+
+.account-button:hover {
+  border-color: #fff;
+}
+
+.account-button .google-logo {
+  width: 20px;
+  height: 20px;
+}
+
+.account-button.linked {
+  width: 36px;
+  padding: 0;
+  justify-content: center;
+  background: #2b5a4b;
+}
+
+.account-button.linked :is(.google-logo, .account-label) {
+  display: none;
+}
+
+.account-photo,
+.account-initial {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+}
+
+.account-photo[hidden],
+.account-initial[hidden] {
+  display: none;
+}
+
+.account-initial {
+  display: grid;
+  place-items: center;
+  font: 400 18px/1 'Anton', Impact, sans-serif;
+  color: #fff;
+}
+
+/* Pastille verte : compte lié */
+.account-button.linked::after {
+  content: '';
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  width: 12px;
+  height: 12px;
+  border: 2px solid #1f3d34;
+  border-radius: 50%;
+  background: #2ed35a;
+}
+
+/* Téléphone étroit : seulement le logo Google, pour laisser la place au titre et au solde */
+@media (max-width: 420px) {
+  .account-button:not(.linked) {
+    width: 36px;
+    padding: 0;
+    justify-content: center;
+  }
+
+  .account-button .account-label {
+    display: none;
+  }
+}
+
+/* Le solde est centré verticalement avec le logo */
+:is(#menu, #shop) .menu-actions {
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+/* Boutique : à sa place quand elle est ouverte */
+#shop {
+  display: none;
+}
+
+body.in-shop #shop {
+  display: grid;
+}
+
+body.in-shop #menu {
+  display: none;
+}
+
+/* Packs de Fric : vignettes carrées dorées (pièces, quantité, prix en bas) */
+#shop .packs {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+
+@media (max-aspect-ratio: 1/1) {
+  #shop .packs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.pack-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  aspect-ratio: 1;
+  padding: 10px 6px 54px;
+  overflow: hidden;
+  border: 1px solid var(--tile-border);
+  border-radius: 8px;
+  background: radial-gradient(circle at 50% 35%, #ffe27a 0%, #ffb81c 55%, #e08a00 100%);
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+  transition: transform 0.12s, border-color 0.12s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.pack-tile .coins {
+  display: flex;
+  justify-content: center;
+}
+
+.pack-tile .coins img {
+  width: 30%;
+  max-width: 64px;
+  margin: 0 -6%;
+  filter: drop-shadow(0 4px 3px rgba(0, 0, 0, 0.35));
+}
+
+.pack-tile .amount {
+  font: 400 clamp(26px, 4vw, 40px)/1 'Anton', Impact, sans-serif;
+  -webkit-text-stroke: 3px #10241d;
+  paint-order: stroke fill;
+  text-shadow: 0 3px 0 #10241d;
+}
+
+.pack-tile .unit {
+  font: 400 16px/1 'Anton', Impact, sans-serif;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-shadow: 0 2px 0 #10241d;
+}
+
+/* Prix : bandeau vert en bas de la vignette */
+.pack-tile .price {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 12px 4px;
+  background: #2ed35a;
+  border-top: 1px solid rgba(255, 255, 255, 0.5);
+  font: 400 clamp(18px, 2.4vw, 22px)/1 'Anton', Impact, sans-serif;
+  letter-spacing: 0.04em;
+  text-shadow: 0 2px 0 #10241d;
+}
+
+.pack-tile:hover,
+.pack-tile:focus-visible {
+  transform: translateY(-3px);
+  border-color: #fff;
+  outline: none;
+}
+
+.pack-tile:active {
+  transform: translateY(1px);
+}
+
+/* Message de la boutique (paiement pas encore disponible…) */
+.shop-note {
+  flex-shrink: 0;
+  margin: 12px 0;
+  padding: 10px 12px;
+  border: 1px solid var(--tile-border);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.3);
+  font: 600 15px/1.35 system-ui, sans-serif;
+}
+
+.shop-note[hidden] {
+  display: none;
+}
+
+/* Compteur de vitesse : bas gauche, juste au-dessus du bouton tactile ◀ (sur ordinateur, dans le coin) */
+#speedo {
+  position: fixed;
+  left: 12px;
+  bottom: calc(24px + env(safe-area-inset-bottom));
+  width: 115px;
+  height: 115px;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+#speedo svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.35));
+}
+
+@media (hover: none) and (pointer: coarse) {
+  #speedo {
+    width: 98px;
+    height: 98px;
+    bottom: calc(24px + 84px + 12px + env(safe-area-inset-bottom)); /* au-dessus du bouton ◀ */
+  }
+}
+
+body.in-menu #speedo {
+  display: none;
+}
