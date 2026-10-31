@@ -19,6 +19,7 @@ export const SETTINGS = [
   },
   { key: 'cartoon', label: 'Effet cartoon des motos (aplats de lumière + contour noir)', type: 'boolean', default: true },
   { key: 'speedometer', label: 'Compteur de vitesse (en bas à gauche pendant la partie)', type: 'boolean', default: true },
+  { key: 'unlockAll', label: 'Débloquer toutes les missions et toutes les villes (pour tester)', type: 'boolean', default: false },
   { key: 'hour', label: 'Heure du jeu (ciel, brouillard, lampadaires, phares)', type: 'hour', default: null },
   {
     key: 'missions',

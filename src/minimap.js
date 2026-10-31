@@ -1,4 +1,4 @@
-import { MAP_WIDTH, MAP_HEIGHT, ROADS } from './deliveryMap.js';
+import { MAP_WIDTH, MAP_HEIGHT, ROADS, WATER, PARKS } from './deliveryMap.js';
 
 // Mode Livraison : mini-carte du réseau (nord en haut) avec les points de livraison restants et la
 // position et la direction du joueur.
@@ -7,8 +7,15 @@ import { MAP_WIDTH, MAP_HEIGHT, ROADS } from './deliveryMap.js';
 
 const WIDTH = 400; // résolution interne du canvas (affiché plus petit en CSS : net sur écran haute densité)
 const PADDING = 14;
-const SCALE = (WIDTH - 2 * PADDING) / MAP_WIDTH; // pixels par mètre
-const HEIGHT = Math.round(MAP_HEIGHT * SCALE + 2 * PADDING);
+// Échelle et hauteur dépendent de la carte en cours (deliveryMap.js : carte 1 ou 2) : recalculées par layout(),
+// appelé à la création et à chaque changement de carte (rebuild)
+let SCALE = 1; // pixels par mètre
+let HEIGHT = 0;
+function layout() {
+  SCALE = (WIDTH - 2 * PADDING) / MAP_WIDTH;
+  HEIGHT = Math.round(MAP_HEIGHT * SCALE + 2 * PADDING);
+}
+layout();
 
 const ROAD_STYLE = {
   big: { color: '#e9e9e9', width: 8 },
@@ -26,6 +33,15 @@ function drawPlan() {
   plan.height = HEIGHT;
   const ctx = plan.getContext('2d');
   ctx.lineCap = 'square';
+
+  // Lagune (carte 2) : bande bleue sur toute la hauteur ; les ponts (rues qui la traversent) sont dessinés dessus
+  if (WATER) {
+    ctx.fillStyle = '#3f87b5';
+    ctx.fillRect(px(WATER.x1), py(0), (WATER.x2 - WATER.x1) * SCALE, MAP_HEIGHT * SCALE);
+  }
+  // Parcs
+  ctx.fillStyle = '#6c9a4b';
+  for (const park of PARKS) ctx.fillRect(px(park.x1), py(park.y1), (park.x2 - park.x1) * SCALE, (park.y2 - park.y1) * SCALE);
 
   // Ruelles et petites rues d'abord : les grandes routes passent dessus
   for (const type of ['alley', 'small', 'big']) {
@@ -68,7 +84,15 @@ export function createMinimap(canvas) {
   canvas.width = WIDTH;
   canvas.height = HEIGHT;
   const ctx = canvas.getContext('2d');
-  const plan = drawPlan();
+  let plan = drawPlan();
+
+  // Changement de carte : dimensions et plan recalculés
+  function rebuild() {
+    layout();
+    canvas.width = WIDTH;
+    canvas.height = HEIGHT;
+    plan = drawPlan();
+  }
 
   // x, y : position du joueur sur la carte (mètres) ; theta : direction (repère de track.js / network.js) ;
   // points, stations : points d'arrêt { x, y, kind } (deliveryPoints.js) : livraison orange, chargement vert,
@@ -128,5 +152,5 @@ export function createMinimap(canvas) {
     ctx.restore();
   }
 
-  return { update };
+  return { update, rebuild };
 }

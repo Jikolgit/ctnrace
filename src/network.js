@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { ROADS, ROAD_TYPES, LANE_WIDTH, SIDEWALK_WIDTH } from './deliveryMap.js';
+import { ROADS, ROAD_TYPES, LANE_WIDTH, SIDEWALK_WIDTH, MAP_START } from './deliveryMap.js';
 
 // Mode Livraison : graphe du réseau de routes (deliveryMap.js) et parcours du joueur dans ce réseau.
 //
@@ -66,8 +66,8 @@ export function buildGraph() {
   return { nodes: all, nodeAt: (x, y) => nodes.get(`${x},${y}`) };
 }
 
-// Point de départ du joueur : carrefour Rue 1451 × Route de l'Ouémé, en direction du nord
-const START = { x: 240, y: 500, dir: NORTH, after: 6 }; // after : mètres après la sortie du carrefour
+// Point de départ du joueur : propre à chaque carte (MAP_START de deliveryMap.js : carrefour, direction, et
+// `after` = mètres après la sortie du carrefour)
 const BEHIND = 40; // une rue est oubliée quand le joueur est à cette distance après son virage
 // Demi-tour (grandes routes et rues pavées) : demi-cercle autour d'un point de l'axe de la rue, à l'entrée du
 // carrefour (le terre-plein y est interrompu). Chaque couloir garde sa distance à l'axe : la moto arrive dans
@@ -199,6 +199,7 @@ export function createNetworkTrack(graph) {
 
   function reset(s) {
     legs.length = 0;
+    const START = MAP_START;
     const start = graph.nodeAt(START.x, START.y);
     legs.push(createLeg(start, START.dir, (-START.dir * Math.PI) / 2, start.radius, s - START.after));
   }

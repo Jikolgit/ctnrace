@@ -19,6 +19,8 @@ import {
   MISSIONS_PER_CITY,
   cityName,
   missionCity,
+  missionInCity,
+  cityMapNumber,
   BIKE_CAPACITY,
   unlockedMission,
   completeMission,
@@ -37,7 +39,7 @@ import { splitGameName } from './gameSettings.js';
 import { createCameraTuner } from './cameraTuner.js';
 import { getMoney, addMoney, setMoney } from './wallet.js';
 import { FRIC_PACKS, formatFric, setFric } from './fric.js';
-import { STATIONS, MAP_WIDTH, MAP_HEIGHT } from './deliveryMap.js';
+import { STATIONS, MAP_WIDTH, MAP_HEIGHT, setDeliveryMap } from './deliveryMap.js';
 import { atlas } from './atlas.js';
 import { glbLoading, hideLoadingScreen } from './loadingScreen.js';
 import { createGarage, savedBike, saveBike } from './garage.js';
@@ -259,9 +261,11 @@ let playerS = START_S;
 let playerHeading = 0; // direction du joueur (theta du parcours)
 track.update(playerS);
 
-// Mode Livraison : parcours dans le réseau de rues (même interface que track)
-const graph = buildGraph();
-const network = createNetworkTrack(graph);
+// Mode Livraison : parcours dans le réseau de rues (même interface que track). Le réseau, la ville et tout ce qui
+// en dépend sont propres à la carte de la ville jouée (deliveryMap.js : carte 1 ou 2) : voir useCity
+let graph = buildGraph();
+let network = createNetworkTrack(graph);
+let builtMap = 1; // carte actuellement construite (la carte 1 au chargement)
 let deliveryCity = null;
 let traffic = null; // circulation (Livraison), créée quand la ville et le modèle de voiture sont prêts
 let carModels = null; // véhicules car_1, car_2, car_3 (models.glb, vehicles.js), une fois chargés
@@ -269,7 +273,7 @@ let fuelCans = null; // bidons d'essence (Livraison), créés avec la ville
 let deliveryPoints = null; // flèches de livraison de la mission (Livraison), créées avec la ville
 let stationPoints = null; // points d'arrêt bleus devant les stations essence (Livraison)
 let guide = null; // ligne de guidage vers l'objectif (premières missions de Livraison)
-const GUIDE_MISSIONS = 2; // missions avec ligne de guidage
+const GUIDE_MISSIONS = 2; // missions avec ligne de guidage : les 2 premières de chaque ville
 let loaded = true; // produits chargés (false tant que le point de chargement de la mission n'est pas atteint)
 // Capacité de la moto (BIKE_CAPACITY) : onBoard = produits transportés (leurs points de livraison sont affichés),
 // toLoad = produits encore au point de chargement. Moto vide et produits restants : retour au chargement.
@@ -280,7 +284,7 @@ let toLoad = [];
 function refreshGuide() {
   if (!guide) return;
   const { pickup, deliveries } = missionData(currentMission);
-  if (currentMission > GUIDE_MISSIONS) guide.setObjectives([]);
+  if (missionInCity(currentMission) > GUIDE_MISSIONS) guide.setObjectives([]);
   else if (!loaded) guide.setObjectives([pickup]);
   else guide.setObjectives(onBoard.filter((_, i) => deliveryPoints.isActive(i)));
 }
@@ -714,7 +718,27 @@ restartButton.addEventListener('click', restart);
 let inMenu = true;
 let gameMode = null;
 
-// Ville fixe du mode Livraison, construite une seule fois (au lancement : elle sert aussi de fond au menu)
+// Choisit la carte de la ville jouée. Si ce n'est pas celle déjà construite : nouvelle carte (deliveryMap.js),
+// nouveau réseau, mini-carte redessinée, et tout le décor de la Livraison (ville, bidons, flèches, stations,
+// lampadaires, circulation) est supprimé : il sera reconstruit par buildDeliveryCity
+function useCity(city) {
+  const number = cityMapNumber(city);
+  if (number === builtMap) return;
+  builtMap = number;
+  setDeliveryMap(number);
+  graph = buildGraph();
+  network = createNetworkTrack(graph);
+  minimap.rebuild();
+  deliveryCity?.traverse((object) => {
+    object.geometry?.dispose();
+    object.material?.dispose?.();
+  });
+  deliveryWorld.clear();
+  deliveryCity = fuelCans = deliveryPoints = stationPoints = guide = streetLights = traffic = null;
+  stationsPlaced = false;
+}
+
+// Ville fixe du mode Livraison, construite une seule fois par carte (au lancement : elle sert aussi de fond au menu)
 function buildDeliveryCity() {
   if (deliveryCity) return;
   deliveryCity = createDeliveryCity(deliveryWorld, graph);
@@ -729,7 +753,7 @@ function buildDeliveryCity() {
 // Fond du menu : survol de la ville de Livraison, comme depuis un hélicoptère. La caméra tourne lentement sur une
 // ellipse autour du centre de la carte, en regardant le sol devant elle ; la circulation roule en dessous.
 // Moto, flèches de livraison et ligne de guidage sont cachées ; le brouillard est repoussé pour voir loin.
-const MENU_FLY_RADIUS_X = 150; // m : demi-axes de l'ellipse (carte de 640 × 520 m)
+const MENU_FLY_RADIUS_X = 150; // m : demi-axes de l'ellipse pour une carte de 640 × 520 m (proportionnels aux autres cartes)
 const MENU_FLY_RADIUS_Z = 110;
 const MENU_FLY_SPEED = 7; // m/s
 const MENU_FLY_HEIGHT = 60; // m (au-dessus des toits)
@@ -761,8 +785,8 @@ function showMenuScene() {
 }
 
 function placeMenuCamera(delta) {
-  const rx = MENU_FLY_RADIUS_X;
-  const rz = MENU_FLY_RADIUS_Z;
+  const rx = MENU_FLY_RADIUS_X * (MAP_WIDTH / 640);
+  const rz = MENU_FLY_RADIUS_Z * (MAP_HEIGHT / 520);
   // Vitesse constante sur l'ellipse : l'angle avance de (distance / longueur de la tangente)
   let tx = -rx * Math.sin(menuFlyAngle);
   let tz = rz * Math.cos(menuFlyAngle);
@@ -787,7 +811,10 @@ function placeMenuCamera(delta) {
 function startGame(mode) {
   gameMode = mode;
   const delivery = mode === 'delivery';
-  if (delivery) buildDeliveryCity();
+  if (delivery) {
+    useCity(missionCity(currentMission)); // la carte de la ville de la mission
+    buildDeliveryCity();
+  }
   player.visible = true; // cachée pendant le survol du menu
   camera.clearViewOffset();
   ground?.position.set(0, -0.03, 0); // de retour sous la moto

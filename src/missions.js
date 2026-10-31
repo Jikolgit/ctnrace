@@ -1,6 +1,6 @@
 import { SAVE_KEYS, requestSave } from './saveQueue.js';
 import { settings } from './settings.js';
-import { MISSION_COUNT, baseMission, DEFAULT_PICKUP, DELIVERY_POOL } from './missionData.js';
+import { MISSION_COUNT, baseMission, defaultPickup, deliveryPool, missionCity } from './missionData.js';
 
 // Mode Livraison : missions numérotées. Terminer une mission débloque la suivante.
 // La progression (dernière mission débloquée) est gardée dans le navigateur (localStorage) ; si le
@@ -15,6 +15,7 @@ export {
   cityName,
   missionCity,
   missionInCity,
+  cityMapNumber,
 } from './missionData.js';
 
 const STORAGE_KEY = SAVE_KEYS.unlockedMission;
@@ -27,20 +28,21 @@ export const missionEnabled = (n) => missionSettings(n).enabled;
 
 // Mission n telle qu'elle se joue : { pickup, deliveries, reward, fuelPrice, timeLimit }.
 //  - deliveries : les N premiers points de la mission (N choisi dans l'admin), complétés si besoin par d'autres
-//    points connus (DELIVERY_POOL, sans doublon) ;
+//    points connus de la ville (deliveryPool, sans doublon) ;
 //  - pickup : point de chargement si l'admin demande d'aller chercher les produits (celui de la mission, sinon
-//    DEFAULT_PICKUP) ; absent si les produits sont déjà chargés au départ ;
+//    defaultPickup de la ville) ; absent si les produits sont déjà chargés au départ ;
 //  - reward : Fric gagnés par produit livré ; fuelPrice : prix du plein à la station essence.
 export function missionData(n) {
   const base = baseMission(n);
   const config = missionSettings(n);
+  const city = missionCity(n);
   const deliveries = base.deliveries.slice(0, config.deliveries);
-  for (const spot of DELIVERY_POOL) {
+  for (const spot of deliveryPool(city)) {
     if (deliveries.length >= config.deliveries) break;
     if (!deliveries.some((d) => d.name === spot.name)) deliveries.push(spot);
   }
   return {
-    pickup: config.loaded ? null : (base.pickup ?? DEFAULT_PICKUP),
+    pickup: config.loaded ? null : (base.pickup ?? defaultPickup(city)),
     deliveries,
     reward: config.reward,
     fuelPrice: config.fuelPrice,
@@ -60,8 +62,10 @@ export function unlockedMission() {
 
 // Mission n jouable : active, et débloquée. Les missions désactivées ne bloquent pas la suite : la progression les
 // saute (si l'admin désactive la mission où en est le joueur, la suivante active s'ouvre)
+// Réglage admin « unlockAll » (pour tester) : toutes les missions actives sont jouables d'emblée.
 export function missionPlayable(n) {
   if (!missionEnabled(n)) return false;
+  if (settings.unlockAll) return true;
   let reach = unlockedMission();
   while (reach < MISSION_COUNT && !missionEnabled(reach)) reach++;
   return n <= reach;

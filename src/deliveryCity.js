@@ -3,7 +3,7 @@ import { applyWorldBend } from './worldBend.js';
 import {
   CHUNK_LENGTH, ROAD_REPEAT, SIDEWALK_HEIGHT, createPavedMaterial, sidewalkMaterial,
 } from './road.js';
-import { SIDEWALK_WIDTH, ROAD_TYPES, STATIONS } from './deliveryMap.js';
+import { SIDEWALK_WIDTH, ROAD_TYPES, STATIONS, WATER, PARKS, MAP_HEIGHT } from './deliveryMap.js';
 import { stationLot } from './stations.js';
 import { NORTH, EAST, SOUTH, WEST, DIR_X, DIR_Y, halfWidth, medianWidth, isHorizontal } from './network.js';
 
@@ -29,6 +29,14 @@ const ASPHALT_TILE = 6; // longueur (m) couverte par la texture du goudron
 export const MEDIAN_HEIGHT = 0.2; // hauteur de la bordure du terre-plein central
 const LAMP_SPACING = 25; // m : écart entre deux lampadaires sur le terre-plein
 const LAMP_MARGIN = 5; // m : pas de lampadaire tout près d'un carrefour
+// Lagune (carte 2) : niveau de l'eau (1,5 cm sous la chaussée, le sol uni étant à -3 cm), pas de bâtiment à moins de
+// WATER_MARGIN m de l'eau le long d'un pont, quais (murets) et garde-corps des ponts
+const WATER_LEVEL = -0.015;
+const WATER_MARGIN = 2;
+const QUAY_HEIGHT = 0.6;
+const QUAY_THICKNESS = 0.6;
+const PARAPET_HEIGHT = 1;
+const PARAPET_THICKNESS = 0.35;
 
 const randomRange = (min, max) => min + Math.random() * (max - min);
 
@@ -153,7 +161,12 @@ export function createDeliveryCity(parent, graph) {
     const width = 2 * halfWidth(road);
     let geometry;
     let material;
-    if (road.type === 'big') {
+    // Portion goudronnée d'une petite rue (pont sud de la carte 2) : entièrement dans [asphalt[0], asphalt[1]]
+    const start = isHorizontal(road) ? road.x1 : road.y1;
+    if (road.asphalt && start + u1 >= road.asphalt[0] - 0.01 && start + u2 <= road.asphalt[1] + 0.01) {
+      geometry = flatPlane(width, length, 1, 1);
+      material = plainAsphalt;
+    } else if (road.type === 'big') {
       geometry = flatPlane(width, length, 1, length / ASPHALT_TILE);
       material = asphaltMaterial;
     } else if (road.type === 'alley') {
@@ -192,7 +205,7 @@ export function createDeliveryCity(parent, graph) {
     list.push(matrix.compose(position, noRotation, scale).clone());
   }
   // Parcelles des stations essence : aucun bâtiment ne doit y empiéter
-  const lots = STATIONS.map(stationLot);
+  const lots = [...STATIONS.map(stationLot), ...PARKS];
   const onLot = (x1, x2, z1, z2) =>
     lots.some((lot) =>
       Math.max(x1, x2) > lot.x1 && Math.min(x1, x2) < lot.x2 && Math.max(z1, z2) > lot.y1 && Math.min(z1, z2) < lot.y2
@@ -224,6 +237,10 @@ export function createDeliveryCity(parent, graph) {
     const cross = isHorizontal(road) ? node.v : node.h;
     return cross ? halfWidth(cross) : 0;
   };
+
+  // Un bras est un pont quand il traverse la bande d'eau d'un bord à l'autre (carte 2) : rue horizontale dont les
+  // deux carrefours sont de part et d'autre de l'eau
+  const isBridge = (road, a, b) => !!WATER && isHorizontal(road) && a.x <= WATER.x1 && b.x >= WATER.x2;
 
   // Chaque bras du graphe (une seule fois : de l'ouest vers l'est, du nord vers le sud)
   for (const a of graph.nodes) {
@@ -280,6 +297,12 @@ export function createDeliveryCity(parent, graph) {
         const [sx1, sz1] = at(u1, hw);
         const [sx2, sz2] = at(u2, hw + SIDEWALK_WIDTH);
         if (u2 - u1 > 0.01) box(sidewalks, sx1, sx2, sz1, sz2, SIDEWALK_HEIGHT);
+        // Garde-corps du pont, côté extérieur du trottoir, au-dessus de l'eau
+        if (isBridge(road, a, b)) {
+          const [px1, pz1] = at(WATER.x1 - road.x1, hw + SIDEWALK_WIDTH - PARAPET_THICKNESS);
+          const [px2, pz2] = at(WATER.x2 - road.x1, hw + SIDEWALK_WIDTH);
+          box(medianCurbs, px1, px2, pz1, pz2, PARAPET_HEIGHT);
+        }
 
         // Rangée de bâtiments : s'arrête avant une rue transversale de ce côté, sinon va jusqu'au centre
         const corner = horizontal ? 0 : DEPTH_MAX; // les rues verticales laissent l'angle aux horizontales
@@ -288,13 +311,23 @@ export function createDeliveryCity(parent, graph) {
         const from = base + (openA ? crossHalf(a, road) + SIDEWALK_WIDTH + corner : 0);
         const to = base + arm.length - (openB ? crossHalf(b, road) + SIDEWALK_WIDTH + corner : 0);
         const facade = hw + SIDEWALK_WIDTH;
-        fill(from, to, (u, length, first, last) => {
-          const deep = horizontal && ((first && openA) || (last && openB));
+        // oA / oB : la rangée a une rue transversale à son début / à sa fin (bâtiment profond dans l'angle)
+        const row = (oA, oB) => (u, length, first, last) => {
+          const deep = horizontal && ((first && oA) || (last && oB));
           const depth = deep ? DEPTH_MAX : randomRange(DEPTH_MIN, DEPTH_MAX);
           const [x1, z1] = at(u, facade);
           const [x2, z2] = at(u + length, facade + depth);
           building(x1, x2, z1, z2, randomRange(HEIGHT_MIN, HEIGHT_MAX));
-        });
+        };
+        if (isBridge(road, a, b)) {
+          // Pont : des bâtiments seulement sur les deux berges, jamais au-dessus de l'eau
+          const w0 = WATER.x1 - road.x1 - WATER_MARGIN;
+          const w1 = WATER.x2 - road.x1 + WATER_MARGIN;
+          fill(from, Math.min(to, w0), row(openA, false));
+          fill(Math.max(from, w1), to, row(false, openB));
+        } else {
+          fill(from, to, row(openA, openB));
+        }
       }
     }
   }
@@ -335,6 +368,48 @@ export function createDeliveryCity(parent, graph) {
     if (!node.arms[SOUTH]) box(sidewalks, node.x - hx, node.x + hx, node.y + hz, node.y + hz + sw, SIDEWALK_HEIGHT);
     if (!node.arms[WEST]) box(sidewalks, node.x - hx - sw, node.x - hx, node.y - hz, node.y + hz, SIDEWALK_HEIGHT);
     if (!node.arms[EAST]) box(sidewalks, node.x + hx, node.x + hx + sw, node.y - hz, node.y + hz, SIDEWALK_HEIGHT);
+  }
+
+  // Lagune (carte 2) : plan d'eau qui dépasse la carte au nord et au sud, et quais (murets) le long des deux rives,
+  // interrompus là où passent les ponts
+  if (WATER) {
+    const waterMaterial = applyWorldBend(
+      new THREE.MeshStandardMaterial({
+        color: 0x2f7fa8, roughness: 0.3, metalness: 0.1,
+        polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4, // évite le papillotement avec le sol
+      })
+    );
+    const waterLength = MAP_HEIGHT + 800;
+    const water = new THREE.Mesh(flatPlane(WATER.x2 - WATER.x1, waterLength, 1, 1), waterMaterial);
+    water.position.set((WATER.x1 + WATER.x2) / 2, WATER_LEVEL, MAP_HEIGHT / 2);
+    group.add(water);
+
+    const bridgeCuts = graph.nodes
+      .flatMap((n) => [EAST].map((d) => n.arms[d] && { node: n, arm: n.arms[d] }))
+      .filter((item) => item && isBridge(item.arm.road, item.node, item.arm.node))
+      .map(({ arm }) => [arm.road.y - halfWidth(arm.road) - SIDEWALK_WIDTH, arm.road.y + halfWidth(arm.road) + SIDEWALK_WIDTH])
+      .sort((p, q) => p[0] - q[0]);
+    const quayRanges = [];
+    let cursor = -400;
+    for (const [c0, c1] of bridgeCuts) {
+      if (c0 > cursor) quayRanges.push([cursor, c0]);
+      cursor = Math.max(cursor, c1);
+    }
+    quayRanges.push([cursor, MAP_HEIGHT + 400]);
+    for (const [z1, z2] of quayRanges) {
+      box(medianCurbs, WATER.x1 - QUAY_THICKNESS, WATER.x1, z1, z2, QUAY_HEIGHT);
+      box(medianCurbs, WATER.x2, WATER.x2 + QUAY_THICKNESS, z1, z2, QUAY_HEIGHT);
+    }
+  }
+
+  // Parcs (carte 2) : pelouse à ras du sol, sans bâtiments (voir lots)
+  for (const park of PARKS) {
+    const grass = new THREE.Mesh(
+      flatPlane(park.x2 - park.x1, park.y2 - park.y1, 1, 1),
+      applyWorldBend(new THREE.MeshStandardMaterial({ color: 0x6c9a4b, roughness: 1, metalness: 0 }))
+    );
+    grass.position.set((park.x1 + park.x2) / 2, 0.02, (park.y1 + park.y2) / 2);
+    group.add(grass);
   }
 
   // Une boîte 1 × 1 × 1 posée au sol, partagée par les trottoirs et les bâtiments
