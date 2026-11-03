@@ -5,7 +5,7 @@
 // missions 1 à 10 = ville 1, 11 à 20 = ville 2, etc. (affichées 1 à 10 dans chaque ville). La progression suit
 // cet ordre : la ville 2 s'ouvre quand la dernière mission de la ville 1 est terminée. Chaque ville se joue sur
 // une carte (MAP_OF_CITY, deliveryMap.js) : la ville 1 sur la carte 1 (Ségbeya / Kpondehou), la ville 2 sur la
-// carte 2 (Cotonou et sa lagune). La ville 3 n'a pas encore de carte : elle reprend la carte 1.
+// carte 2 (Cotonou et sa lagune). La ville 3 utilise la carte 3 (Cadjehoun, Haie Vive et Port de Cotonou).
 export const CITY_COUNT = 3;
 export const MISSIONS_PER_CITY = 10;
 export const MISSION_COUNT = CITY_COUNT * MISSIONS_PER_CITY;
@@ -111,8 +111,8 @@ const CITY_3_MISSIONS = [
   {
     // Mission 1 : deux livraisons dans le quartier du port, produits déjà chargés
     deliveries: [
-      { name: 'Hôtel Les Orchidées', road: 'Rue 233', at: 220, side: -1 },
-      { name: "Statue de l’Amazone", road: 'Rue 234', at: 340, side: -1 },
+      { name: 'Hôtel Les Orchidées', road: 'Rue 233', at: 220, side: 1 },
+      { name: "Statue de l’Amazone", road: 'Rue 233', at: 340, side: -1 },
     ],
   },
   {
@@ -121,14 +121,14 @@ const CITY_3_MISSIONS = [
     deliveries: [
       { name: 'Cotonou Amazone', road: 'Rue 234', at: 465, side: -1 },
       { name: 'Hôpital 1', road: 'Rue 901 IA', at: 600, side: -1 },
-      { name: 'Hall des Arts', road: 'Rue 395', at: 840, side: -1 },
+      { name: 'Hall des Arts', road: 'Rue 395 Est', at: 840, side: 1 },
     ],
   },
   {
     // Mission 3 : traversée de Cadjehoun et Haie Vive
     pickup: { name: 'Majestic Cadjehoun', road: 'Rue 397', at: 115, side: -1 },
     deliveries: [
-      { name: 'Sprinkles 365', road: 'Rue 211', at: 350, side: 1 },
+      { name: 'Sprinkles 365', road: 'Rue 395', at: 115, side: 1 },
       { name: 'DEI', road: 'Rue 397', at: 225, side: -1 },
       { name: 'Hôpital 2', road: 'Rue 238', at: 700, side: 1 },
       { name: 'Hôtel Les Orchidées', road: 'Rue 233', at: 220, side: 1 },
