@@ -11,7 +11,7 @@ const ROADS_3 = [
   { name: 'Rue 630', type: 'big', x: 400, y1: 40, y2: 700 },
 
   // Petites rues pavées du quartier Cadjehoun / Haie Vive
-  { name: 'Rue 211', type: 'small', x: 60, y1: 40, y2: 620 },
+  { name: 'Rue 211', type: 'small', x: 60, y1: 40, y2: 700 },
   { name: 'Rue 215', type: 'small', x: 170, y1: 150, y2: 620 },
   { name: 'Rue 217', type: 'small', x: 280, y1: 150, y2: 620 },
   { name: 'Rue 397', type: 'small', y: 150, x1: 60, x2: 400 },
