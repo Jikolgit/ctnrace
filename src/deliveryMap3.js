@@ -51,7 +51,7 @@ const PLACES_3 = [
 
 const STATIONS_3 = [
   { name: 'Station Haie Vive', road: 'Rue 217', at: 350, side: 1 },
-  { name: 'Station Jean-Paul II', road: 'Rue 614', at: 460, side: -1 },
+  { name: 'Station Jean-Paul II', road: 'Rue 612', at: 460, side: -1 },
 ];
 
 const DISTRICTS_3 = [
