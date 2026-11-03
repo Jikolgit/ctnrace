@@ -1,4 +1,4 @@
-import { MAP_WIDTH, MAP_HEIGHT, ROADS, WATER, PARKS } from './deliveryMap.js';
+import { MAP_WIDTH, MAP_HEIGHT, ROADS, WATER, PARKS, ZONES } from './deliveryMap.js';
 
 // Mode Livraison : mini-carte du réseau (nord en haut) avec les points de livraison restants et la
 // position et la direction du joueur.
@@ -39,7 +39,22 @@ function drawPlan() {
     ctx.fillStyle = '#3f87b5';
     ctx.fillRect(px(WATER.x1), py(0), (WATER.x2 - WATER.x1) * SCALE, MAP_HEIGHT * SCALE);
   }
-  // Parcs
+  // Zones sans bâtiments : camp, hôpital, parc, place et port
+  const zoneColors = { camp: '#b9b99e', hospital: '#e9b9c0', park: '#6c9a4b', plaza: '#d8d0bd', port: '#cbb987' };
+  for (const zone of ZONES) {
+    ctx.fillStyle = zoneColors[zone.kind] ?? '#d8d0bd';
+    ctx.fillRect(px(zone.x1), py(zone.y1), (zone.x2 - zone.x1) * SCALE, (zone.y2 - zone.y1) * SCALE);
+    if (zone.kind === 'camp' || zone.kind === 'port') {
+      ctx.save();
+      ctx.strokeStyle = zone.kind === 'camp' ? '#89896f' : '#aa9765';
+      ctx.lineWidth = 1.5;
+      for (let x = zone.x1 - (zone.y2 - zone.y1); x < zone.x2; x += 12) {
+        ctx.beginPath(); ctx.moveTo(px(x), py(zone.y2)); ctx.lineTo(px(x + zone.y2 - zone.y1), py(zone.y1)); ctx.stroke();
+      }
+      ctx.restore();
+    }
+  }
+  // Parcs (cartes précédentes)
   ctx.fillStyle = '#6c9a4b';
   for (const park of PARKS) ctx.fillRect(px(park.x1), py(park.y1), (park.x2 - park.x1) * SCALE, (park.y2 - park.y1) * SCALE);
 
