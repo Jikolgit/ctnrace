@@ -5,8 +5,10 @@
 const ROADS_3 = [
   // Grandes artères goudronnées avec terre-plein central
   { name: 'Rue 610', type: 'big', y: 40, x1: 60, x2: 900 },
-  { name: "Route de l’Aéroport", type: 'big', y: 390, x1: 60, x2: 900 },
-  { name: 'Rue 230', type: 'big', y: 520, x1: 60, x2: 900 },
+  { name: "Route de l’Aéroport", type: 'big', y: 390, x1: 60, x2: 640 },
+  { name: 'Avenue Jean-Paul II', type: 'big', y: 390, x1: 640, x2: 900 },
+  { name: 'Rue 230', type: 'big', y: 520, x1: 60, x2: 400 },
+  { name: 'Boulevard de la Marina', type: 'big', y: 520, x1: 400, x2: 900 },
   { name: 'Quai du Port', type: 'big', y: 700, x1: 60, x2: 900 },
   { name: 'Rue 630', type: 'big', x: 400, y1: 40, y2: 700 },
 
