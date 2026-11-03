@@ -242,6 +242,17 @@ export function createDeliveryCity(parent, graph) {
   // deux carrefours sont de part et d'autre de l'eau
   const isBridge = (road, a, b) => !!WATER && isHorizontal(road) && a.x <= WATER.x1 && b.x >= WATER.x2;
 
+  // Zones spéciales de la carte 3 : ajoutées sous les routes et trottoirs.
+  // Zones spéciales de la carte 3 : camp militaire, hôpital, place de l'Amazone et port.
+  const zoneColors = { camp: 0x85866e, hospital: 0xd99ba7, plaza: 0xbab09d, port: 0xb59d67 };
+  for (const zone of ZONES) {
+    if (zone.kind === 'park') continue; // le parc est rendu par PARKS
+    const material = applyWorldBend(new THREE.MeshStandardMaterial({ color: zoneColors[zone.kind] ?? 0xbab09d, roughness: 1, metalness: 0 }));
+    const area = new THREE.Mesh(flatPlane(zone.x2 - zone.x1, zone.y2 - zone.y1, 1, 1), material);
+    area.position.set((zone.x1 + zone.x2) / 2, 0.015, (zone.y1 + zone.y2) / 2);
+    group.add(area);
+  }
+
   // Chaque bras du graphe (une seule fois : de l'ouest vers l'est, du nord vers le sud)
   for (const a of graph.nodes) {
     for (const d of [EAST, SOUTH]) {
