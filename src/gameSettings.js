@@ -14,7 +14,7 @@ export const SETTINGS = [
     key: 'gameName',
     label: "Nom du jeu (menu principal, écran de chargement, onglet) ; la 2e partie en orange : dernier mot, ou à partir de la dernière majuscule",
     type: 'text',
-    default: 'ctnRacer', // nom de développement
+    default: 'CTNRACER v1', // nom du jeu
     maxLength: 30,
   },
   { key: 'cartoon', label: 'Effet cartoon des motos (aplats de lumière + contour noir)', type: 'boolean', default: true },
@@ -54,7 +54,9 @@ export function cleanSettings(input) {
     if (setting.type === 'text' && typeof value === 'string') {
       // Une ligne, sans caractères de contrôle ; longueur en caractères (comme mb_strlen du PHP)
       const text = value.replace(/\s+/g, ' ').trim();
-      if (text && [...text].length <= setting.maxLength && !/\p{Cc}/u.test(text)) clean[setting.key] = text;
+      if (text && [...text].length <= setting.maxLength && !/\p{Cc}/u.test(text)) {
+        clean[setting.key] = setting.key === 'gameName' && text === 'ctnRacer' ? 'CTNRACER v1' : text;
+      }
     }
     if (setting.type === 'hour') {
       if (value === null) clean[setting.key] = null;
