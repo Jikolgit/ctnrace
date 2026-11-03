@@ -11,7 +11,7 @@ export const MISSIONS_PER_CITY = 10;
 export const MISSION_COUNT = CITY_COUNT * MISSIONS_PER_CITY;
 export const cityName = (city) => `Ville ${city}`;
 // Carte (deliveryMap.js) sur laquelle se joue chaque ville
-const MAP_OF_CITY = { 1: 1, 2: 2, 3: 1 };
+const MAP_OF_CITY = { 1: 1, 2: 2, 3: 3 };
 export const cityMapNumber = (city) => MAP_OF_CITY[city] ?? 1;
 // Ville d'une mission (numéro global) et son numéro dans la ville
 export const missionCity = (n) => Math.ceil(n / MISSIONS_PER_CITY);
@@ -103,9 +103,42 @@ const CITY_2_MISSIONS = [
   },
 ];
 
+
+ 
+// Ville 3 (carte 3 : Cadjehoun, Haie Vive et Port de Cotonou).
+// Les points sont placés sur les rues du plan docs/carte-ville-3.png.
+const CITY_3_MISSIONS = [
+  {
+    // Mission 1 : deux livraisons dans le quartier du port, produits déjà chargés
+    deliveries: [
+      { name: 'Hôtel Les Orchidées', road: 'Rue 233', at: 220, side: -1 },
+      { name: "Statue de l’Amazone", road: 'Rue 234', at: 340, side: -1 },
+    ],
+  },
+  {
+    // Mission 2 : récupérer les colis près de la place de l'Amazone, puis livrer au nord
+    pickup: { name: 'Entrepôt du Port', road: 'Quai du Port', at: 620, side: 1 },
+    deliveries: [
+      { name: 'Cotonou Amazone', road: 'Rue 234', at: 465, side: -1 },
+      { name: 'Hôpital 1', road: 'Rue 901 IA', at: 600, side: -1 },
+      { name: 'Hall des Arts', road: 'Rue 395', at: 840, side: -1 },
+    ],
+  },
+  {
+    // Mission 3 : traversée de Cadjehoun et Haie Vive
+    pickup: { name: 'Majestic Cadjehoun', road: 'Rue 397', at: 115, side: -1 },
+    deliveries: [
+      { name: 'Sprinkles 365', road: 'Rue 211', at: 350, side: 1 },
+      { name: 'DEI', road: 'Rue 397', at: 225, side: -1 },
+      { name: 'Hôpital 2', road: 'Rue 238', at: 700, side: 1 },
+      { name: 'Hôtel Les Orchidées', road: 'Rue 233', at: 220, side: 1 },
+    ],
+  },
+];
+
 // Missions écrites de chaque ville, complétées par des « null » jusqu'à MISSIONS_PER_CITY (cases pas encore écrites)
 const padCity = (list) => [...list, ...Array(MISSIONS_PER_CITY - list.length).fill(null)];
-export const MISSIONS = [...padCity(CITY_1_MISSIONS), ...padCity(CITY_2_MISSIONS)];
+export const MISSIONS = [...padCity(CITY_1_MISSIONS), ...padCity(CITY_2_MISSIONS), ...padCity(CITY_3_MISSIONS)];
 
 // Mission écrite n. Une mission pas encore écrite reprend la première mission de sa ville (l'introduction), et
 // une ville sans aucune mission écrite (la ville 3) reprend la mission 1 de la ville 1
@@ -122,6 +155,7 @@ export const DEFAULT_FUEL_PRICE = 20; // Fric le plein à la station essence
 const DEFAULT_PICKUPS = {
   1: { name: 'Marché Dantokpa', road: 'Rue Bel Air', at: 470, side: -1 },
   2: CITY_2_MISSIONS[1].pickup,
+  3: CITY_3_MISSIONS[1].pickup,
 };
 export const defaultPickup = (city) => DEFAULT_PICKUPS[city] ?? DEFAULT_PICKUPS[1];
 const poolOf = (city) => [
