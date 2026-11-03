@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ctnRacer</title>
+    <title>CTNRACER v1</title>
     <!-- Écran de chargement : styles ici (et non dans style.css, chargé avec le code) pour qu'il couvre la page dès le
          premier affichage, avant les boutons du menu -->
     <style>
@@ -62,7 +62,7 @@
   </head>
   <body class="in-menu">
     <div id="loader" role="progressbar" aria-label="Chargement du jeu" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
-      <h1 class="loader-title">ctn<span>Racer</span></h1>
+      <h1 class="loader-title">CTNRACER <span>v1</span></h1>
       <div class="loader-bar"><div class="loader-fill"></div></div>
       <p class="loader-text">Chargement… 0 %</p>
     </div>
@@ -78,6 +78,7 @@
         try {
           name = JSON.parse(localStorage.getItem('ctnrace-settings')).gameName;
         } catch (e) {}
+        if (name === 'ctnRacer') name = 'CTNRACER v1';
         if (typeof name === 'string' && name.trim()) {
           name = name.trim();
           var cut = name.lastIndexOf(' ') + 1;
@@ -104,7 +105,7 @@
       <aside class="menu-side" aria-label="Motos"></aside>
       <section class="menu-main">
         <header class="menu-top">
-          <h1 class="title">ctn<span>Racer</span></h1>
+          <h1 class="title">CTNRACER <span>v1</span></h1>
           <!-- Compte (connexion Google) et solde de Fric (monnaie du jeu, nom provisoire), à droite du logo -->
           <div class="menu-actions">
             <button id="account-button" class="account-button" type="button" title="Se connecter avec Google">
