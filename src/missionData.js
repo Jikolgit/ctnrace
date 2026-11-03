@@ -117,7 +117,7 @@ const CITY_3_MISSIONS = [
   },
   {
     // Mission 2 : récupérer les colis près de la place de l'Amazone, puis livrer au nord
-    pickup: { name: 'Entrepôt du Port', road: 'Quai du Port', at: 620, side: 1 },
+    pickup: { name: 'Entrepôt du Port', road: 'Rue 234', at: 620, side: -1 },
     deliveries: [
       { name: 'Cotonou Amazone', road: 'Rue 234', at: 465, side: -1 },
       { name: 'Hôpital 1', road: 'Rue 901 IA', at: 600, side: -1 },
@@ -128,7 +128,7 @@ const CITY_3_MISSIONS = [
     // Mission 3 : traversée de Cadjehoun et Haie Vive
     pickup: { name: 'Majestic Cadjehoun', road: 'Rue 397', at: 115, side: -1 },
     deliveries: [
-      { name: 'Sprinkles 365', road: 'Rue 395', at: 115, side: 1 },
+      { name: 'Sprinkles 365', road: 'Route de l’Aéroport', at: 115, side: -1 },
       { name: 'DEI', road: 'Rue 397', at: 225, side: -1 },
       { name: 'Hôpital 2', road: 'Rue 238', at: 700, side: 1 },
       { name: 'Hôtel Les Orchidées', road: 'Rue 233', at: 220, side: 1 },
