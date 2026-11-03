@@ -3,7 +3,7 @@ import { applyWorldBend } from './worldBend.js';
 import {
   CHUNK_LENGTH, ROAD_REPEAT, SIDEWALK_HEIGHT, createPavedMaterial, sidewalkMaterial,
 } from './road.js';
-import { SIDEWALK_WIDTH, ROAD_TYPES, STATIONS, WATER, PARKS, MAP_HEIGHT } from './deliveryMap.js';
+import { SIDEWALK_WIDTH, ROAD_TYPES, STATIONS, WATER, PARKS, ZONES, MAP_HEIGHT } from './deliveryMap.js';
 import { stationLot } from './stations.js';
 import { NORTH, EAST, SOUTH, WEST, DIR_X, DIR_Y, halfWidth, medianWidth, isHorizontal } from './network.js';
 
@@ -205,7 +205,7 @@ export function createDeliveryCity(parent, graph) {
     list.push(matrix.compose(position, noRotation, scale).clone());
   }
   // Parcelles des stations essence : aucun bâtiment ne doit y empiéter
-  const lots = [...STATIONS.map(stationLot), ...PARKS];
+  const lots = [...STATIONS.map(stationLot), ...PARKS, ...ZONES];
   const onLot = (x1, x2, z1, z2) =>
     lots.some((lot) =>
       Math.max(x1, x2) > lot.x1 && Math.min(x1, x2) < lot.x2 && Math.max(z1, z2) > lot.y1 && Math.min(z1, z2) < lot.y2
@@ -410,6 +410,16 @@ export function createDeliveryCity(parent, graph) {
     );
     grass.position.set((park.x1 + park.x2) / 2, 0.02, (park.y1 + park.y2) / 2);
     group.add(grass);
+  }
+
+  // Zones spéciales de la carte 3 : camp militaire, hôpital, parc, place de l'Amazone et port.
+  const zoneColors = { camp: 0x85866e, hospital: 0xd99ba7, plaza: 0xbab09d, port: 0xb59d67 };
+  for (const zone of ZONES) {
+    if (zone.kind === 'park') continue; // déjà rendu par PARKS ci-dessous
+    const material = applyWorldBend(new THREE.MeshStandardMaterial({ color: zoneColors[zone.kind] ?? 0xbab09d, roughness: 1, metalness: 0 }));
+    const area = new THREE.Mesh(flatPlane(zone.x2 - zone.x1, zone.y2 - zone.y1, 1, 1), material);
+    area.position.set((zone.x1 + zone.x2) / 2, 0.015, (zone.y1 + zone.y2) / 2);
+    group.add(area);
   }
 
   // Une boîte 1 × 1 × 1 posée au sol, partagée par les trottoirs et les bâtiments
