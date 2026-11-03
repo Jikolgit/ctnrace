@@ -1,6 +1,6 @@
 // Mode Livraison : réseaux de routes inspirés de Cotonou. Deux cartes : la 1 (ci-dessous : quartier Ségbeya /
 // Kpondehou / Akpakpa, 640 × 520 m) et la 2 (deliveryMap2.js : Cotonou et sa lagune, deux rives et deux ponts,
-// 900 × 720 m). setDeliveryMap(numéro) choisit celle qu'utilise le jeu (voir la fin du fichier).
+// 900 × 720 m) et la 3 (Cadjehoun / Haie Vive / Port, 960 × 720 m). setDeliveryMap(numéro) choisit la carte.
 // Repère de la carte, en mètres :
 // x vers l'est (droite), y vers le sud (bas), origine en haut à gauche. Toutes les rues sont droites
 // et orientées nord-sud ou est-ouest (le jeu ne sait tourner qu'à 90°).
