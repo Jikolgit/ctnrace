@@ -6,6 +6,7 @@
 // et orientées nord-sud ou est-ouest (le jeu ne sait tourner qu'à 90°).
 
 import { CITY_2 } from './deliveryMap2.js';
+import { CITY_3 } from './deliveryMap3.js';
 
 // Trois types de route : petites rues pavées (3 couloirs), grandes routes goudronnées (4 couloirs) et
 // ruelles (2 couloirs, petits pavés, raccourcis). Largeur de couloir 2 m (laneWidth pour une autre largeur),
@@ -87,7 +88,7 @@ const CITY_1 = {
   stations: STATIONS_1,
   districts: DISTRICTS_1,
 };
-const MAPS = { 1: CITY_1, 2: CITY_2 };
+const MAPS = { 1: CITY_1, 2: CITY_2, 3: CITY_3 };
 
 // Carte en cours : exportée en « live bindings » (les autres fichiers voient la nouvelle valeur après un
 // setDeliveryMap). Au chargement : la carte 1. Les fichiers qui en dépendent (réseau, ville, mini-carte...) doivent
@@ -101,6 +102,7 @@ export let ROADS = CITY_1.roads;
 export let PLACES = CITY_1.places;
 export let STATIONS = CITY_1.stations;
 export let DISTRICTS = CITY_1.districts;
+export let ZONES = CITY_1.zones ?? [];
 export let MAP_NUMBER = 1;
 
 export function setDeliveryMap(number) {
@@ -115,4 +117,5 @@ export function setDeliveryMap(number) {
   PLACES = map.places;
   STATIONS = map.stations;
   DISTRICTS = map.districts;
+  ZONES = map.zones ?? [];
 }
