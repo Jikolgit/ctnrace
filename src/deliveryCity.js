@@ -423,16 +423,6 @@ export function createDeliveryCity(parent, graph) {
     group.add(grass);
   }
 
-  // Zones spéciales de la carte 3 : camp militaire, hôpital, parc, place de l'Amazone et port.
-  const zoneColors = { camp: 0x85866e, hospital: 0xd99ba7, plaza: 0xbab09d, port: 0xb59d67 };
-  for (const zone of ZONES) {
-    if (zone.kind === 'park') continue; // déjà rendu par PARKS ci-dessous
-    const material = applyWorldBend(new THREE.MeshStandardMaterial({ color: zoneColors[zone.kind] ?? 0xbab09d, roughness: 1, metalness: 0 }));
-    const area = new THREE.Mesh(flatPlane(zone.x2 - zone.x1, zone.y2 - zone.y1, 1, 1), material);
-    area.position.set((zone.x1 + zone.x2) / 2, 0.015, (zone.y1 + zone.y2) / 2);
-    group.add(area);
-  }
-
   // Une boîte 1 × 1 × 1 posée au sol, partagée par les trottoirs et les bâtiments
   const unitBox = new THREE.BoxGeometry(1, 1, 1);
   unitBox.translate(0, 0.5, 0);
