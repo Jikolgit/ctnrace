@@ -103,32 +103,56 @@ body {
   height: 100%;
 }
 
-/* Boutons tactiles : visibles uniquement sur les écrans tactiles (mobile, tablette) */
+/* Boutons tactiles : visibles uniquement sur les écrans tactiles (mobile, tablette). Croix de direction disposée en
+   cercle (▲ en haut, ◀ à gauche, ▶ à droite, ▼ en bas) et bouton STOP au centre, centrée en bas de l'écran.
+   --pad : diamètre du cercle, s'adapte à la hauteur de l'écran (150 à 200 px). Pour décaler la croix : changer
+   `left` dans la règle de #touch-controls (ex. `left: 16px` pour la mettre à gauche, `right: 16px` à droite). */
+:root {
+  --pad: clamp(150px, 24vh, 200px);
+}
+
 #touch-controls {
   display: none;
+  --d: calc(var(--pad) * 0.3); /* diamètre d'un bouton de direction */
+  --s: calc(var(--pad) * 0.31); /* diamètre du bouton STOP */
+  --r: calc(var(--pad) * 0.345); /* distance du centre aux boutons de direction */
 }
 
 @media (hover: none) and (pointer: coarse) {
   #touch-controls {
     position: fixed;
-    left: 0;
-    right: 0;
+    left: calc(50% - var(--pad) / 2); /* centrée */
     bottom: calc(24px + env(safe-area-inset-bottom));
-    display: flex;
-    justify-content: space-between;
-    padding: 0 24px;
+    display: block;
+    width: var(--pad);
+    height: var(--pad);
     pointer-events: none; /* seuls les boutons captent le toucher */
   }
 }
 
+/* Disque derrière les boutons */
+#touch-controls::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  box-sizing: border-box;
+  border: 2px solid rgba(255, 255, 255, 0.22);
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.28);
+}
+
 #touch-controls button {
-  width: 84px;
-  height: 84px;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: var(--d);
+  height: var(--d);
+  margin: calc(var(--d) / -2) 0 0 calc(var(--d) / -2); /* centré, puis décalé par transform */
   border: 0;
   border-radius: 50%;
   background: rgba(0, 0, 0, 0.45);
   color: #fff;
-  font: bold 34px/1 system-ui, sans-serif;
+  font: bold calc(var(--d) * 0.42) / 1 system-ui, sans-serif;
   pointer-events: auto;
   touch-action: none;
   user-select: none;
@@ -138,6 +162,67 @@ body {
 
 #touch-controls button:active {
   background: rgba(232, 100, 42, 0.8);
+}
+
+#touch-controls #up {
+  transform: translateY(calc(var(--r) * -1));
+}
+
+#touch-controls #down {
+  transform: translateY(var(--r));
+}
+
+#touch-controls #left {
+  transform: translateX(calc(var(--r) * -1));
+}
+
+#touch-controls #right {
+  transform: translateX(var(--r));
+}
+
+/* STOP (frein, à maintenir) au centre */
+#touch-controls #brake {
+  width: var(--s);
+  height: var(--s);
+  margin: calc(var(--s) / -2) 0 0 calc(var(--s) / -2);
+  font-size: calc(var(--pad) * 0.085);
+  letter-spacing: 0.04em;
+}
+
+#touch-controls #brake:active {
+  background: rgba(214, 40, 40, 0.85);
+}
+
+/* ▼ (demi-tour) : orange quand le demi-tour est possible, grisé sinon ; ▲ : pas encore d'action, toujours grisé */
+#touch-controls #down:not([hidden]) {
+  background: rgba(232, 100, 42, 0.85);
+}
+
+#touch-controls #down[hidden],
+#touch-controls button:disabled {
+  display: block;
+  opacity: 0.3;
+  pointer-events: none;
+}
+
+/* Regarder derrière (maintenu) : à droite du cercle et au-dessus de l'indication de départ, seulement quand la moto
+   est garée sur le trottoir */
+#touch-controls #look-back {
+  left: calc(100% + 8px); /* juste à droite du cercle, hors de la moto qui est au centre */
+  right: auto;
+  top: auto;
+  bottom: calc(100% + 70px);
+  width: 84px;
+  height: 52px;
+  margin: 0;
+  border-radius: 26px;
+  font-size: 14px;
+  letter-spacing: 0.04em;
+  transform: none;
+}
+
+#touch-controls #look-back[hidden] {
+  display: none;
 }
 
 /* Flèches de virage : clignotent à l'approche d'un carrefour (la gauche est l'image retournée) */
@@ -888,56 +973,10 @@ body.in-menu #unloading {
 }
 
 
-/* Bouton tactile STOP (frein, à maintenir) entre ◀ et ▶ ; bouton ▼ (demi-tour) juste au-dessus, affiché
-   seulement quand le demi-tour est possible */
-#touch-controls {
-  align-items: flex-end;
-}
-
-#touch-controls #brake {
-  font-size: 18px;
-  letter-spacing: 0.04em;
-}
-
-#touch-controls #brake:active {
-  background: rgba(214, 40, 40, 0.85);
-}
-
-#touch-controls #down {
-  position: absolute;
-  left: 50%;
-  bottom: calc(84px + 12px);
-  width: 64px;
-  height: 64px;
-  margin-left: -32px;
-  background: rgba(232, 100, 42, 0.85);
-  font-size: 26px;
-}
-
-#touch-controls #down[hidden] {
-  display: none;
-}
-
-/* Regarder derrière (maintenu) : au-dessus du bouton droit, seulement quand la moto est garée sur le trottoir */
-#touch-controls #look-back {
-  position: absolute;
-  right: 24px;
-  bottom: calc(84px + 80px); /* au-dessus de l'indication de départ */
-  width: 84px;
-  height: 52px;
-  border-radius: 26px;
-  font-size: 14px;
-  letter-spacing: 0.04em;
-}
-
-#touch-controls #look-back[hidden] {
-  display: none;
-}
-
-/* Écrans tactiles : l'indication de départ passe au-dessus de la mini-carte (elle-même au-dessus des boutons) */
+/* Écrans tactiles : l'indication de départ passe au-dessus de la croix de direction */
 @media (hover: none) and (pointer: coarse) {
   #start-hint {
-    bottom: calc(24px + 84px + 20px + env(safe-area-inset-bottom)); /* au-dessus des boutons tactiles */
+    bottom: calc(24px + var(--pad) + 14px + env(safe-area-inset-bottom));
   }
 }
 
@@ -1611,7 +1650,8 @@ body.in-shop #menu {
   display: none;
 }
 
-/* Compteur de vitesse : bas gauche, juste au-dessus du bouton tactile ◀ (sur ordinateur, dans le coin) */
+/* Compteur de vitesse : à gauche, dans le coin bas sur ordinateur et un peu plus haut sur écran tactile (la croix de
+   direction tactile est centrée en bas) */
 #speedo {
   position: fixed;
   left: 12px;
@@ -1630,11 +1670,14 @@ body.in-shop #menu {
   filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.35));
 }
 
+/* Écrans tactiles : le compteur monte de 60 px (un peu plus haut que le bas de la croix) et se rétrécit si l'écran est
+   étroit : il reste à gauche de la croix de direction (centrée) sans la toucher, et sous l'indication de départ */
 @media (hover: none) and (pointer: coarse) {
   #speedo {
-    width: 98px;
-    height: 98px;
-    bottom: calc(24px + 84px + 12px + env(safe-area-inset-bottom)); /* au-dessus du bouton ◀ */
+    left: 8px;
+    bottom: calc(24px + 60px + env(safe-area-inset-bottom));
+    width: min(98px, calc(50vw - var(--pad) / 2 - 14px));
+    height: min(98px, calc(50vw - var(--pad) / 2 - 14px));
   }
 }
 
