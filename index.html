@@ -3,6 +3,11 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#10241d" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" type="image/svg+xml" href="/ccr-icon.svg" />
     <title>CTNRACER v1</title>
     <!-- Écran de chargement : styles ici (et non dans style.css, chargé avec le code) pour qu'il couvre la page dès le
          premier affichage, avant les boutons du menu -->
@@ -108,6 +113,7 @@
           <h1 class="title">CTNRACER <span>v1</span></h1>
           <!-- Compte (connexion Google) et solde de Fric (monnaie du jeu, nom provisoire), à droite du logo -->
           <div class="menu-actions">
+            <button id="install-app" class="install-app-button" type="button" hidden>Installer</button>
             <button id="account-button" class="account-button" type="button" title="Se connecter avec Google">
               <img class="google-logo" src="/google.svg" alt="" /><span class="account-label">Connexion</span>
               <img class="account-photo" alt="" referrerpolicy="no-referrer" hidden /><span class="account-initial" hidden></span>
@@ -285,6 +291,36 @@
         <p class="hint">ou appuie sur Entrée</p>
       </div>
     </div>
+    <script>
+      // PWA : le service worker est limité au jeu principal (/, scope /).
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch((error) => {
+            console.warn('[CCR PWA] Service worker registration failed:', error);
+          });
+        });
+      }
+
+      // Affiche le bouton uniquement lorsque le navigateur propose réellement l'installation.
+      let ccrInstallPrompt = null;
+      const ccrInstallButton = document.getElementById('install-app');
+      window.addEventListener('beforeinstallprompt', (event) => {
+        event.preventDefault();
+        ccrInstallPrompt = event;
+        ccrInstallButton.hidden = false;
+      });
+      ccrInstallButton.addEventListener('click', async () => {
+        if (!ccrInstallPrompt) return;
+        ccrInstallPrompt.prompt();
+        await ccrInstallPrompt.userChoice;
+        ccrInstallPrompt = null;
+        ccrInstallButton.hidden = true;
+      });
+      window.addEventListener('appinstalled', () => {
+        ccrInstallPrompt = null;
+        ccrInstallButton.hidden = true;
+      });
+    </script>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>
