@@ -53,16 +53,11 @@ self.addEventListener('fetch', (event) => {
     event.respondWith((async () => {
       const cache = await caches.open(CCR_CACHE);
       const cached = await cache.match(request);
-      const networkUpdate = fetch(request).then((response) => {
-        if (response.ok) cache.put(request, response.clone());
-        return response;
-      });
-      if (cached) {
-        event.waitUntil(networkUpdate.catch(() => undefined));
-        return cached;
-      }
+      if (cached) return cached;
       try {
-        return await networkUpdate;
+        const response = await fetch(request);
+        if (response.ok) await cache.put(request, response.clone());
+        return response;
       } catch {
         return Response.error();
       }
