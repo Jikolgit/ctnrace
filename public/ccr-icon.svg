@@ -1,6 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <rect width="512" height="512" rx="72" fill="#10241d"/>
-  <path d="M174 151H125c-31 0-51 22-51 53v104c0 31 20 53 51 53h49M338 151h49c31 0 51 22 51 53v104c0 31-20 53-51 53h-49" fill="none" stroke="#f4f1e8" stroke-width="34" stroke-linecap="square"/>
-  <path d="M231 151h-18c-31 0-51 22-51 53v104c0 31 20 53 51 53h18M281 151h18c31 0 51 22 51 53v104c0 31-20 53-51 53h-18" fill="none" stroke="#d8a64b" stroke-width="28" stroke-linecap="square"/>
-  <path d="M218 151v210M294 151v210" stroke="#f4f1e8" stroke-width="20"/>
+  <text x="256" y="300" text-anchor="middle" fill="#f4f1e8"
+    font-family="Arial, Helvetica, sans-serif" font-size="154" font-weight="900"
+    letter-spacing="-12">CCR</text>
+  <path d="M112 354H400" stroke="#d8a64b" stroke-width="18" stroke-linecap="square"/>
 </svg>
