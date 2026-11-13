@@ -1,0 +1,25 @@
+{
+  "id": "/",
+  "name": "Cotonou City Race",
+  "short_name": "CCR",
+  "description": "Explore Cotonou, relève des défis et effectue des livraisons dans Cotonou City Race.",
+  "lang": "fr",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#10241d",
+  "theme_color": "#10241d",
+  "orientation": "any",
+  "categories": [
+    "games",
+    "entertainment"
+  ],
+  "icons": [
+    {
+      "src": "/ccr-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
