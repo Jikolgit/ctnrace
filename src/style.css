@@ -1684,3 +1684,20 @@ body.in-shop #menu {
 body.in-menu #speedo {
   display: none;
 }
+
+
+/* Installation PWA : bouton discret dans la barre d'actions du menu principal */
+#menu .install-app-button {
+  align-self: flex-start;
+  min-height: 36px;
+  padding: 7px 11px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 6px;
+  background: rgba(16, 36, 29, 0.92);
+  color: #fff;
+  font: 600 12px/1 system-ui, sans-serif;
+  cursor: pointer;
+}
+#menu .install-app-button:hover {
+  background: #244b3c;
+}
