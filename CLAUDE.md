@@ -5,6 +5,19 @@ sauf mention contraire (« ✅ fait »).
 
 ## Idées
 
+### Location de motos
+
+- Ajouter un **système de location de motos** pour permettre aux joueurs qui n'ont pas assez d'argent pour acheter
+  une moto de pouvoir tout de même l'utiliser.
+- Exemple de tarification :
+  - **Achat permanent** d'une moto : 300 000 FCFA.
+  - **Location pour une journée** : 25 000 FCFA.
+- Le joueur peut donc choisir entre acheter définitivement une moto ou la louer temporairement pour une journée.
+- La location doit être une alternative à l'achat, et non remplacer le système d'achat.
+- À préciser : durée exacte d'une journée (temps réel ou temps de jeu), moment où commence la location, comportement
+  à son expiration (retour automatique à la moto précédente ou à une moto de base), possibilité de renouveler
+  une location, motos concernées, prix selon le modèle, et éventuelle gestion des locations dans l'interface admin.
+
 ### Mission d'urgence (à implémenter plus tard)
 
 - Mission de dernière minute qui survient **quand toutes les livraisons d'un niveau sont terminées** : par
@@ -52,8 +65,8 @@ sauf mention contraire (« ✅ fait »).
 
 ### Missions de filature : suivre un véhicule
 
-- Certaines missions demanderont de **suivre un véhicule**, parce qu'on **ne connaît pas la destination** :
-  c'est le véhicule qui y mène.
+- Certaines missions demanderont de **suivre un véhicule**, parce qu'on **ne connaît pas la destination** : c'est
+  le véhicule qui y mène.
 - À préciser : ce qui fait échouer la mission (véhicule perdu de vue, trop loin, trop près, collision), si le
   véhicule roule plus vite ou fait des détours, ce qu'on fait à l'arrivée (livrer, récupérer un colis…),
   ligne de guidage absente pendant la filature.
@@ -65,7 +78,7 @@ sauf mention contraire (« ✅ fait »).
 - À préciser : contenu possible des boîtes (Fric, essence, motos ou pièces de moto, objets cosmétiques…) et
   chances de chaque récompense (raretés), ouverture tout de suite ou plus tard (dans le menu, avec une animation),
   nombre de boîtes par mission et emplacements (fixes ou au hasard), boîtes achetables en Fric ou non, réglages
-  dans l'interface admin (chances, contenu).
+  dans l'interface admin.
 - À garder en tête : si des boîtes s'achètent avec de l'argent réel, certains pays et magasins d'applications
   demandent d'**afficher les chances** de chaque récompense.
 
@@ -80,4 +93,3 @@ sauf mention contraire (« ✅ fait »).
   moto), cumul de plusieurs items (prolonge la durée ou non), effet sur la conduite (virages plus difficiles à
   grande vitesse : la fenêtre de virage est déjà courte sur mobile), réglages dans l'interface admin (durée,
   vitesse gagnée).
-
