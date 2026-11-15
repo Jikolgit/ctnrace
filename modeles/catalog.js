@@ -1,10 +1,8 @@
-// Liste des modèles 3D visibles dans la page /modeles (models.glb). Pour ajouter un modèle : une ligne dans la
-// catégorie voulue (node = nom du nœud dans models.glb) ; pour une nouvelle catégorie (bâtiments, décor...) :
-// un nouvel objet dans MODEL_CATEGORIES. Pour l'instant : les véhicules seulement (motos et voitures).
-//   label        nom affiché
-//   node         nom du nœud racine dans models.glb
-//   rotationY    rotation pour mettre l'avant vers -Z comme dans le jeu (la Rave 110 est modélisée vers +Z)
-//   plainParts   pièces sans UV dans le GLB, affichées en noir uni (comme dans le jeu)
+// Liste des modèles 3D visibles dans la page /modeles (models.glb).
+// node = nom exact du nœud racine dans models.glb.
+// texture = fichier de texture dans public/ (par défaut : atlas bikeTXT.jpg).
+// rotationY = rotation pour orienter l'avant vers -Z, si nécessaire.
+// plainParts = pièces sans UV à afficher en noir uni.
 export const MODEL_CATEGORIES = [
   {
     id: 'motos',
@@ -17,6 +15,14 @@ export const MODEL_CATEGORIES = [
         plainParts: /^(MotoCub_Roue_Avant|bike_1_Roue_Arriere)$/,
       },
       { label: 'Baraj', node: 'bike_2' },
+      { label: 'Moto 1', node: 'moto_1', texture: 'moto_1_txt.jpg' },
+    ],
+  },
+  {
+    id: 'tricycles',
+    label: 'Tricycles',
+    models: [
+      { label: 'Tricycle 1', node: 'tricycle_1' },
     ],
   },
   {
@@ -26,6 +32,7 @@ export const MODEL_CATEGORIES = [
       { label: 'Voiture 1', node: 'car_1' },
       { label: 'Voiture 2', node: 'car_2' },
       { label: 'Camion', node: 'car_3' },
+      { label: 'Voiture 4', node: 'car_4' },
     ],
   },
 ];
