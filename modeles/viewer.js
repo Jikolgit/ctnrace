@@ -44,6 +44,24 @@ controls.enablePan = false;
 atlas.anisotropy = renderer.capabilities.getMaxAnisotropy();
 const atlasMaterial = new THREE.MeshStandardMaterial({ map: atlas, roughness: 0.65, metalness: 0 });
 const plainMaterial = new THREE.MeshStandardMaterial({ color: 0x1c1c1c, roughness: 0.65, metalness: 0 });
+const textureLoader = new THREE.TextureLoader();
+const textureMaterials = new Map();
+const allMaterials = new Set([atlasMaterial, plainMaterial]);
+
+// Certains modèles ont leur propre texture au lieu de l'atlas bikeTXT.
+function materialFor(entry) {
+  if (!entry.texture) return atlasMaterial;
+  if (!textureMaterials.has(entry.texture)) {
+    const texture = textureLoader.load(`${import.meta.env.BASE_URL}${entry.texture}`);
+    texture.flipY = false; // même convention UV que les textures glTF
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    const material = new THREE.MeshStandardMaterial({ map: texture, roughness: 0.65, metalness: 0 });
+    textureMaterials.set(entry.texture, material);
+    allMaterials.add(material);
+  }
+  return textureMaterials.get(entry.texture);
+}
 
 const loaded = new Map(); // node → { entry, object, center, radius, size, wheels, triangles }
 let currentCategory = MODEL_CATEGORIES[0];
@@ -122,8 +140,7 @@ resize();
 
 spinBox.addEventListener('change', () => (controls.autoRotate = spinBox.checked));
 wireBox.addEventListener('change', () => {
-  atlasMaterial.wireframe = wireBox.checked;
-  plainMaterial.wireframe = wireBox.checked;
+  for (const material of allMaterials) material.wireframe = wireBox.checked;
 });
 document.getElementById('reset').addEventListener('click', () => current && frame(current));
 
@@ -146,7 +163,7 @@ new GLTFLoader().load(
         let triangles = 0;
         object.traverse((child) => {
           if (!child.isMesh) return;
-          child.material = entry.plainParts?.test(child.name) ? plainMaterial : atlasMaterial;
+          child.material = entry.plainParts?.test(child.name) ? plainMaterial : materialFor(entry);
           if (/wheel|roue/i.test(child.name)) wheels++;
           const geometry = child.geometry;
           triangles += (geometry.index ? geometry.index.count : geometry.getAttribute('position').count) / 3;
