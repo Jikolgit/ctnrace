@@ -1,6 +1,6 @@
 /* Cotonou City Race — cache hors ligne léger, sans intercepter les API externes. */
 const CCR_CACHE_PREFIX = 'ccr-pwa-';
-const CCR_CACHE_VERSION = 'v1';
+const CCR_CACHE_VERSION = 'v2'; // v2 : supprime les anciens caches (models.glb périmé qui cachait de nouveaux modèles)
 const CCR_CACHE = CCR_CACHE_PREFIX + CCR_CACHE_VERSION;
 const CCR_SHELL = ['/', '/manifest.webmanifest', '/ccr-icon.svg'];
 
@@ -47,19 +47,26 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Cache progressif des ressources locales du jeu (JS, CSS, modèles, textures, sons et polices).
-  // Stale-while-revalidate : affichage rapide depuis le cache, mise à jour en arrière-plan.
+  // Ressources locales du jeu (JS, CSS, modèles, textures, sons et polices).
+  // - /assets/… : fichiers générés par Vite, au nom unique à chaque version : cache d'abord (rapide, jamais périmé).
+  // - les autres (models.glb, textures, sons… au nom FIXE) : on redemande toujours au serveur s'il y a une nouvelle
+  //   version (`no-cache` : requête conditionnelle, réponse 304 sans retéléchargement si rien n'a changé), et on
+  //   garde la copie en cache seulement pour jouer hors connexion. Sinon un ancien models.glb restait en cache et
+  //   les nouveaux modèles n'apparaissaient jamais.
   if (/\.(?:js|mjs|css|glb|gltf|bin|png|jpe?g|webp|avif|svg|woff2?|ttf|otf|mp3|ogg|wav)$/i.test(url.pathname)) {
+    const hashed = url.pathname.startsWith('/assets/');
     event.respondWith((async () => {
       const cache = await caches.open(CCR_CACHE);
-      const cached = await cache.match(request);
-      if (cached) return cached;
+      if (hashed) {
+        const cached = await cache.match(request);
+        if (cached) return cached;
+      }
       try {
-        const response = await fetch(request);
+        const response = await fetch(request, hashed ? undefined : { cache: 'no-cache' });
         if (response.ok) await cache.put(request, response.clone());
         return response;
       } catch {
-        return Response.error();
+        return (await cache.match(request)) || Response.error();
       }
     })());
   }
