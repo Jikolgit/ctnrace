@@ -99,9 +99,12 @@ menuMusic.loop = true;
 menuMusic.preload = 'auto';
 menuMusic.volume = 0.28;
 let menuMusicUnlocked = false;
+const MUSIC_SETTING_KEY = 'ctnrace-music-enabled';
+let musicEnabled = localStorage.getItem(MUSIC_SETTING_KEY) !== 'false';
+let resumeMenuMusicOnFocus = false;
 
 function playMenuMusic() {
-  if (!inMenu) return;
+  if (!inMenu || !musicEnabled || document.visibilityState !== 'visible') return;
   const playback = menuMusic.play();
   if (playback?.then) {
     playback.then(() => {
@@ -115,7 +118,27 @@ function playMenuMusic() {
 function stopMenuMusic() {
   menuMusic.pause();
   menuMusic.currentTime = 0;
+  resumeMenuMusicOnFocus = false;
 }
+
+function pauseMenuMusicForInactiveWindow() {
+  if (menuMusic.paused) return;
+  resumeMenuMusicOnFocus = true;
+  menuMusic.pause();
+}
+
+function resumeMenuMusicForActiveWindow() {
+  if (!resumeMenuMusicOnFocus) return;
+  resumeMenuMusicOnFocus = false;
+  playMenuMusic();
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') pauseMenuMusicForInactiveWindow();
+  else resumeMenuMusicForActiveWindow();
+});
+window.addEventListener('blur', pauseMenuMusicForInactiveWindow);
+window.addEventListener('focus', resumeMenuMusicForActiveWindow);
 
 // Le clic sur « Jouer » autorise la lecture audio du menu.
 document.getElementById('start-game').addEventListener('click', playMenuMusic);
@@ -893,6 +916,38 @@ function showMenu() {
   document.body.classList.remove('in-missions');
   challengeButton.focus();
 }
+
+// Écran Paramètres : le choix de musique est conservé sur cet appareil.
+const musicToggle = document.getElementById('music-toggle');
+function updateMusicToggle() {
+  musicToggle.setAttribute('aria-checked', String(musicEnabled));
+  musicToggle.querySelector('.toggle-label').textContent = musicEnabled ? 'Activée' : 'Désactivée';
+}
+updateMusicToggle();
+
+document.getElementById('open-settings').addEventListener('click', () => {
+  document.body.classList.add('in-settings');
+  musicToggle.focus();
+});
+document.getElementById('settings-back').addEventListener('click', () => {
+  document.body.classList.remove('in-settings');
+  challengeButton.focus();
+});
+musicToggle.addEventListener('click', () => {
+  musicEnabled = !musicEnabled;
+  try {
+    localStorage.setItem(MUSIC_SETTING_KEY, String(musicEnabled));
+  } catch {
+    // Le réglage reste valable pour cette session si le stockage est indisponible.
+  }
+  updateMusicToggle();
+  if (musicEnabled) playMenuMusic();
+  else {
+    resumeMenuMusicOnFocus = false;
+    menuMusic.pause();
+    menuMusic.currentTime = 0;
+  }
+});
 
 // Écran des missions (Livraison) : une case par mission, seules les missions débloquées sont jouables.
 // Pour l'instant, chaque mission lance la même partie libre dans le réseau de rues.
