@@ -53,16 +53,22 @@ function tick(now) {
 }
 requestAnimationFrame(tick);
 
-// Tout est prêt (modèles traités, premières images dessinées) : la barre se remplit, puis l'écran s'efface
+// Quand le chargement atteint 100 %, le bouton Jouer remplace la barre.
+// L'écran ne disparaît qu'après le clic, qui autorise également la lecture de la musique.
 export function hideLoadingScreen() {
   if (finished) return;
   finished = true;
   glbProgress = 1;
   otherProgress = 1;
-  const fadeWhenFull = () => {
-    if (shown < 1) return requestAnimationFrame(fadeWhenFull);
-    loader.classList.add('done'); // fondu (transition CSS)
-    setTimeout(() => loader.remove(), FADE_TIME);
+  const showStartButton = () => {
+    if (shown < 1) return requestAnimationFrame(showStartButton);
+    loader.classList.add('ready');
+    loader.setAttribute('aria-label', 'Chargement terminé');
+    loader.setAttribute('aria-valuenow', '100');
+    loader.querySelector('#start-game').addEventListener('click', () => {
+      loader.classList.add('done');
+      setTimeout(() => loader.remove(), FADE_TIME);
+    }, { once: true });
   };
-  fadeWhenFull();
+  showStartButton();
 }
