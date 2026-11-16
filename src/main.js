@@ -100,7 +100,12 @@ menuMusic.preload = 'auto';
 menuMusic.volume = 0.28;
 let menuMusicUnlocked = false;
 const MUSIC_SETTING_KEY = 'ctnrace-music-enabled';
-let musicEnabled = localStorage.getItem(MUSIC_SETTING_KEY) !== 'false';
+let musicEnabled = true;
+try {
+  musicEnabled = localStorage.getItem(MUSIC_SETTING_KEY) !== 'false';
+} catch {
+  // Si le stockage est bloqué, la musique reste activée par défaut pour cette session.
+}
 let resumeMenuMusicOnFocus = false;
 
 function playMenuMusic() {
