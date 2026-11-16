@@ -1,0 +1,21 @@
+{
+  "id": "/admin/",
+  "name": "CTNRACER v1 – Administration",
+  "short_name": "CTNRACER Admin",
+  "description": "Panneau d'administration de CTNRACER v1.",
+  "lang": "fr",
+  "start_url": "/admin/",
+  "scope": "/admin/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f5f5f5",
+  "theme_color": "#10241d",
+  "icons": [
+    {
+      "src": "/admin/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
