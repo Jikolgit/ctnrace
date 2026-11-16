@@ -94,7 +94,7 @@ const menuButton = document.getElementById('to-menu');
 
 // Musique d'ambiance du menu principal.
 // Le navigateur bloque l'autoplay sonore avant la première interaction du joueur.
-const menuMusic = new Audio(new URL('cotonou_sprint.mp3', import.meta.env.BASE_URL).href);
+const menuMusic = new Audio(`${import.meta.env.BASE_URL}cotonou_sprint.mp3`);
 menuMusic.loop = true;
 menuMusic.preload = 'auto';
 menuMusic.volume = 0.28;
