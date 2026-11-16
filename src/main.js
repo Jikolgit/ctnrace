@@ -117,14 +117,8 @@ function stopMenuMusic() {
   menuMusic.currentTime = 0;
 }
 
-// Capture le premier geste sur toute la page (y compris les boutons du menu).
-function unlockMenuMusic() {
-  if (!inMenu) return;
-  playMenuMusic();
-}
-document.addEventListener('pointerdown', unlockMenuMusic, true);
-document.addEventListener('keydown', unlockMenuMusic, true);
-document.addEventListener('touchend', unlockMenuMusic, { capture: true, passive: true });
+// Le clic sur « Jouer » autorise la lecture audio du menu.
+document.getElementById('start-game').addEventListener('click', playMenuMusic);
 
 // Renderer
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
