@@ -295,9 +295,14 @@
       // PWA : le service worker est limité au jeu principal (/, scope /).
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch((error) => {
-            console.warn('[CCR PWA] Service worker registration failed:', error);
-          });
+          navigator.serviceWorker
+            .register('/sw.js', { scope: '/' })
+            // À chaque visite : on cherche tout de suite un nouveau service worker (sans attendre les 24 h du
+            // navigateur), pour qu'un ancien cache (ex. un vieux models.glb) soit remplacé après une mise à jour
+            .then((registration) => registration.update())
+            .catch((error) => {
+              console.warn('[CCR PWA] Service worker registration failed:', error);
+            });
         });
       }
 
