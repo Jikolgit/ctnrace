@@ -161,7 +161,38 @@
             <span class="art"><img src="/fric.svg" alt="" /></span>
             <span class="label">Boutique</span>
           </button>
+          <button id="open-settings" class="mode-tile settings" type="button">
+            <span class="art" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 8.2a3.8 3.8 0 1 0 0 7.6 3.8 3.8 0 0 0 0-7.6Zm0-5.2 1.1 1.9 2.2.5 1.8-1 1.6 1.6-1 1.8.5 2.2L20 11v2l-1.8 1.1-.5 2.2 1 1.8-1.6 1.6-1.8-1-2.2.5L12 21l-1.1-1.8-2.2-.5-1.8 1-1.6-1.6 1-1.8-.5-2.2L4 13v-2l1.8-1.1.5-2.2-1-1.8 1.6-1.6 1.8 1 2.2-.5L12 3Z" fill="currentColor"/></svg></span>
+            <span class="label">Paramètres</span>
+          </button>
         </div>
+      </section>
+    </div>
+    <div id="settings-screen">
+      <aside class="menu-side" aria-hidden="true"></aside>
+      <section class="menu-main">
+        <header class="menu-top">
+          <h1 class="title">Paramètres</h1>
+        </header>
+        <div class="settings-options">
+          <div class="setting-row">
+            <div class="setting-copy">
+              <span class="setting-name">Musique d'ambiance</span>
+              <span class="setting-description">Activer ou couper la musique du menu.</span>
+            </div>
+            <button id="music-toggle" class="setting-toggle" type="button" role="switch" aria-checked="true">
+              <span class="toggle-track"><span class="toggle-thumb"></span></span>
+              <span class="toggle-label">Activée</span>
+            </button>
+          </div>
+        </div>
+        <footer class="menu-footer">
+          <button id="settings-back" class="back-button" type="button">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12H5M11 5l-7 7 7 7" fill="none" stroke="currentColor"
+              stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" /></svg>
+            Retour
+          </button>
+        </footer>
       </section>
     </div>
     <div id="shop">
