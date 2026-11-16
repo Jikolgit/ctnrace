@@ -363,6 +363,16 @@ body {
   background: radial-gradient(circle at 50% 40%, #7ff28f 0%, #2ed35a 55%, #17a33f 100%);
 }
 
+#menu .mode-tile.settings {
+  background: radial-gradient(circle at 50% 40%, #a9a0ff 0%, #6d5dfc 55%, #4938d0 100%);
+}
+
+#menu .mode-tile.settings .art svg {
+  width: 64%;
+  height: 64%;
+  filter: drop-shadow(0 6px 4px rgba(0, 0, 0, 0.35));
+}
+
 /* Vignette « Bientôt » (non cliquable), pour un futur mode */
 #menu .mode-tile.soon {
   background: radial-gradient(circle at 50% 35%, #e2e2e2 0%, #b4b4b4 50%, #7d7d7d 100%);
