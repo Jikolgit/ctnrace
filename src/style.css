@@ -272,7 +272,8 @@ body {
 #menu,
 #missions,
 #garage,
-#shop {
+#shop,
+#settings-screen {
   --tile-border: rgba(255, 255, 255, 0.35); /* bords fins des vignettes */
   --panel-border: rgba(255, 255, 255, 0.22); /* bord fin du panneau */
   position: fixed;
@@ -287,11 +288,11 @@ body {
   pointer-events: none; /* le côté gauche laisse passer : seuls les panneaux captent les clics */
 }
 
-:is(#menu, #missions, #garage, #shop) .menu-side {
+:is(#menu, #missions, #garage, #shop, #settings-screen) .menu-side {
   min-height: 0;
 }
 
-:is(#menu, #missions, #garage, #shop) .menu-main {
+:is(#menu, #missions, #garage, #shop, #settings-screen) .menu-main {
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -306,7 +307,7 @@ body {
 }
 
 /* Barre du haut : logo au centre, boutons à droite */
-:is(#menu, #missions, #garage, #shop) .menu-top {
+:is(#menu, #missions, #garage, #shop, #settings-screen) .menu-top {
   position: relative;
   display: flex;
   align-items: center;
@@ -314,7 +315,7 @@ body {
   min-height: 48px;
 }
 
-:is(#menu, #missions, #garage, #shop) .menu-actions {
+:is(#menu, #missions, #garage, #shop, #settings-screen) .menu-actions {
   position: absolute;
   top: 0;
   right: 0;
@@ -417,13 +418,14 @@ body {
   #menu,
   #missions,
   #garage,
-  #shop {
+  #shop,
+  #settings-screen {
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: minmax(0, 34%) minmax(0, 1fr);
   }
 
   /* Téléphone : toute la largeur de l'écran, bordure en haut */
-  :is(#menu, #missions, #garage, #shop) .menu-main {
+  :is(#menu, #missions, #garage, #shop, #settings-screen) .menu-main {
     border-left: 0;
     border-top: 1px solid var(--panel-border);
     box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.35);
@@ -1700,4 +1702,33 @@ body.in-menu #speedo {
 }
 #menu .install-app-button:hover {
   background: #244b3c;
+}
+
+
+/* Écran Paramètres : même panneau que les autres écrans du menu */
+#settings-screen { display: none; }
+body.in-settings #settings-screen { display: grid; }
+body.in-settings #menu { display: none; }
+#settings-screen .menu-main { overflow: hidden; }
+#settings-screen .settings-options { flex: 1; min-height: 0; margin-top: 14px; }
+#settings-screen .setting-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding: 16px; border: 1px solid var(--tile-border); border-radius: 8px;
+  background: rgba(0, 0, 0, 0.2);
+}
+#settings-screen .setting-copy { display: flex; flex-direction: column; gap: 5px; }
+#settings-screen .setting-name { font: 400 21px/1.2 'Anton', Impact, sans-serif; letter-spacing: .03em; }
+#settings-screen .setting-description { font: 14px/1.4 system-ui, sans-serif; opacity: .75; }
+.setting-toggle {
+  display: flex; align-items: center; gap: 9px; flex-shrink: 0; padding: 7px 10px;
+  border: 1px solid rgba(255,255,255,.25); border-radius: 22px;
+  background: rgba(0,0,0,.25); color: #fff; font: 700 13px system-ui,sans-serif; cursor: pointer;
+}
+.toggle-track { width: 42px; height: 24px; padding: 3px; border-radius: 20px; background: #777; transition: background .15s; }
+.toggle-thumb { display: block; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: transform .15s; }
+.setting-toggle[aria-checked="true"] .toggle-track { background: #2ed35a; }
+.setting-toggle[aria-checked="true"] .toggle-thumb { transform: translateX(18px); }
+.setting-toggle:hover { border-color: #fff; }
+@media (max-width: 420px) {
+  #settings-screen .setting-row { align-items: flex-start; flex-direction: column; }
 }
