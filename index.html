@@ -63,6 +63,27 @@
         opacity: 0.8;
         font-variant-numeric: tabular-nums;
       }
+      #start-game {
+        display: none;
+        min-width: 180px;
+        padding: 14px 42px;
+        border: 2px solid rgba(255, 255, 255, 0.75);
+        border-radius: 8px;
+        background: linear-gradient(#ffad63, #e8642a);
+        color: #fff;
+        font: 400 26px/1 'Anton', Impact, sans-serif;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        cursor: pointer;
+        box-shadow: 0 5px 0 #8f3518, 0 10px 24px rgba(0, 0, 0, 0.3);
+      }
+      #start-game:active {
+        transform: translateY(3px);
+        box-shadow: 0 2px 0 #8f3518, 0 5px 14px rgba(0, 0, 0, 0.3);
+      }
+      #loader.ready .loader-bar,
+      #loader.ready .loader-text { display: none; }
+      #loader.ready #start-game { display: block; }
     </style>
   </head>
   <body class="in-menu">
@@ -70,6 +91,7 @@
       <h1 class="loader-title">CTNRACER <span>v1</span></h1>
       <div class="loader-bar"><div class="loader-fill"></div></div>
       <p class="loader-text">Chargement… 0 %</p>
+      <button id="start-game" type="button">Jouer</button>
     </div>
     <script>
       // Pendant le téléchargement du code du jeu, la barre avance déjà un peu (jusqu'à 15 %) ; loadingScreen.js prend
