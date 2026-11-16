@@ -92,6 +92,29 @@ function showStartHint(side, verb, uturn = false) {
 }
 const menuButton = document.getElementById('to-menu');
 
+// Musique d'ambiance du menu principal. Le navigateur exige une interaction utilisateur
+// avant d'autoriser la lecture avec le son : on la démarre au premier clic/toucher ou touche.
+const menuMusic = new Audio(`${import.meta.env.BASE_URL}cotonou_sprint.mp3`);
+menuMusic.loop = true;
+menuMusic.preload = 'auto';
+menuMusic.volume = 0.28;
+
+function playMenuMusic() {
+  if (!inMenu) return;
+  const playback = menuMusic.play();
+  if (playback?.catch) playback.catch((error) => {
+    console.warn('Lecture de la musique du menu impossible :', error);
+  });
+}
+
+function stopMenuMusic() {
+  menuMusic.pause();
+  menuMusic.currentTime = 0;
+}
+
+document.addEventListener('pointerdown', playMenuMusic, { passive: true });
+document.addEventListener('keydown', playMenuMusic);
+
 // Renderer
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -809,6 +832,7 @@ function placeMenuCamera(delta) {
 }
 
 function startGame(mode) {
+  stopMenuMusic();
   gameMode = mode;
   const delivery = mode === 'delivery';
   if (delivery) {
@@ -858,6 +882,7 @@ function showMenu() {
   restart(); // repart d'une scène propre derrière le menu
   setPaused(false);
   inMenu = true;
+  playMenuMusic();
   showMenuScene();
   document.body.classList.add('in-menu');
   document.body.classList.remove('in-missions');
