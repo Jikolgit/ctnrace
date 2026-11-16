@@ -13,7 +13,6 @@ let missionValues = []; // réglages des missions, modifiés dans la boîte de d
 const openCities = new Set(); // villes dépliées (gardées quand la liste est reconstruite après une sauvegarde)
 
 const show = (text) => (message.textContent = text);
-
 async function request(body) {
   const response = await fetch('/api/admin', {
     method: 'POST',
@@ -116,7 +115,6 @@ function openMission(n) {
 }
 
 dialog.querySelector('.cancel').addEventListener('click', () => dialog.close());
-
 dialogForm.addEventListener('submit', async (event) => {
   event.preventDefault();
   const previous = missionValues[editedMission - 1];
@@ -198,3 +196,13 @@ modelsButton.addEventListener('click', () => {
 const modelsRow = document.createElement('p');
 modelsRow.append(modelsButton);
 settingsForm.append(modelsRow);
+
+// La page d'administration peut être installée comme une application indépendante.
+// Le Service Worker ne met jamais en cache les requêtes API ni les opérations POST.
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/admin/sw.js', { scope: '/admin/' }).catch((error) => {
+      console.warn("Enregistrement du Service Worker admin impossible :", error);
+    });
+  });
+}
