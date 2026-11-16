@@ -92,19 +92,24 @@ function showStartHint(side, verb, uturn = false) {
 }
 const menuButton = document.getElementById('to-menu');
 
-// Musique d'ambiance du menu principal. Le navigateur exige une interaction utilisateur
-// avant d'autoriser la lecture avec le son : on la démarre au premier clic/toucher ou touche.
-const menuMusic = new Audio(`${import.meta.env.BASE_URL}cotonou_sprint.mp3`);
+// Musique d'ambiance du menu principal.
+// Le navigateur bloque l'autoplay sonore avant la première interaction du joueur.
+const menuMusic = new Audio(new URL('cotonou_sprint.mp3', import.meta.env.BASE_URL).href);
 menuMusic.loop = true;
 menuMusic.preload = 'auto';
 menuMusic.volume = 0.28;
+let menuMusicUnlocked = false;
 
 function playMenuMusic() {
   if (!inMenu) return;
   const playback = menuMusic.play();
-  if (playback?.catch) playback.catch((error) => {
-    console.warn('Lecture de la musique du menu impossible :', error);
-  });
+  if (playback?.then) {
+    playback.then(() => {
+      menuMusicUnlocked = true;
+    }).catch((error) => {
+      console.warn('Musique du menu non démarrée :', menuMusic.currentSrc, error);
+    });
+  }
 }
 
 function stopMenuMusic() {
@@ -112,8 +117,14 @@ function stopMenuMusic() {
   menuMusic.currentTime = 0;
 }
 
-document.addEventListener('pointerdown', playMenuMusic, { passive: true });
-document.addEventListener('keydown', playMenuMusic);
+// Capture le premier geste sur toute la page (y compris les boutons du menu).
+function unlockMenuMusic() {
+  if (!inMenu) return;
+  playMenuMusic();
+}
+document.addEventListener('pointerdown', unlockMenuMusic, true);
+document.addEventListener('keydown', unlockMenuMusic, true);
+document.addEventListener('touchend', unlockMenuMusic, { capture: true, passive: true });
 
 // Renderer
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
