@@ -578,8 +578,14 @@ new GLTFLoader().load(
       lampTemplate.position.set(0, 0, 0);
       placeLampsIfReady();
     }
-    // Pas encore utilisés : retirés, sinon ils suivraient la moto
-    for (const unused of ['ChateauEau_Vedoko', 'Cylinder', 'Empty.001']) moto.getObjectByName(unused)?.removeFromParent();
+    // models.glb contient tous les modèles du projet (décor, autres motos, tricycle…), placés côte à côte dans
+    // Blender. Seules les deux motos jouables et le pilote doivent suivre le joueur : on retire tous les autres
+    // nœuds racine, sinon ils s'affichent tous pendant la partie. Les modèles retirés restent dans le GLB et sont
+    // toujours visibles dans la page /modeles.
+    const PLAYER_MODELS = new Set(['bike_1', 'bike_2', 'Character_Rig']);
+    for (const child of [...moto.children]) {
+      if (!PLAYER_MODELS.has(child.name)) moto.remove(child);
+    }
 
     const rider = moto.getObjectByName('Character_Rig');
     const mixer = new THREE.AnimationMixer(moto);
